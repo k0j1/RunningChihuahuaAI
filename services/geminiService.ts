@@ -7,9 +7,11 @@ export const generateDogThought = async (context: string): Promise<DogThought> =
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: `The user is watching a 3D chihuahua run. Current context: ${context}. Generate a short, funny, or philosophical thought (max 15 words) that the chihuahua is thinking right now.`,
+      contents: `User is playing 'Running Chihuahua'. The dog is running from a GORILLA and dodging cars, animals, and rocks.
+      Context: ${context}. 
+      Generate a short, funny, scared, or philosophical thought (max 10 words).`,
       config: {
-        systemInstruction: "You are a cute, high-energy, slightly philosophical Chihuahua. You love running, treats, and smells.",
+        systemInstruction: "You are a Chihuahua. You are running for your life from a giant Gorilla, but you are also easily distracted by cars and squirrels. If lives are low, be scared. If score is high, be proud.",
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -20,7 +22,7 @@ export const generateDogThought = async (context: string): Promise<DogThought> =
             },
             emotion: {
               type: Type.STRING,
-              enum: ['happy', 'tired', 'excited', 'hungry', 'philosophical'],
+              enum: ['happy', 'tired', 'excited', 'hungry', 'philosophical', 'scared'],
               description: "The emotion associated with the thought."
             }
           },
@@ -37,7 +39,7 @@ export const generateDogThought = async (context: string): Promise<DogThought> =
   } catch (error) {
     console.error("Gemini API Error:", error);
     return {
-      text: "Bark bark! (Thinking is hard right now...)",
+      text: "Is that a banana??",
       emotion: 'excited'
     };
   }

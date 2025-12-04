@@ -1,17 +1,34 @@
 import React from 'react';
-import { DogThought, GameState } from '../types';
-import { Play, Pause, FastForward, MessageCircle, Sun, Moon } from 'lucide-react';
+import { DogThought, GameState, ScoreEntry, ReactionType } from '../types';
+import { Play, Pause, MessageCircle, Sun, Moon, Skull, Heart, RotateCcw, Frown, History, ArrowLeft, Home, Smile, Laugh, Zap } from 'lucide-react';
 
 interface OverlayProps {
   gameState: GameState;
   speed: number;
   dayTime: boolean;
   thought: DogThought | null;
+  score: number;
+  distance: number;
+  lives: number;
+  combo: number;
+  hazardActive: boolean;
+  hazardPosition: { top: string, left: string };
+  projectileActive: boolean;
+  showDuckButton: boolean;
+  history: ScoreEntry[];
+  isThinking: boolean;
+  isHit: boolean;
+  reaction: { chihuahua: ReactionType, gorilla: ReactionType };
+  onStartGame: () => void;
+  onShowHistory: () => void;
+  onHideHistory: () => void;
   onTogglePause: () => void;
   onSpeedChange: (speed: number) => void;
   onToggleDayTime: () => void;
   onAskThought: () => void;
-  isThinking: boolean;
+  onDodge: () => void;
+  onDuck: () => void;
+  onReturnToTitle: () => void;
 }
 
 export const Overlay: React.FC<OverlayProps> = ({
@@ -19,37 +36,290 @@ export const Overlay: React.FC<OverlayProps> = ({
   speed,
   dayTime,
   thought,
+  score,
+  distance,
+  lives,
+  combo,
+  hazardActive,
+  hazardPosition,
+  projectileActive,
+  showDuckButton,
+  history,
+  isThinking,
+  isHit,
+  reaction,
+  onStartGame,
+  onShowHistory,
+  onHideHistory,
   onTogglePause,
   onSpeedChange,
   onToggleDayTime,
   onAskThought,
-  isThinking
+  onDodge,
+  onDuck,
+  onReturnToTitle
 }) => {
+
+  const renderReactionIcon = (type: ReactionType, isDog: boolean) => {
+    switch (type) {
+      case ReactionType.HAPPY:
+        return <Smile size={48} className="text-green-500 animate-bounce" />;
+      case ReactionType.LAUGH:
+        return <Laugh size={48} className="text-orange-500 animate-pulse" />;
+      case ReactionType.PAIN:
+        return <Frown size={48} className="text-red-500 animate-shake" />;
+      case ReactionType.NEUTRAL:
+      default:
+        // Default faces
+        return isDog 
+          ? <div className="text-4xl">🐶</div> 
+          : <div className="text-4xl">🦍</div>;
+    }
+  };
+
+  // Title Screen
+  if (gameState === GameState.TITLE) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-50">
+        <div className="text-center text-white p-8 bg-white/10 rounded-3xl border border-white/30 shadow-2xl animate-fade-in-up max-w-lg w-full">
+          <h1 className="text-6xl font-black mb-4 tracking-tighter drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
+            RUNNING<br/>CHIHUAHUA
+          </h1>
+          <p className="text-xl mb-8 font-light text-gray-100">Escape the Gorilla!</p>
+          <div className="flex flex-col gap-4">
+            <button 
+              onClick={onStartGame}
+              className="px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full text-2xl font-bold shadow-lg hover:scale-105 hover:shadow-blue-500/50 transition-all active:scale-95"
+            >
+              START RUNNING
+            </button>
+            <button 
+              onClick={onShowHistory}
+              className="px-6 py-3 bg-white/20 rounded-full text-lg font-bold shadow-lg hover:bg-white/30 transition-all flex items-center justify-center gap-2"
+            >
+              <History size={20}/> VIEW HISTORY
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // History Screen
+  if (gameState === GameState.HISTORY) {
+     return (
+       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-md z-50 p-6">
+         <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl h-3/4 flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-black text-gray-800 flex items-center gap-2">
+                <History className="text-blue-500" /> GAME HISTORY
+              </h2>
+              <button onClick={onHideHistory} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <ArrowLeft size={24} className="text-gray-600"/>
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2">
+               {history.length === 0 ? (
+                 <div className="h-full flex items-center justify-center text-gray-400 italic">No runs recorded yet.</div>
+               ) : (
+                 <table className="w-full text-left">
+                    <thead className="text-xs uppercase text-gray-500 border-b-2 border-gray-100 sticky top-0 bg-white">
+                      <tr>
+                        <th className="pb-3 pl-2">Date / Time</th>
+                        <th className="pb-3">Distance</th>
+                        <th className="pb-3 text-right pr-2">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {history.map((entry, idx) => (
+                        <tr key={idx} className="hover:bg-blue-50 transition-colors">
+                          <td className="py-3 pl-2 text-sm text-gray-600 font-medium">
+                            {entry.formattedDate}
+                          </td>
+                          <td className="py-3 text-sm text-gray-800 font-bold">
+                            {entry.distance} m
+                          </td>
+                          <td className="py-3 pr-2 text-sm text-blue-600 font-black text-right">
+                            {entry.score}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                 </table>
+               )}
+            </div>
+         </div>
+       </div>
+     );
+  }
+
+  // Game Over Screen
+  if (gameState === GameState.GAME_OVER) {
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900/80 backdrop-blur-md z-50 p-4">
+        <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border-4 border-red-500 text-center animate-bounce-in">
+          <Skull className="w-16 h-16 mx-auto text-red-500 mb-4" />
+          <h2 className="text-4xl font-black text-gray-800 mb-2">CAUGHT!</h2>
+          <p className="text-gray-500 mb-6">The gorilla got you.</p>
+          
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="bg-gray-100 p-4 rounded-xl">
+              <p className="text-xs text-gray-500 uppercase">Distance</p>
+              <p className="text-2xl font-bold text-gray-800">{distance.toFixed(0)}m</p>
+            </div>
+            <div className="bg-gray-100 p-4 rounded-xl">
+              <p className="text-xs text-gray-500 uppercase">Score</p>
+              <p className="text-2xl font-bold text-blue-600">{score}</p>
+            </div>
+          </div>
+
+          <div className="mb-6 max-h-40 overflow-y-auto border-t border-gray-100 pt-4">
+             <h3 className="text-left text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Recent History</h3>
+             <ul className="space-y-2">
+               {history.slice(0, 3).map((entry, idx) => (
+                 <li key={idx} className="flex justify-between text-xs text-gray-600 bg-gray-50 p-2 rounded-lg">
+                   <span>{entry.formattedDate}</span>
+                   <span className="font-bold">{entry.distance}m</span>
+                   <span className="font-mono text-blue-500">{entry.score}</span>
+                 </li>
+               ))}
+             </ul>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={onStartGame}
+              className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+            >
+              <RotateCcw /> TRY AGAIN
+            </button>
+            <button 
+              onClick={onReturnToTitle}
+              className="w-full py-3 bg-gray-200 text-gray-700 rounded-xl font-bold text-lg shadow hover:bg-gray-300 transition-colors flex items-center justify-center gap-2"
+            >
+              <Home /> TITLE
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // HUD & Gameplay Overlay
   return (
-    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6">
+    <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 z-10">
       
-      {/* Header / Stats */}
-      <div className="flex justify-between items-start pointer-events-auto">
-        <div className="bg-white/80 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-white/50">
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">Running Chihuahua</h1>
-          <p className="text-sm text-gray-600">Speed: {(speed * 10).toFixed(1)} km/h</p>
+      {/* Top Bar */}
+      <div className="flex justify-between items-start pointer-events-auto w-full">
+        {/* Left: Stats */}
+        <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-white/50 flex flex-col gap-1 min-w-[150px]">
+          <div className="flex justify-between items-center border-b border-gray-200 pb-1 mb-1">
+             <span className="text-xs font-bold text-gray-400 uppercase">Distance</span>
+             <span className="font-mono font-bold text-gray-700">{distance.toFixed(0)}m</span>
+          </div>
+          <div className="flex justify-between items-center">
+             <span className="text-xs font-bold text-gray-400 uppercase">Score</span>
+             <span className="font-mono font-bold text-blue-600 text-lg">{score}</span>
+          </div>
+          
+          {/* Hearts */}
+          <div className="flex gap-1 mt-2 items-center justify-center bg-gray-50 rounded-lg p-1">
+              {[0, 1, 2].map((i) => {
+                const fillPct = Math.min(Math.max((lives - i) * 100, 0), 100);
+                return (
+                  <div key={i} className={`relative w-5 h-5 transition-transform duration-300 ${isHit && Math.ceil(lives) === i + 1 ? 'scale-125' : ''}`}>
+                    <Heart size={20} className="text-gray-300 fill-gray-300 absolute top-0 left-0" />
+                    <div className="absolute top-0 left-0 h-full overflow-hidden transition-all duration-300" style={{ width: `${fillPct}%` }}>
+                       <Heart size={20} className="text-red-500 fill-red-500 min-w-[20px]" />
+                    </div>
+                  </div>
+                )
+              })}
+          </div>
+        </div>
+
+        {/* Reaction Face Center HUD */}
+        <div className="absolute top-6 left-1/2 transform -translate-x-1/2 flex gap-8 items-center justify-center">
+           {/* Chihuahua Face */}
+           <div className={`transition-transform duration-300 ${reaction.chihuahua !== ReactionType.NEUTRAL ? 'scale-125' : 'scale-100'}`}>
+              <div className="bg-white/80 p-2 rounded-full shadow-lg border-2 border-yellow-400 backdrop-blur-sm">
+                {renderReactionIcon(reaction.chihuahua, true)}
+              </div>
+           </div>
+           
+           {/* VS Badge */}
+           <span className="font-black text-2xl text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] italic">VS</span>
+
+           {/* Gorilla Face */}
+           <div className={`transition-transform duration-300 ${reaction.gorilla !== ReactionType.NEUTRAL ? 'scale-125' : 'scale-100'}`}>
+              <div className="bg-white/80 p-2 rounded-full shadow-lg border-2 border-gray-600 backdrop-blur-sm">
+                {renderReactionIcon(reaction.gorilla, false)}
+              </div>
+           </div>
         </div>
         
-        <button 
-          onClick={onToggleDayTime}
-          className={`p-3 rounded-full shadow-lg transition-colors duration-300 ${dayTime ? 'bg-yellow-100 text-orange-500 hover:bg-yellow-200' : 'bg-indigo-900 text-yellow-300 hover:bg-indigo-800'}`}
-        >
-          {dayTime ? <Sun size={24} /> : <Moon size={24} />}
-        </button>
+        {/* Right: Controls & Combo */}
+        <div className="flex flex-col items-end gap-4">
+          <button 
+            onClick={onToggleDayTime}
+            className={`p-3 rounded-full shadow-lg transition-colors duration-300 ${dayTime ? 'bg-yellow-100 text-orange-500 hover:bg-yellow-200' : 'bg-indigo-900 text-yellow-300 hover:bg-indigo-800'}`}
+          >
+            {dayTime ? <Sun size={24} /> : <Moon size={24} />}
+          </button>
+
+          {/* Combo Display (Large, Top Right) */}
+          {combo > 1 && (
+            <div className="flex items-center gap-2 animate-bounce-in">
+              <span className="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-orange-500 drop-shadow-[0_4px_2px_rgba(0,0,0,0.5)] transform -skew-x-12">
+                x{combo}
+              </span>
+              <div className="flex flex-col">
+                 <span className="text-sm font-bold text-white uppercase tracking-widest drop-shadow-md">Combo!</span>
+                 <Zap size={24} className="text-yellow-300 fill-yellow-300 animate-pulse" />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Thought Bubble */}
+      {/* Dodge Button (Obstacles) */}
+      {hazardActive && (
+        <div 
+           className="absolute pointer-events-auto z-50 transform -translate-x-1/2 -translate-y-1/2 transition-none"
+           style={{ top: hazardPosition.top, left: hazardPosition.left }}
+        >
+           <button 
+             onClick={onDodge}
+             className="animate-pulse bg-red-600 border-4 border-yellow-400 text-white font-black text-2xl md:text-4xl px-8 py-6 rounded-full shadow-[0_0_50px_rgba(220,38,38,0.8)] hover:scale-110 active:scale-90 transition-transform cursor-pointer whitespace-nowrap"
+           >
+             DODGE!
+           </button>
+        </div>
+      )}
+
+      {/* Duck Button (Projectiles) */}
+      {showDuckButton && (
+        <div 
+           className="absolute pointer-events-auto z-50 transform -translate-x-1/2 -translate-y-1/2 transition-none"
+           style={{ top: '80%', left: '50%' }}
+        >
+           <button 
+             onClick={onDuck}
+             className="animate-bounce bg-blue-600 border-4 border-cyan-400 text-white font-black text-2xl md:text-3xl px-10 py-5 rounded-full shadow-[0_0_50px_rgba(37,99,235,0.8)] hover:scale-110 active:scale-90 transition-transform cursor-pointer whitespace-nowrap"
+           >
+             DUCK!
+           </button>
+        </div>
+      )}
+
+      {/* Thought Bubble & Controls */}
       <div className="flex justify-center items-end mb-8 pointer-events-auto">
         <div className="relative max-w-md w-full">
-            {/* The Dog's thought display */}
+            {/* Thought */}
             {(thought || isThinking) && (
               <div className="mb-4 transform transition-all duration-500 ease-out origin-bottom">
-                <div className="bg-white p-6 rounded-3xl rounded-bl-none shadow-2xl border-2 border-gray-100 relative animate-fade-in-up">
+                <div className={`bg-white p-6 rounded-3xl rounded-bl-none shadow-2xl border-2 ${isHit ? 'border-red-400 bg-red-50' : 'border-gray-100'} relative animate-fade-in-up`}>
                   {isThinking ? (
                     <div className="flex space-x-2 items-center text-gray-400">
                       <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></span>
@@ -69,7 +339,7 @@ export const Overlay: React.FC<OverlayProps> = ({
                     </>
                   )}
                   {/* Bubble tail */}
-                  <div className="absolute -bottom-3 left-0 w-6 h-6 bg-white border-b-2 border-r-2 border-gray-100 transform skew-x-12 rotate-45"></div>
+                  <div className={`absolute -bottom-3 left-0 w-6 h-6 ${isHit ? 'bg-red-50 border-red-400' : 'bg-white border-gray-100'} border-b-2 border-r-2 transform skew-x-12 rotate-45`}></div>
                 </div>
               </div>
             )}
@@ -93,7 +363,7 @@ export const Overlay: React.FC<OverlayProps> = ({
                     step="0.1" 
                     value={speed}
                     onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
-                    className="w-32 accent-blue-600 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    className="w-24 md:w-32 accent-blue-600 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                    />
                 </div>
               </div>
@@ -101,14 +371,14 @@ export const Overlay: React.FC<OverlayProps> = ({
               <button 
                 onClick={onAskThought}
                 disabled={isThinking || gameState !== GameState.RUNNING}
-                className={`flex items-center gap-2 px-5 py-3 rounded-xl font-bold transition-all shadow-lg
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold transition-all shadow-lg
                   ${isThinking || gameState !== GameState.RUNNING
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
                     : 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:shadow-pink-500/30 active:scale-95'
                   }`}
               >
                 <MessageCircle size={20} />
-                <span>What's on your mind?</span>
+                <span className="hidden sm:inline">Thinking...</span>
               </button>
             </div>
         </div>

@@ -9,18 +9,29 @@ interface WorldProps {
 
 const TREE_COUNT = 20;
 const ROAD_LENGTH = 100;
+const ANIMAL_COUNT = 8;
 
 export const World: React.FC<WorldProps> = ({ speed, isRunning }) => {
-  const groundRef = useRef<Mesh>(null);
   const treesRef = useRef<Group>(null);
   const cloudsRef = useRef<Group>(null);
+  const animalsRef = useRef<Group>(null);
 
   // Generate random tree positions
   const treePositions = useMemo(() => {
     return new Array(TREE_COUNT).fill(0).map((_, i) => ({
-      x: (Math.random() > 0.5 ? 1 : -1) * (2 + Math.random() * 5),
+      x: (Math.random() > 0.5 ? 1 : -1) * (2.5 + Math.random() * 5),
       z: -i * (ROAD_LENGTH / TREE_COUNT),
       scale: 0.8 + Math.random() * 0.5
+    }));
+  }, []);
+
+  // Generate side animals (Cows, Chickens)
+  const animalPositions = useMemo(() => {
+    return new Array(ANIMAL_COUNT).fill(0).map((_, i) => ({
+      x: (Math.random() > 0.5 ? 1 : -1) * (3.5 + Math.random() * 6), // Further out than trees
+      z: -i * (ROAD_LENGTH / ANIMAL_COUNT) - Math.random() * 5,
+      type: Math.random() > 0.5 ? 'cow' : 'chicken',
+      rotation: Math.random() * Math.PI * 2
     }));
   }, []);
 
@@ -39,14 +50,19 @@ export const World: React.FC<WorldProps> = ({ speed, isRunning }) => {
 
     const moveDistance = speed * delta * 10;
 
-    // Move ground texture effect (if we had texture) - here we just move the objects
-    
     // Move trees
     if (treesRef.current) {
       treesRef.current.position.z += moveDistance;
-      // Reset trees loop
       if (treesRef.current.position.z > ROAD_LENGTH / 2) {
         treesRef.current.position.z = -ROAD_LENGTH / 2;
+      }
+    }
+
+    // Move animals
+    if (animalsRef.current) {
+      animalsRef.current.position.z += moveDistance;
+      if (animalsRef.current.position.z > ROAD_LENGTH / 2) {
+        animalsRef.current.position.z = -ROAD_LENGTH / 2;
       }
     }
 
@@ -99,7 +115,7 @@ export const World: React.FC<WorldProps> = ({ speed, isRunning }) => {
             </mesh>
           </group>
         ))}
-         {/* Duplicate trees for endless illusion */}
+         {/* Duplicate for loop */}
          {treePositions.map((pos, i) => (
           <group key={`dup-${i}`} position={[pos.x, 0, pos.z - ROAD_LENGTH]} scale={[pos.scale, pos.scale, pos.scale]}>
              <mesh position={[0, 0.5, 0]} castShadow>
@@ -115,6 +131,87 @@ export const World: React.FC<WorldProps> = ({ speed, isRunning }) => {
               <meshStandardMaterial color="#388E3C" />
             </mesh>
           </group>
+        ))}
+      </group>
+
+      {/* Side Animals Group */}
+      <group ref={animalsRef}>
+        {animalPositions.map((pos, i) => (
+           <group key={i} position={[pos.x, 0, pos.z]} rotation={[0, pos.rotation, 0]}>
+              {pos.type === 'cow' ? (
+                // Cow Mesh
+                <group scale={[0.8, 0.8, 0.8]}>
+                  <mesh position={[0, 0.5, 0]} castShadow>
+                     <boxGeometry args={[1, 0.6, 1.5]} />
+                     <meshStandardMaterial color="white" />
+                  </mesh>
+                  {/* Spots */}
+                  <mesh position={[0.2, 0.5, 0.2]} castShadow>
+                     <boxGeometry args={[1.05, 0.4, 0.4]} />
+                     <meshStandardMaterial color="black" />
+                  </mesh>
+                  {/* Head */}
+                  <mesh position={[0, 1, 0.7]} castShadow>
+                     <boxGeometry args={[0.5, 0.5, 0.6]} />
+                     <meshStandardMaterial color="white" />
+                  </mesh>
+                  {/* Legs */}
+                  <mesh position={[-0.3, 0.2, 0.5]}><boxGeometry args={[0.2, 0.4, 0.2]} /><meshStandardMaterial color="white" /></mesh>
+                  <mesh position={[0.3, 0.2, 0.5]}><boxGeometry args={[0.2, 0.4, 0.2]} /><meshStandardMaterial color="white" /></mesh>
+                  <mesh position={[-0.3, 0.2, -0.5]}><boxGeometry args={[0.2, 0.4, 0.2]} /><meshStandardMaterial color="white" /></mesh>
+                  <mesh position={[0.3, 0.2, -0.5]}><boxGeometry args={[0.2, 0.4, 0.2]} /><meshStandardMaterial color="white" /></mesh>
+                </group>
+              ) : (
+                // Chicken Mesh
+                <group scale={[0.4, 0.4, 0.4]}>
+                   <mesh position={[0, 0.3, 0]} castShadow>
+                     <sphereGeometry args={[0.4]} />
+                     <meshStandardMaterial color="white" />
+                   </mesh>
+                   {/* Beak/Comb */}
+                   <mesh position={[0, 0.6, 0.2]}>
+                      <boxGeometry args={[0.1, 0.2, 0.1]} />
+                      <meshStandardMaterial color="red" />
+                   </mesh>
+                </group>
+              )}
+           </group>
+        ))}
+        {/* Duplicate animals */}
+        {animalPositions.map((pos, i) => (
+           <group key={`anim-dup-${i}`} position={[pos.x, 0, pos.z - ROAD_LENGTH]} rotation={[0, pos.rotation, 0]}>
+              {pos.type === 'cow' ? (
+                <group scale={[0.8, 0.8, 0.8]}>
+                  <mesh position={[0, 0.5, 0]} castShadow>
+                     <boxGeometry args={[1, 0.6, 1.5]} />
+                     <meshStandardMaterial color="white" />
+                  </mesh>
+                  <mesh position={[0.2, 0.5, 0.2]} castShadow>
+                     <boxGeometry args={[1.05, 0.4, 0.4]} />
+                     <meshStandardMaterial color="black" />
+                  </mesh>
+                  <mesh position={[0, 1, 0.7]} castShadow>
+                     <boxGeometry args={[0.5, 0.5, 0.6]} />
+                     <meshStandardMaterial color="white" />
+                  </mesh>
+                   <mesh position={[-0.3, 0.2, 0.5]}><boxGeometry args={[0.2, 0.4, 0.2]} /><meshStandardMaterial color="white" /></mesh>
+                  <mesh position={[0.3, 0.2, 0.5]}><boxGeometry args={[0.2, 0.4, 0.2]} /><meshStandardMaterial color="white" /></mesh>
+                  <mesh position={[-0.3, 0.2, -0.5]}><boxGeometry args={[0.2, 0.4, 0.2]} /><meshStandardMaterial color="white" /></mesh>
+                  <mesh position={[0.3, 0.2, -0.5]}><boxGeometry args={[0.2, 0.4, 0.2]} /><meshStandardMaterial color="white" /></mesh>
+                </group>
+              ) : (
+                <group scale={[0.4, 0.4, 0.4]}>
+                   <mesh position={[0, 0.3, 0]} castShadow>
+                     <sphereGeometry args={[0.4]} />
+                     <meshStandardMaterial color="white" />
+                   </mesh>
+                   <mesh position={[0, 0.6, 0.2]}>
+                      <boxGeometry args={[0.1, 0.2, 0.1]} />
+                      <meshStandardMaterial color="red" />
+                   </mesh>
+                </group>
+              )}
+           </group>
         ))}
       </group>
 
