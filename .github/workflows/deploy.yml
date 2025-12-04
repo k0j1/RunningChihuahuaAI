@@ -24,9 +24,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          # cache: 'npm'  <-- Removed to prevent error when package-lock.json is missing
       - name: Install dependencies
-        run: npm ci
+        run: npm install # Changed from 'npm ci' to allow install without lockfile
       - name: Build
         run: npm run build
         env:
