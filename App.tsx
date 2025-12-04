@@ -1,5 +1,5 @@
 import React, { useState, Suspense, useEffect, useRef } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Sky, Environment, SoftShadows, OrbitControls } from '@react-three/drei';
 import { Chihuahua } from './components/Chihuahua';
 import { Gorilla } from './components/Gorilla';
@@ -34,6 +34,24 @@ const GameLoop = ({
     onObstacleTick(delta);
     onProjectileTick(delta);
   });
+  return null;
+};
+
+// Component to adjust camera based on screen width
+const CameraAdjuster = () => {
+  const { camera, size } = useThree();
+  
+  useEffect(() => {
+    const isMobile = size.width < 768;
+    if (isMobile) {
+      // Mobile position: Higher and further back to see more depth
+      camera.position.set(1.5, 6, -12);
+    } else {
+      // Desktop position
+      camera.position.set(3, 3, -5);
+    }
+  }, [size.width, camera]);
+  
   return null;
 };
 
@@ -316,17 +334,44 @@ const App: React.FC = () => {
             handleGameOver();
           }
         } else if (isDodgedRef.current) {
-          // SUCCESSFUL DODGE
-          setLives(prev => Math.min(3, prev + 0.2));
-          setIsGorillaHit(true);
-          setReactionState(ReactionType.HAPPY, ReactionType.PAIN);
-          setTimeout(() => setIsGorillaHit(false), 1000);
+          // SUCCESSFUL DODGE CONTINUATION
+          // Do nothing, let it travel to gorilla
         }
+      }
 
-        // Reset obstacle
-        setHazardActive(false);
-        hazardActiveRef.current = false;
-        setObstacleProgress(0);
+      // 2. Gorilla Collision Logic (Past 1.0)
+      if (newProgress >= 1) {
+        // Only if dodged dog do we check for gorilla
+        if (isDodgedRef.current) {
+           // Calculate Gorilla Z position based on lives
+           // Map 0..3 lives to 0..16 Z
+           const gorillaZ = Math.min(16, Math.max(0, (lives / 3) * 16));
+           // Map progress to Z (-40 to +X)
+           // Obstacle.tsx: zPos = -40 + (progress * 40)
+           const obstacleZ = -40 + (newProgress * 40);
+
+           // Hit if obstacle passes Gorilla's "front" (approx 1.0 unit depth buffer)
+           if (obstacleZ >= gorillaZ - 1.0) {
+               // HIT GORILLA
+               setLives(prev => Math.min(3, prev + 0.2));
+               setIsGorillaHit(true);
+               setReactionState(ReactionType.HAPPY, ReactionType.PAIN);
+               setTimeout(() => setIsGorillaHit(false), 1000);
+
+               // Reset Obstacle
+               setHazardActive(false);
+               hazardActiveRef.current = false;
+               setObstacleProgress(0);
+               return;
+           }
+        }
+        
+        // Safety Reset if it goes too far back (approx Z=24)
+        if (newProgress > 1.6) {
+           setHazardActive(false);
+           hazardActiveRef.current = false;
+           setObstacleProgress(0);
+        }
       }
     }
   };
@@ -406,6 +451,7 @@ const App: React.FC = () => {
       {/* 3D Scene */}
       <div className="absolute inset-0 z-0">
         <Canvas shadows camera={{ position: [3, 3, -5], fov: 60 }}>
+          <CameraAdjuster />
           <Suspense fallback={null}>
             <GameLoop 
               gameState={gameState} 
@@ -447,7 +493,7 @@ const App: React.FC = () => {
             />
 
             <Gorilla
-              speed={gameState === GameState.RUNNING ? speed : 0}
+              speed={gameState === GameState.RUNNING ? speed : 0} 
               isRunning={gameState === GameState.RUNNING}
               lives={lives}
               isHit={isGorillaHit}
@@ -478,7 +524,7 @@ const App: React.FC = () => {
               enablePan={false} 
               maxPolarAngle={Math.PI / 2 - 0.1} 
               minPolarAngle={Math.PI / 4}
-              maxDistance={10}
+              maxDistance={20} // Increased max distance to allow camera zoom out on mobile
               minDistance={3}
             />
             

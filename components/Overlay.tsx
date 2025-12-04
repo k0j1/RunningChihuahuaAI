@@ -240,7 +240,7 @@ export const Overlay: React.FC<OverlayProps> = ({
         </div>
 
         {/* Reaction Face Center HUD */}
-        <div className="absolute top-6 left-1/2 transform -translate-x-1/2 flex gap-8 items-center justify-center">
+        <div className="absolute top-32 md:top-6 left-1/2 transform -translate-x-1/2 flex gap-4 md:gap-8 items-center justify-center scale-75 md:scale-100 origin-top">
            {/* Chihuahua Face */}
            <div className={`transition-transform duration-300 ${reaction.chihuahua !== ReactionType.NEUTRAL ? 'scale-125' : 'scale-100'}`}>
               <div className="bg-white/80 p-2 rounded-full shadow-lg border-2 border-yellow-400 backdrop-blur-sm">
