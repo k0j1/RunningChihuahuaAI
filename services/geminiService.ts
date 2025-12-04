@@ -1,24 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { DogThought } from '../types';
 
-let ai: GoogleGenAI | null = null;
-
-try {
-    if (process.env.API_KEY) {
-        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    }
-} catch (error) {
-    console.error("Failed to initialize GoogleGenAI", error);
-}
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateDogThought = async (context: string): Promise<DogThought> => {
-  if (!ai) {
-    return {
-      text: "I need an API key to think complex thoughts! (Check settings)",
-      emotion: 'excited'
-    };
-  }
-
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
