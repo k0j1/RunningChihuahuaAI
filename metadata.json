@@ -1,0 +1,5 @@
+{
+  "name": "Running Chihuahua AI",
+  "description": "An infinite runner 3D experience where a Chihuahua runs through a procedural world, featuring real-time AI commentary and thoughts powered by Gemini.",
+  "requestFramePermissions": []
+}
