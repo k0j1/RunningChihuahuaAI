@@ -68,6 +68,7 @@ const App: React.FC = () => {
   const [lives, setLives] = useState(3);
   const [combo, setCombo] = useState(0);
   const [history, setHistory] = useState<ScoreEntry[]>([]);
+  const [lastGameDate, setLastGameDate] = useState<string | null>(null);
 
   // Gorilla Boss Stats
   const [gorillaLevel, setGorillaLevel] = useState(1);
@@ -149,6 +150,7 @@ const App: React.FC = () => {
     setLives(3);
     setCombo(0);
     setSpeed(2.0); // Reset speed
+    setLastGameDate(null);
     
     // Reset Gorilla
     setGorillaLevel(1);
@@ -181,21 +183,25 @@ const App: React.FC = () => {
   };
 
   const handleGameOver = () => {
-    setGameState(GameState.GAME_OVER);
-    
     const now = new Date();
     const formattedDate = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    const isoDate = now.toISOString();
 
     const newEntry: ScoreEntry = {
-      date: now.toISOString(),
+      date: isoDate,
       formattedDate: formattedDate,
       score: score,
       distance: Math.floor(distance)
     };
+    
+    setLastGameDate(isoDate); // Mark this run
+    
     const newHistory = [newEntry, ...history].slice(0, 100); // Keep top 100
     setHistory(newHistory);
     localStorage.setItem('chihuahua_history', JSON.stringify(newHistory));
     setThought({ text: "I'll get away next time...", emotion: "tired" });
+
+    setGameState(GameState.GAME_OVER);
   };
 
   const handleTogglePause = () => {
@@ -610,6 +616,7 @@ const App: React.FC = () => {
         projectileActive={projectileActive}
         showDuckButton={showDuckButton}
         history={history}
+        lastGameDate={lastGameDate}
         isThinking={isThinking}
         isHit={isHit}
         reaction={reaction}

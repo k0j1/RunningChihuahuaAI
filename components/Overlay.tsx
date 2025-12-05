@@ -16,6 +16,7 @@ interface OverlayProps {
   projectileActive: boolean;
   showDuckButton: boolean;
   history: ScoreEntry[];
+  lastGameDate: string | null;
   isThinking: boolean;
   isHit: boolean;
   reaction: { chihuahua: ReactionType, gorilla: ReactionType };
@@ -45,6 +46,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   projectileActive,
   showDuckButton,
   history,
+  lastGameDate,
   isThinking,
   isHit,
   reaction,
@@ -227,9 +229,23 @@ export const Overlay: React.FC<OverlayProps> = ({
     const top5 = topScores.slice(0, 5);
     const recent5 = history.slice(0, 5);
 
+    // Check if current run made it to top 5
+    const isNewHighScore = lastGameDate && top5.some(entry => entry.date === lastGameDate);
+    // Check if it's the absolute best
+    const isNumberOne = lastGameDate && top5.length > 0 && top5[0].date === lastGameDate;
+
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900/80 backdrop-blur-md z-50 p-4 overflow-y-auto">
-        <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl border-4 border-red-500 text-center animate-bounce-in my-8">
+        <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl border-4 border-red-500 text-center animate-bounce-in my-8 relative">
+          
+          {isNumberOne && (
+            <div className="absolute -top-10 left-0 right-0 flex justify-center">
+              <div className="bg-yellow-400 text-red-900 px-6 py-2 rounded-full font-black text-xl shadow-lg animate-bounce flex items-center gap-2 border-4 border-white">
+                 <Crown className="fill-current" /> NEW HIGH SCORE!!
+              </div>
+            </div>
+          )}
+
           <Skull className="w-16 h-16 mx-auto text-red-500 mb-2" />
           <h2 className="text-4xl font-black text-gray-800 mb-1">CAUGHT!</h2>
           <p className="text-gray-500 mb-6">The gorilla got you.</p>
@@ -239,7 +255,7 @@ export const Overlay: React.FC<OverlayProps> = ({
               <p className="text-xs text-gray-500 uppercase">Distance</p>
               <p className="text-2xl font-bold text-gray-800">{distance.toFixed(0)}m</p>
             </div>
-            <div className="bg-gray-100 p-4 rounded-xl">
+            <div className={`p-4 rounded-xl ${isNewHighScore ? 'bg-yellow-100 ring-4 ring-yellow-400 animate-pulse' : 'bg-gray-100'}`}>
               <p className="text-xs text-gray-500 uppercase">Score</p>
               <p className="text-2xl font-bold text-blue-600">{score}</p>
             </div>
@@ -252,13 +268,24 @@ export const Overlay: React.FC<OverlayProps> = ({
                 <Trophy size={14} className="fill-yellow-600"/> Top 5 Best
               </h3>
               <ul className="space-y-2">
-                {top5.map((entry, idx) => (
-                  <li key={idx} className="flex justify-between items-center text-xs text-gray-700 bg-white p-2 rounded shadow-sm">
-                    <span className="font-bold w-4 text-yellow-500">{idx + 1}.</span>
-                    <span className="text-gray-500 text-[10px]">{entry.formattedDate.split(' ')[0]}</span>
-                    <span className="font-mono font-black text-blue-600">{entry.score}</span>
-                  </li>
-                ))}
+                {top5.map((entry, idx) => {
+                  const isCurrentRun = entry.date === lastGameDate;
+                  return (
+                    <li key={idx} className={`flex justify-between items-center text-xs text-gray-700 p-2 rounded shadow-sm relative transition-all duration-300
+                        ${isCurrentRun ? 'bg-yellow-200 border-2 border-yellow-400 scale-105 font-bold z-10' : 'bg-white'}`}>
+                      {isCurrentRun && (
+                        <span className="absolute -right-2 -top-2 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold animate-ping opacity-75">
+                          NEW
+                        </span>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold w-4 ${idx===0 ? 'text-yellow-600 text-sm' : 'text-yellow-500'}`}>{idx + 1}.</span>
+                        <span className="text-gray-500 text-[10px]">{entry.formattedDate.split(' ')[0]}</span>
+                      </div>
+                      <span className={`font-mono font-black ${isCurrentRun ? 'text-red-600 text-sm' : 'text-blue-600'}`}>{entry.score}</span>
+                    </li>
+                  );
+                })}
                 {top5.length === 0 && <li className="text-xs text-gray-400 italic">No records</li>}
               </ul>
             </div>
