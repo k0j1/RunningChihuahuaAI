@@ -143,6 +143,7 @@ const App: React.FC = () => {
     setDistance(0);
     setLives(3);
     setCombo(0);
+    setSpeed(2.0); // Reset speed
     
     setHazardActive(false);
     hazardActiveRef.current = false;
@@ -271,7 +272,17 @@ const App: React.FC = () => {
   };
 
   const handleDistanceUpdate = (distDelta: number) => {
-    setDistance(prev => prev + (distDelta / 10)); 
+    const increment = distDelta / 10;
+    
+    setDistance(prev => {
+      const newDist = prev + increment;
+      // Speed up every 100 meters
+      if (Math.floor(newDist / 100) > Math.floor(prev / 100)) {
+         setSpeed(s => Math.min(s + 0.2, 5.0)); // Cap speed at 5.0
+         setThought({ text: "Getting faster!", emotion: "excited" });
+      }
+      return newDist;
+    }); 
     setScore(prev => prev + 1);
   };
 
@@ -556,7 +567,6 @@ const App: React.FC = () => {
         onHideHistory={() => setGameState(GameState.TITLE)}
         onTogglePause={handleTogglePause}
         onSpeedChange={setSpeed}
-        onToggleDayTime={() => setDayTime(!dayTime)}
         onAskThought={handleAskThought}
         onDodge={handleDodge}
         onDuck={handleDuck}

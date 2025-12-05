@@ -1,6 +1,6 @@
 import React from 'react';
 import { DogThought, GameState, ScoreEntry, ReactionType } from '../types';
-import { Play, Pause, MessageCircle, Sun, Moon, Skull, Heart, RotateCcw, Frown, History, ArrowLeft, Home, Smile, Laugh, Zap } from 'lucide-react';
+import { Play, Pause, MessageCircle, Skull, Heart, RotateCcw, Frown, History, ArrowLeft, Home, Smile, Laugh, Zap } from 'lucide-react';
 
 interface OverlayProps {
   gameState: GameState;
@@ -24,7 +24,6 @@ interface OverlayProps {
   onHideHistory: () => void;
   onTogglePause: () => void;
   onSpeedChange: (speed: number) => void;
-  onToggleDayTime: () => void;
   onAskThought: () => void;
   onDodge: () => void;
   onDuck: () => void;
@@ -53,7 +52,6 @@ export const Overlay: React.FC<OverlayProps> = ({
   onHideHistory,
   onTogglePause,
   onSpeedChange,
-  onToggleDayTime,
   onAskThought,
   onDodge,
   onDuck,
@@ -239,47 +237,36 @@ export const Overlay: React.FC<OverlayProps> = ({
           </div>
         </div>
 
-        {/* Reaction Face Center HUD */}
-        <div className="absolute top-32 md:top-6 left-1/2 transform -translate-x-1/2 flex gap-4 md:gap-8 items-center justify-center scale-75 md:scale-100 origin-top">
-           {/* Chihuahua Face */}
-           <div className={`transition-transform duration-300 ${reaction.chihuahua !== ReactionType.NEUTRAL ? 'scale-125' : 'scale-100'}`}>
-              <div className="bg-white/80 p-2 rounded-full shadow-lg border-2 border-yellow-400 backdrop-blur-sm">
-                {renderReactionIcon(reaction.chihuahua, true)}
-              </div>
-           </div>
+        {/* Right: Reaction Faces & Combo */}
+        <div className="flex flex-col items-end gap-2 pr-4"> {/* Added pr-4 to prevent cutoff */}
            
-           {/* VS Badge */}
-           <span className="font-black text-2xl text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] italic">VS</span>
-
-           {/* Gorilla Face */}
-           <div className={`transition-transform duration-300 ${reaction.gorilla !== ReactionType.NEUTRAL ? 'scale-125' : 'scale-100'}`}>
-              <div className="bg-white/80 p-2 rounded-full shadow-lg border-2 border-gray-600 backdrop-blur-sm">
-                {renderReactionIcon(reaction.gorilla, false)}
-              </div>
+           {/* Reaction Faces (Moved to Top Right) */}
+           <div className="flex gap-2 items-center justify-end bg-white/30 backdrop-blur-md p-2 rounded-xl border border-white/40 shadow-lg">
+             <div className={`transition-transform duration-300 ${reaction.chihuahua !== ReactionType.NEUTRAL ? 'scale-110' : 'scale-90'}`}>
+                <div className="bg-white/80 p-1 rounded-full shadow-md border-2 border-yellow-400 backdrop-blur-sm">
+                  {renderReactionIcon(reaction.chihuahua, true)}
+                </div>
+             </div>
+             <span className="font-black text-xl text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] italic">VS</span>
+             <div className={`transition-transform duration-300 ${reaction.gorilla !== ReactionType.NEUTRAL ? 'scale-110' : 'scale-90'}`}>
+                <div className="bg-white/80 p-1 rounded-full shadow-md border-2 border-gray-600 backdrop-blur-sm">
+                  {renderReactionIcon(reaction.gorilla, false)}
+                </div>
+             </div>
            </div>
-        </div>
-        
-        {/* Right: Controls & Combo */}
-        <div className="flex flex-col items-end gap-4">
-          <button 
-            onClick={onToggleDayTime}
-            className={`p-3 rounded-full shadow-lg transition-colors duration-300 ${dayTime ? 'bg-yellow-100 text-orange-500 hover:bg-yellow-200' : 'bg-indigo-900 text-yellow-300 hover:bg-indigo-800'}`}
-          >
-            {dayTime ? <Sun size={24} /> : <Moon size={24} />}
-          </button>
 
-          {/* Combo Display (Large, Top Right) */}
-          {combo > 1 && (
-            <div className="flex items-center gap-2 animate-bounce-in">
-              <span className="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-orange-500 drop-shadow-[0_4px_2px_rgba(0,0,0,0.5)] transform -skew-x-12">
-                x{combo}
-              </span>
-              <div className="flex flex-col">
-                 <span className="text-sm font-bold text-white uppercase tracking-widest drop-shadow-md">Combo!</span>
-                 <Zap size={24} className="text-yellow-300 fill-yellow-300 animate-pulse" />
-              </div>
-            </div>
-          )}
+           {/* Combo Display (Large, Top Right) */}
+           {combo > 1 && (
+             <div className="flex flex-col items-end animate-bounce">
+               <span className="text-7xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-red-500 via-orange-500 to-yellow-500 drop-shadow-[4px_4px_0px_rgba(0,0,0,0.5)] transform -skew-x-12 stroke-white" style={{WebkitTextStroke: '2px white'}}>
+                 x{combo}
+               </span>
+               <div className="flex items-center gap-1 bg-yellow-400 text-red-900 px-2 py-1 rounded shadow-lg transform rotate-3">
+                  <Zap size={16} className="fill-current animate-pulse" />
+                  <span className="text-xs font-black uppercase tracking-widest">COMBO!</span>
+               </div>
+             </div>
+           )}
         </div>
       </div>
 
