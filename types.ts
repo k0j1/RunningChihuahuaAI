@@ -3,6 +3,7 @@ import React from 'react';
 export enum GameState {
   TITLE = 'TITLE',
   HISTORY = 'HISTORY',
+  RANKING = 'RANKING',
   IDLE = 'IDLE',
   RUNNING = 'RUNNING',
   PAUSED = 'PAUSED',

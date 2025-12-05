@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { DogThought, GameState, ScoreEntry, ReactionType } from '../types';
-import { Play, Pause, MessageCircle, Skull, Heart, RotateCcw, Frown, History, ArrowLeft, Home, Smile, Laugh, Zap } from 'lucide-react';
+import { Play, Pause, MessageCircle, Skull, Heart, RotateCcw, Frown, History, ArrowLeft, Home, Smile, Laugh, Zap, Trophy, Crown } from 'lucide-react';
 
 interface OverlayProps {
   gameState: GameState;
@@ -21,6 +21,7 @@ interface OverlayProps {
   reaction: { chihuahua: ReactionType, gorilla: ReactionType };
   onStartGame: () => void;
   onShowHistory: () => void;
+  onShowRanking: () => void;
   onHideHistory: () => void;
   onTogglePause: () => void;
   onSpeedChange: (speed: number) => void;
@@ -49,6 +50,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   reaction,
   onStartGame,
   onShowHistory,
+  onShowRanking,
   onHideHistory,
   onTogglePause,
   onSpeedChange,
@@ -57,6 +59,11 @@ export const Overlay: React.FC<OverlayProps> = ({
   onDuck,
   onReturnToTitle
 }) => {
+
+  // Memoize sorted top scores
+  const topScores = useMemo(() => {
+    return [...history].sort((a, b) => b.score - a.score);
+  }, [history]);
 
   const renderReactionIcon = (type: ReactionType, isDog: boolean) => {
     switch (type) {
@@ -91,12 +98,20 @@ export const Overlay: React.FC<OverlayProps> = ({
             >
               START RUNNING
             </button>
-            <button 
-              onClick={onShowHistory}
-              className="px-6 py-3 bg-white/20 rounded-full text-lg font-bold shadow-lg hover:bg-white/30 transition-all flex items-center justify-center gap-2"
-            >
-              <History size={20}/> VIEW HISTORY
-            </button>
+            <div className="flex gap-4">
+              <button 
+                onClick={onShowHistory}
+                className="flex-1 px-4 py-3 bg-white/20 rounded-full text-lg font-bold shadow-lg hover:bg-white/30 transition-all flex items-center justify-center gap-2"
+              >
+                <History size={20}/> HISTORY
+              </button>
+              <button 
+                onClick={onShowRanking}
+                className="flex-1 px-4 py-3 bg-yellow-500/80 rounded-full text-lg font-bold shadow-lg hover:bg-yellow-500 transition-all flex items-center justify-center gap-2"
+              >
+                <Trophy size={20}/> RANKING
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -152,13 +167,71 @@ export const Overlay: React.FC<OverlayProps> = ({
      );
   }
 
+  // Ranking Screen
+  if (gameState === GameState.RANKING) {
+    const top10 = topScores.slice(0, 10);
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-yellow-900/90 backdrop-blur-md z-50 p-6">
+        <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl h-3/4 flex flex-col border-4 border-yellow-400">
+           <div className="flex justify-between items-center mb-6">
+             <h2 className="text-3xl font-black text-yellow-600 flex items-center gap-2">
+               <Trophy className="text-yellow-500 fill-yellow-500" /> TOP 10 RANKING
+             </h2>
+             <button onClick={onHideHistory} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+               <ArrowLeft size={24} className="text-gray-600"/>
+             </button>
+           </div>
+           
+           <div className="flex-1 overflow-y-auto pr-2">
+              {top10.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-gray-400 italic">No records yet.</div>
+              ) : (
+                <table className="w-full text-left">
+                   <thead className="text-xs uppercase text-gray-500 border-b-2 border-yellow-100 sticky top-0 bg-white">
+                     <tr>
+                       <th className="pb-3 pl-2">Rank</th>
+                       <th className="pb-3">Date</th>
+                       <th className="pb-3">Distance</th>
+                       <th className="pb-3 text-right pr-2">Score</th>
+                     </tr>
+                   </thead>
+                   <tbody className="divide-y divide-yellow-50">
+                     {top10.map((entry, idx) => (
+                       <tr key={idx} className={`hover:bg-yellow-50 transition-colors ${idx < 3 ? 'bg-yellow-50/50' : ''}`}>
+                         <td className="py-3 pl-2 text-sm font-bold text-gray-700">
+                           {idx === 0 && <Crown size={16} className="inline mr-1 text-yellow-500 fill-yellow-500"/>}
+                           {idx + 1}
+                         </td>
+                         <td className="py-3 text-xs text-gray-500">
+                           {entry.formattedDate}
+                         </td>
+                         <td className="py-3 text-sm text-gray-800 font-bold">
+                           {entry.distance} m
+                         </td>
+                         <td className="py-3 pr-2 text-lg text-yellow-600 font-black text-right">
+                           {entry.score}
+                         </td>
+                       </tr>
+                     ))}
+                   </tbody>
+                </table>
+              )}
+           </div>
+        </div>
+      </div>
+    );
+ }
+
   // Game Over Screen
   if (gameState === GameState.GAME_OVER) {
+    const top5 = topScores.slice(0, 5);
+    const recent5 = history.slice(0, 5);
+
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900/80 backdrop-blur-md z-50 p-4">
-        <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border-4 border-red-500 text-center animate-bounce-in">
-          <Skull className="w-16 h-16 mx-auto text-red-500 mb-4" />
-          <h2 className="text-4xl font-black text-gray-800 mb-2">CAUGHT!</h2>
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900/80 backdrop-blur-md z-50 p-4 overflow-y-auto">
+        <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl border-4 border-red-500 text-center animate-bounce-in my-8">
+          <Skull className="w-16 h-16 mx-auto text-red-500 mb-2" />
+          <h2 className="text-4xl font-black text-gray-800 mb-1">CAUGHT!</h2>
           <p className="text-gray-500 mb-6">The gorilla got you.</p>
           
           <div className="grid grid-cols-2 gap-4 mb-6">
@@ -172,17 +245,40 @@ export const Overlay: React.FC<OverlayProps> = ({
             </div>
           </div>
 
-          <div className="mb-6 max-h-40 overflow-y-auto border-t border-gray-100 pt-4">
-             <h3 className="text-left text-xs font-bold text-gray-400 mb-2 uppercase tracking-wide">Recent History</h3>
-             <ul className="space-y-2">
-               {history.slice(0, 3).map((entry, idx) => (
-                 <li key={idx} className="flex justify-between text-xs text-gray-600 bg-gray-50 p-2 rounded-lg">
-                   <span>{entry.formattedDate}</span>
-                   <span className="font-bold">{entry.distance}m</span>
-                   <span className="font-mono text-blue-500">{entry.score}</span>
-                 </li>
-               ))}
-             </ul>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-left">
+            {/* Top 5 Scores */}
+            <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100">
+              <h3 className="text-xs font-bold text-yellow-600 mb-3 uppercase tracking-wide flex items-center gap-1">
+                <Trophy size={14} className="fill-yellow-600"/> Top 5 Best
+              </h3>
+              <ul className="space-y-2">
+                {top5.map((entry, idx) => (
+                  <li key={idx} className="flex justify-between items-center text-xs text-gray-700 bg-white p-2 rounded shadow-sm">
+                    <span className="font-bold w-4 text-yellow-500">{idx + 1}.</span>
+                    <span className="text-gray-500 text-[10px]">{entry.formattedDate.split(' ')[0]}</span>
+                    <span className="font-mono font-black text-blue-600">{entry.score}</span>
+                  </li>
+                ))}
+                {top5.length === 0 && <li className="text-xs text-gray-400 italic">No records</li>}
+              </ul>
+            </div>
+
+            {/* Recent 5 Runs */}
+            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+              <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wide flex items-center gap-1">
+                <History size={14}/> Recent 5
+              </h3>
+              <ul className="space-y-2">
+                {recent5.map((entry, idx) => (
+                  <li key={idx} className="flex justify-between items-center text-xs text-gray-700 bg-white p-2 rounded shadow-sm">
+                    <span className="text-gray-500 text-[10px]">{entry.formattedDate.split(' ')[1]}</span>
+                    <span className="font-bold">{entry.distance}m</span>
+                    <span className="font-mono text-gray-600">{entry.score}</span>
+                  </li>
+                ))}
+                 {recent5.length === 0 && <li className="text-xs text-gray-400 italic">No records</li>}
+              </ul>
+            </div>
           </div>
 
           <div className="flex flex-col gap-3">

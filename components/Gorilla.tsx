@@ -8,9 +8,11 @@ interface GorillaProps {
   lives: number; // 3 = Far, 0 = Caught. Can be float.
   isHit?: boolean;
   isThrowing?: boolean;
+  level: number;
+  isDefeated: boolean;
 }
 
-export const Gorilla: React.FC<GorillaProps> = ({ speed, isRunning, lives, isHit, isThrowing }) => {
+export const Gorilla: React.FC<GorillaProps> = ({ speed, isRunning, lives, isHit, isThrowing, level, isDefeated }) => {
   const group = useRef<Group>(null);
   
   // Refs for animated parts
@@ -23,9 +25,10 @@ export const Gorilla: React.FC<GorillaProps> = ({ speed, isRunning, lives, isHit
 
   // Calculate target Z position based on lives (continuous)
   // Max distance (lives >= 3) is 16.0
-  // Min distance (lives <= 0) is 0.0
-  // Map linearly: z = (lives / 3) * 16
   const targetZ = Math.min(16, Math.max(0, (lives / 3) * 16));
+
+  // Base Scale 1.8. Increases by 50% for each level above 1.
+  const scale = 1.8 * (1 + (level - 1) * 0.5);
 
   useFrame((state) => {
     if (!group.current) return;
@@ -37,11 +40,21 @@ export const Gorilla: React.FC<GorillaProps> = ({ speed, isRunning, lives, isHit
       group.current.visible = true;
     }
 
+    if (isDefeated) {
+      // Defeated Animation: Fall backwards and fly away
+      group.current.rotation.x -= 0.05; // Rotate back
+      group.current.position.z += 0.5;   // Fly away
+      return; // Skip running animation
+    } else {
+      // Reset rotation X if not defeated
+      group.current.rotation.x = 0;
+    }
+
     // Smoothly interpolate position Z (Lower lerp factor for smoothness)
+    // Only update Z if not defeated (handled above)
     group.current.position.z += (targetZ - group.current.position.z) * 0.02;
 
     if (!isRunning && lives <= 0) {
-        // Game Over pose logic could go here
         return;
     }
 
@@ -83,7 +96,7 @@ export const Gorilla: React.FC<GorillaProps> = ({ speed, isRunning, lives, isHit
 
   return (
     // Positioned behind the dog, rotated to face same direction as dog (towards camera)
-    <group ref={group} position={[0, 0, targetZ]} rotation={[0, Math.PI, 0]} scale={[1.8, 1.8, 1.8]}>
+    <group ref={group} position={[0, 0, targetZ]} rotation={[0, Math.PI, 0]} scale={[scale, scale, scale]}>
       
       {/* Torso */}
       <mesh ref={bodyRef} position={[0, 0.9, 0]} castShadow receiveShadow>

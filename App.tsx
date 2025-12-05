@@ -69,6 +69,11 @@ const App: React.FC = () => {
   const [combo, setCombo] = useState(0);
   const [history, setHistory] = useState<ScoreEntry[]>([]);
 
+  // Gorilla Boss Stats
+  const [gorillaLevel, setGorillaLevel] = useState(1);
+  const [gorillaHits, setGorillaHits] = useState(0);
+  const [isGorillaDefeated, setIsGorillaDefeated] = useState(false);
+
   // Obstacle Logic
   const [hazardActive, setHazardActive] = useState(false);
   const hazardActiveRef = useRef(false); // Ref for sync checking
@@ -145,6 +150,11 @@ const App: React.FC = () => {
     setCombo(0);
     setSpeed(2.0); // Reset speed
     
+    // Reset Gorilla
+    setGorillaLevel(1);
+    setGorillaHits(0);
+    setIsGorillaDefeated(false);
+
     setHazardActive(false);
     hazardActiveRef.current = false;
     setObstacleProgress(0);
@@ -182,7 +192,7 @@ const App: React.FC = () => {
       score: score,
       distance: Math.floor(distance)
     };
-    const newHistory = [newEntry, ...history].slice(0, 50); // Keep top 50
+    const newHistory = [newEntry, ...history].slice(0, 100); // Keep top 100
     setHistory(newHistory);
     localStorage.setItem('chihuahua_history', JSON.stringify(newHistory));
     setThought({ text: "I'll get away next time...", emotion: "tired" });
@@ -199,6 +209,30 @@ const App: React.FC = () => {
     const newThought = await generateDogThought(context);
     setThought(newThought);
     setIsThinking(false);
+  };
+
+  const handleGorillaDefeat = () => {
+    setIsGorillaDefeated(true);
+    setThought({ text: "HE'S DOWN!", emotion: "happy" });
+    setScore(prev => prev + 500); // Big bonus
+    
+    // Clear hazards during transition
+    setHazardActive(false);
+    hazardActiveRef.current = false;
+    setProjectileActive(false);
+    projectileActiveRef.current = false;
+
+    // Wait for animation, then level up
+    setTimeout(() => {
+      setGorillaLevel(prev => prev + 1);
+      setGorillaHits(0);
+      setIsGorillaDefeated(false);
+      setThought({ text: "OH NO! HE'S BIGGER!", emotion: "scared" });
+      
+      // Push back timer so he doesn't attack instantly
+      timeSinceLastObstacle.current = 0;
+      timeSinceLastProjectile.current = 0;
+    }, 3000);
   };
 
   // Main Obstacle Dodge
@@ -276,8 +310,8 @@ const App: React.FC = () => {
     
     setDistance(prev => {
       const newDist = prev + increment;
-      // Speed up every 100 meters
-      if (Math.floor(newDist / 100) > Math.floor(prev / 100)) {
+      // Speed up every 50 meters
+      if (Math.floor(newDist / 50) > Math.floor(prev / 50)) {
          setSpeed(s => Math.min(s + 0.2, 5.0)); // Cap speed at 5.0
          setThought({ text: "Getting faster!", emotion: "excited" });
       }
@@ -288,10 +322,11 @@ const App: React.FC = () => {
 
   // ----- OBSTACLE LOOP -----
   const handleObstacleTick = (delta: number) => {
+    // Stop spawning if Gorilla is defeated
+    if (isGorillaDefeated) return;
+
     if (!hazardActiveRef.current) {
       // Only increment timer if Projectile is NOT active. This strictly separates them.
-      // NOTE: We still pause obstacle spawn if projectile active to reduce clutter,
-      // but unified dodge makes overlap less fatal.
       if (!projectileActiveRef.current && !isThrowingRef.current) {
          timeSinceLastObstacle.current += delta;
          
@@ -331,7 +366,7 @@ const App: React.FC = () => {
 
       if (newProgress >= 1) {
         if (!isDodgedRef.current && !isHit) {
-          // HIT OBSTACLE
+          // HIT DOG
           const newLives = lives - 1;
           setLives(newLives);
           setIsHit(true);
@@ -368,6 +403,13 @@ const App: React.FC = () => {
                setIsGorillaHit(true);
                setReactionState(ReactionType.HAPPY, ReactionType.PAIN);
                setTimeout(() => setIsGorillaHit(false), 1000);
+               
+               // Increment Gorilla Hits & Check Boss Defeat
+               const newHits = gorillaHits + 1;
+               setGorillaHits(newHits);
+               if (newHits >= 10) {
+                  handleGorillaDefeat();
+               }
 
                // Reset Obstacle
                setHazardActive(false);
@@ -389,6 +431,9 @@ const App: React.FC = () => {
 
   // ----- PROJECTILE LOOP -----
   const handleProjectileTick = (delta: number) => {
+    // Stop spawning if Gorilla is defeated
+    if (isGorillaDefeated) return;
+
     if (!projectileActiveRef.current) {
       // Only increment timer if Obstacle is NOT active
       if (!hazardActiveRef.current) {
@@ -415,11 +460,14 @@ const App: React.FC = () => {
          }
       }
     } else {
-      // Projectile flies at a speed that depends on distance.
-      // Speed in units/sec = speed * 5
-      // Total Distance = projectileStartZ
-      // Total Time = projectileStartZ / (speed * 5)
-      const flySpeed = (speed * delta * 5) / Math.max(projectileStartZ, 1); 
+      // Projectile Speed logic:
+      // Base Speed Multiplier = 5
+      // Level Multiplier = increases speed as level goes up. Level 1 = 5, Level 2 = 7, etc.
+      const levelMultiplier = 5 + (gorillaLevel - 1) * 2;
+
+      // Speed in units/sec
+      const flySpeed = (speed * delta * levelMultiplier) / Math.max(projectileStartZ, 1); 
+      
       const newProgress = projectileProgress + flySpeed;
       setProjectileProgress(newProgress);
 
@@ -446,16 +494,16 @@ const App: React.FC = () => {
     }
   }
   
-  // Calculate if the Duck Button should be shown based on "1 second distance"
-  // Remaining Time = (1 - progress) * (Distance / Velocity)
-  // Velocity = speed * 5
-  // We want to show if Remaining Time <= 1.0
-  const projectileVelocity = speed * 5;
+  // Calculate if the Duck Button should be shown
+  const levelMultiplier = 5 + (gorillaLevel - 1) * 2;
+  const projectileVelocity = speed * levelMultiplier;
   const projectileTotalTime = Math.max(projectileStartZ, 1) / projectileVelocity;
   const projectileTimeRemaining = (1 - projectileProgress) * projectileTotalTime;
   
-  // Show button if active AND (time remaining is short OR distance was very short to begin with)
   const showDuckButton = projectileActive && (projectileTimeRemaining <= 1.0);
+
+  // Projectile Scale
+  const projectileScale = 1 + (gorillaLevel - 1) * 0.5;
 
   return (
     <div className="w-full h-screen relative bg-gray-900 overflow-hidden">
@@ -509,6 +557,8 @@ const App: React.FC = () => {
               lives={lives}
               isHit={isGorillaHit}
               isThrowing={isThrowingRef.current}
+              level={gorillaLevel}
+              isDefeated={isGorillaDefeated}
             />
             
             <World 
@@ -529,13 +579,14 @@ const App: React.FC = () => {
                progress={projectileProgress}
                startX={0}
                startZ={projectileStartZ}
+               scale={projectileScale}
             />
 
             <OrbitControls 
               enablePan={false} 
               maxPolarAngle={Math.PI / 2 - 0.1} 
               minPolarAngle={Math.PI / 4}
-              maxDistance={20} // Increased max distance to allow camera zoom out on mobile
+              maxDistance={20} 
               minDistance={3}
             />
             
@@ -564,6 +615,7 @@ const App: React.FC = () => {
         reaction={reaction}
         onStartGame={startGame}
         onShowHistory={() => setGameState(GameState.HISTORY)}
+        onShowRanking={() => setGameState(GameState.RANKING)}
         onHideHistory={() => setGameState(GameState.TITLE)}
         onTogglePause={handleTogglePause}
         onSpeedChange={setSpeed}

@@ -9,9 +9,10 @@ interface ProjectileProps {
   progress: number; // 0 to 1
   startX: number; // Usually 0 (behind/center)
   startZ: number; // Z position of Gorilla when thrown
+  scale: number;
 }
 
-export const Projectile: React.FC<ProjectileProps> = ({ active, type, progress, startX, startZ }) => {
+export const Projectile: React.FC<ProjectileProps> = ({ active, type, progress, startX, startZ, scale }) => {
   const groupRef = useRef<Group>(null);
 
   useFrame((state) => {
@@ -33,15 +34,16 @@ export const Projectile: React.FC<ProjectileProps> = ({ active, type, progress, 
   
   // Height Arc
   // Peak at progress = 0.5
-  const startY = 2.5;
+  // Adjust height based on scale to keep it visible/imposing
+  const startY = 2.5 * scale;
   const endY = 0.5;
-  const peakHeight = 5;
+  const peakHeight = 5 * scale;
   
   // Parabola: y = 4 * h * x * (1-x) + lerp(start, end, x)
   const arcY = (4 * peakHeight * progress * (1 - progress)) + (startY * (1-progress) + endY * progress);
 
   return (
-    <group ref={groupRef} position={[startX, arcY, currentZ]} scale={[0.8, 0.8, 0.8]}>
+    <group ref={groupRef} position={[startX, arcY, currentZ]} scale={[0.8 * scale, 0.8 * scale, 0.8 * scale]}>
       {type === ProjectileType.BARREL ? (
         <mesh castShadow>
           <cylinderGeometry args={[0.4, 0.4, 0.6, 8]} />
