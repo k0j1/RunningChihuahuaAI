@@ -1,3 +1,4 @@
+
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group } from 'three';
@@ -21,30 +22,28 @@ export const Projectile: React.FC<ProjectileProps> = ({ active, type, progress, 
     // Spin animation
     groupRef.current.rotation.x += 0.1;
     groupRef.current.rotation.z += 0.1;
+
+    // Fireball special flicker
+    if (type === ProjectileType.FIREBALL) {
+       groupRef.current.scale.setScalar(0.8 * scale + Math.sin(state.clock.elapsedTime * 20) * 0.1);
+    }
   });
 
   if (!active) return null;
 
   // Parabolic Arc Calculation
-  // Start: Z = startZ (Gorilla), Y=2
-  // End: Z=0 (Dog), Y=0.5
-  
   const endZ = 0;
   const currentZ = startZ - (progress * (startZ - endZ));
   
-  // Height Arc
-  // Peak at progress = 0.5
-  // Adjust height based on scale to keep it visible/imposing
   const startY = 2.5 * scale;
   const endY = 0.5;
   const peakHeight = 5 * scale;
   
-  // Parabola: y = 4 * h * x * (1-x) + lerp(start, end, x)
   const arcY = (4 * peakHeight * progress * (1 - progress)) + (startY * (1-progress) + endY * progress);
 
   return (
     <group ref={groupRef} position={[startX, arcY, currentZ]} scale={[0.8 * scale, 0.8 * scale, 0.8 * scale]}>
-      {type === ProjectileType.BARREL ? (
+      {type === ProjectileType.BARREL && (
         <mesh castShadow>
           <cylinderGeometry args={[0.4, 0.4, 0.6, 8]} />
           <meshStandardMaterial color="#8B4513" />
@@ -57,14 +56,47 @@ export const Projectile: React.FC<ProjectileProps> = ({ active, type, progress, 
              <meshStandardMaterial color="#111" />
           </mesh>
         </mesh>
-      ) : (
-        <group>
-           {/* Banana Shape */}
-           <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI/4]} castShadow>
-             <capsuleGeometry args={[0.15, 0.8, 4, 8]} />
-             <meshStandardMaterial color="#FDD835" />
+      )}
+
+      {type === ProjectileType.BANANA && (
+        <mesh position={[0, 0, 0]} rotation={[0, 0, Math.PI/4]} castShadow>
+           <capsuleGeometry args={[0.15, 0.8, 4, 8]} />
+           <meshStandardMaterial color="#FDD835" />
+        </mesh>
+      )}
+
+      {type === ProjectileType.BONE && (
+         <group>
+           <mesh position={[0, 0, 0]} castShadow>
+              <cylinderGeometry args={[0.1, 0.1, 0.6]} />
+              <meshStandardMaterial color="#EEE" />
            </mesh>
-        </group>
+           <mesh position={[0, 0.3, 0]}>
+              <sphereGeometry args={[0.15]} />
+              <meshStandardMaterial color="#EEE" />
+           </mesh>
+           <mesh position={[0, -0.3, 0]}>
+              <sphereGeometry args={[0.15]} />
+              <meshStandardMaterial color="#EEE" />
+           </mesh>
+         </group>
+      )}
+
+      {type === ProjectileType.ROCK && (
+         <mesh castShadow>
+            <dodecahedronGeometry args={[0.4, 0]} />
+            <meshStandardMaterial color="#555" />
+         </mesh>
+      )}
+
+      {type === ProjectileType.FIREBALL && (
+         <group>
+            <mesh>
+               <sphereGeometry args={[0.4, 16, 16]} />
+               <meshStandardMaterial color="#FF5722" emissive="#FF5722" emissiveIntensity={2.0} />
+            </mesh>
+            <pointLight distance={3} intensity={2} color="#FF5722" />
+         </group>
       )}
     </group>
   );

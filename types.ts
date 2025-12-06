@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export enum GameState {
@@ -10,6 +11,12 @@ export enum GameState {
   GAME_OVER = 'GAME_OVER'
 }
 
+export enum BossType {
+  GORILLA = 'GORILLA',
+  CHEETAH = 'CHEETAH',
+  DRAGON = 'DRAGON'
+}
+
 export enum ObstacleType {
   ROCK = 'ROCK',
   CAR = 'CAR',
@@ -19,7 +26,10 @@ export enum ObstacleType {
 
 export enum ProjectileType {
   BARREL = 'BARREL',
-  BANANA = 'BANANA'
+  BANANA = 'BANANA',
+  BONE = 'BONE',
+  ROCK = 'ROCK',
+  FIREBALL = 'FIREBALL'
 }
 
 export enum DodgeType {
@@ -49,7 +59,62 @@ export interface DogThought {
 declare global {
   namespace JSX {
     interface IntrinsicElements {
-      // Catch-all to allow any R3F element without explicit definition
+      group: any;
+      mesh: any;
+      primitive: any;
+      ambientLight: any;
+      directionalLight: any;
+      pointLight: any;
+      spotLight: any;
+      orthographicCamera: any;
+      perspectiveCamera: any;
+      boxGeometry: any;
+      planeGeometry: any;
+      sphereGeometry: any;
+      coneGeometry: any;
+      cylinderGeometry: any;
+      dodecahedronGeometry: any;
+      capsuleGeometry: any;
+      torusGeometry: any;
+      ringGeometry: any;
+      circleGeometry: any;
+      meshStandardMaterial: any;
+      meshBasicMaterial: any;
+      meshPhongMaterial: any;
+      fog: any;
+      color: any;
+      [elemName: string]: any;
+    }
+  }
+}
+
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      group: any;
+      mesh: any;
+      primitive: any;
+      ambientLight: any;
+      directionalLight: any;
+      pointLight: any;
+      spotLight: any;
+      orthographicCamera: any;
+      perspectiveCamera: any;
+      boxGeometry: any;
+      planeGeometry: any;
+      sphereGeometry: any;
+      coneGeometry: any;
+      cylinderGeometry: any;
+      dodecahedronGeometry: any;
+      capsuleGeometry: any;
+      torusGeometry: any;
+      ringGeometry: any;
+      circleGeometry: any;
+      meshStandardMaterial: any;
+      meshBasicMaterial: any;
+      meshPhongMaterial: any;
+      fog: any;
+      color: any;
       [elemName: string]: any;
     }
   }

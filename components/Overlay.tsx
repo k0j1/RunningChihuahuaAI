@@ -1,6 +1,8 @@
+
 import React, { useMemo } from 'react';
 import { GameState, ScoreEntry } from '../types';
 import { Play, Pause, Skull, Heart, RotateCcw, History, ArrowLeft, Home, Zap, Trophy, Crown, Gauge } from 'lucide-react';
+import { TitleBackground } from './TitleBackground';
 
 interface OverlayProps {
   gameState: GameState;
@@ -64,8 +66,12 @@ export const Overlay: React.FC<OverlayProps> = ({
   // Title Screen
   if (gameState === GameState.TITLE) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-50">
-        <div className="text-center text-white p-8 bg-white/10 rounded-3xl border border-white/30 shadow-2xl animate-fade-in-up max-w-lg w-full">
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-50 overflow-hidden">
+        {/* Generative Background */}
+        <TitleBackground />
+        
+        {/* Content */}
+        <div className="relative z-10 text-center text-white p-8 bg-black/40 backdrop-blur-md rounded-3xl border border-white/20 shadow-2xl animate-fade-in-up max-w-lg w-full mx-4">
           <h1 className="text-6xl font-black mb-4 tracking-tighter drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
             RUNNING<br/>CHIHUAHUA
           </h1>
@@ -204,100 +210,53 @@ export const Overlay: React.FC<OverlayProps> = ({
   // Game Over Screen
   if (gameState === GameState.GAME_OVER) {
     const top5 = topScores.slice(0, 5);
-    const recent5 = history.slice(0, 5);
-
-    const isNewHighScore = lastGameDate && top5.some(entry => entry.date === lastGameDate);
-    const isNumberOne = lastGameDate && top5.length > 0 && top5[0].date === lastGameDate;
-
+    
     // Use justify-start on mobile (md:justify-center) to prevent clipping at the top
     return (
       <div className="absolute inset-0 flex flex-col items-center justify-start md:justify-center bg-red-900/80 backdrop-blur-md z-50 p-4 pt-12 md:pt-4 overflow-y-auto">
-        <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl border-4 border-red-500 text-center animate-bounce-in my-8 relative flex-shrink-0">
+        <div className="w-full max-w-lg bg-white/10 rounded-3xl p-6 shadow-2xl border-4 border-red-500 text-center animate-bounce-in my-8 relative flex-shrink-0 backdrop-blur-sm">
           
-          {isNumberOne && (
-            <div className="absolute -top-10 left-0 right-0 flex justify-center">
-              <div className="bg-yellow-400 text-red-900 px-6 py-2 rounded-full font-black text-xl shadow-lg animate-bounce flex items-center gap-2 border-4 border-white">
-                 <Crown className="fill-current" /> NEW HIGH SCORE!!
-              </div>
-            </div>
-          )}
-
-          <Skull className="w-16 h-16 mx-auto text-red-500 mb-2" />
-          <h2 className="text-4xl font-black text-gray-800 mb-1">CAUGHT!</h2>
-          <p className="text-gray-500 mb-6">The gorilla got you.</p>
+          <Skull className="w-16 h-16 mx-auto text-red-500 mb-2 filter drop-shadow-lg" />
+          <h2 className="text-5xl font-black text-white mb-6 tracking-tighter shadow-black drop-shadow-md">CAUGHT!</h2>
           
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="bg-gray-100 p-4 rounded-xl">
-              <p className="text-xs text-gray-500 uppercase">Distance</p>
-              <p className="text-2xl font-bold text-gray-800">{distance.toFixed(0)}m</p>
-            </div>
-            <div className={`p-4 rounded-xl ${isNewHighScore ? 'bg-yellow-100 ring-4 ring-yellow-400 animate-pulse' : 'bg-gray-100'}`}>
-              <p className="text-xs text-gray-500 uppercase">Score</p>
-              <p className="text-2xl font-bold text-blue-600">{score}</p>
-            </div>
-          </div>
+          <div className="bg-white/90 rounded-xl p-4 border-2 border-yellow-500 mb-6 shadow-xl text-left">
+             <div className="flex justify-between items-center mb-4 border-b border-gray-200 pb-2">
+                <span className="text-gray-500 font-bold uppercase text-xs">Score</span>
+                <span className="text-4xl font-black text-blue-600">{score}</span>
+             </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-left">
-            {/* Top 5 Scores */}
-            <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100">
-              <h3 className="text-xs font-bold text-yellow-600 mb-3 uppercase tracking-wide flex items-center gap-1">
-                <Trophy size={14} className="fill-yellow-600"/> Top 5 Best
-              </h3>
-              <ul className="space-y-2">
+             <h3 className="text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1">
+                <Trophy size={14} className="text-yellow-600"/> Top Scores
+             </h3>
+             <ul className="space-y-1">
                 {top5.map((entry, idx) => {
-                  const isCurrentRun = entry.date === lastGameDate;
+                  const isCurrent = entry.date === lastGameDate;
                   return (
-                    <li key={idx} className={`flex justify-between items-center text-xs text-gray-700 p-2 rounded shadow-sm relative transition-all duration-300
-                        ${isCurrentRun ? 'bg-yellow-200 border-2 border-yellow-400 scale-105 font-bold z-10' : 'bg-white'}`}>
-                      {isCurrentRun && (
-                        <span className="absolute -right-2 -top-2 bg-red-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold animate-ping opacity-75">
-                          NEW
-                        </span>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <span className={`font-bold w-4 ${idx===0 ? 'text-yellow-600 text-sm' : 'text-yellow-500'}`}>{idx + 1}.</span>
-                        <span className="text-gray-500 text-[10px]">{entry.formattedDate.split(' ')[0]}</span>
-                      </div>
-                      <span className={`font-mono font-black ${isCurrentRun ? 'text-red-600 text-sm' : 'text-blue-600'}`}>{entry.score}</span>
+                    <li key={idx} className={`flex justify-between items-center text-xs p-2 rounded ${isCurrent ? 'bg-yellow-200 font-bold border border-yellow-400' : 'bg-gray-50'}`}>
+                       <span className="w-4">{idx+1}.</span>
+                       <span className="flex-1 text-left pl-2">{entry.formattedDate.split(' ')[0]}</span>
+                       <span className={isCurrent ? 'text-red-600' : 'text-blue-600'}>{entry.score}</span>
                     </li>
-                  );
+                  )
                 })}
-                {top5.length === 0 && <li className="text-xs text-gray-400 italic">No records</li>}
-              </ul>
-            </div>
-
-            {/* Recent 5 Runs */}
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-              <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wide flex items-center gap-1">
-                <History size={14}/> Recent 5
-              </h3>
-              <ul className="space-y-2">
-                {recent5.map((entry, idx) => (
-                  <li key={idx} className="flex justify-between items-center text-xs text-gray-700 bg-white p-2 rounded shadow-sm">
-                    <span className="text-gray-500 text-[10px]">{entry.formattedDate.split(' ')[1]}</span>
-                    <span className="font-bold">{entry.distance}m</span>
-                    <span className="font-mono text-gray-600">{entry.score}</span>
-                  </li>
-                ))}
-                 {recent5.length === 0 && <li className="text-xs text-gray-400 italic">No records</li>}
-              </ul>
-            </div>
+             </ul>
           </div>
 
           <div className="flex flex-col gap-3">
             <button 
               onClick={onStartGame}
-              className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2 transform hover:scale-105 active:scale-95 duration-200"
             >
               <RotateCcw /> TRY AGAIN
             </button>
             <button 
               onClick={onReturnToTitle}
-              className="w-full py-3 bg-gray-200 text-gray-700 rounded-xl font-bold text-lg shadow hover:bg-gray-300 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 bg-white text-gray-700 rounded-xl font-bold text-lg shadow hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
             >
               <Home /> TITLE
             </button>
           </div>
+
         </div>
       </div>
     );
