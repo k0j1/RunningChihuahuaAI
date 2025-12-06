@@ -209,9 +209,10 @@ export const Overlay: React.FC<OverlayProps> = ({
     const isNewHighScore = lastGameDate && top5.some(entry => entry.date === lastGameDate);
     const isNumberOne = lastGameDate && top5.length > 0 && top5[0].date === lastGameDate;
 
+    // Use justify-start on mobile (md:justify-center) to prevent clipping at the top
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900/80 backdrop-blur-md z-50 p-4 overflow-y-auto">
-        <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl border-4 border-red-500 text-center animate-bounce-in my-8 relative">
+      <div className="absolute inset-0 flex flex-col items-center justify-start md:justify-center bg-red-900/80 backdrop-blur-md z-50 p-4 pt-12 md:pt-4 overflow-y-auto">
+        <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl border-4 border-red-500 text-center animate-bounce-in my-8 relative flex-shrink-0">
           
           {isNumberOne && (
             <div className="absolute -top-10 left-0 right-0 flex justify-center">
@@ -387,7 +388,7 @@ export const Overlay: React.FC<OverlayProps> = ({
       </div>
       
       {/* Bottom Center: Speedometer */}
-      <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 pb-4">
+      <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 pb-8 md:pb-4 z-20">
           <div className="bg-black/80 backdrop-blur-md text-white px-6 py-2 rounded-t-3xl shadow-xl border-x-2 border-t-2 border-gray-700 flex items-center gap-3">
             <div className="relative">
                 <Gauge size={28} className="text-cyan-400" />

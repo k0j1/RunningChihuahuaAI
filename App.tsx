@@ -521,7 +521,7 @@ const App: React.FC = () => {
   const projectileScale = 1 + (gorillaLevel - 1) * 0.5;
 
   return (
-    <div className="w-full h-screen relative bg-gray-900 overflow-hidden">
+    <div className="w-full h-[100dvh] relative bg-gray-900 overflow-hidden">
       {/* 3D Scene */}
       <div className="absolute inset-0 z-0">
         <Canvas shadows camera={{ position: [3, 3, -5], fov: 60 }}>
