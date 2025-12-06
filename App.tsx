@@ -7,8 +7,7 @@ import { World } from './components/World';
 import { Obstacle } from './components/Obstacle';
 import { Projectile } from './components/Projectile';
 import { Overlay } from './components/Overlay';
-import { GameState, DogThought, ScoreEntry, ObstacleType, DodgeType, ReactionType, ProjectileType } from './types';
-import { generateDogThought } from './services/geminiService';
+import { GameState, ScoreEntry, ObstacleType, DodgeType, ProjectileType } from './types';
 
 // Logic Component inside Canvas to handle frame updates
 const GameLoop = ({ 
@@ -59,8 +58,6 @@ const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
   const [speed, setSpeed] = useState<number>(2.0);
   const [dayTime, setDayTime] = useState<boolean>(true);
-  const [thought, setThought] = useState<DogThought | null>(null);
-  const [isThinking, setIsThinking] = useState(false);
   
   // Game Stats
   const [score, setScore] = useState(0);
@@ -94,12 +91,14 @@ const App: React.FC = () => {
   const [dodgeType, setDodgeType] = useState<DodgeType>(DodgeType.SIDESTEP);
   const [isHit, setIsHit] = useState(false);
   const [isGorillaHit, setIsGorillaHit] = useState(false);
+
+  // Queued Actions (Button pressed but waiting for timing)
+  const [isDodgeQueued, setIsDodgeQueued] = useState(false);
+  const [isDuckQueued, setIsDuckQueued] = useState(false);
   
-  // Reaction Faces
-  const [reaction, setReaction] = useState<{ chihuahua: ReactionType, gorilla: ReactionType }>({
-    chihuahua: ReactionType.NEUTRAL,
-    gorilla: ReactionType.NEUTRAL
-  });
+  // Cut-In Logic
+  // Included ID for re-render, and x/y for positioning
+  const [dodgeCutIn, setDodgeCutIn] = useState<{id: number, text: string, x: number, y: number} | null>(null);
   
   // Timers and Refs
   const timeSinceLastObstacle = useRef(0);
@@ -111,7 +110,7 @@ const App: React.FC = () => {
   const isDuckedRef = useRef(false);
   const isThrowingRef = useRef(false);
 
-  const reactionTimeoutRef = useRef<number | null>(null);
+  const cutInTimeoutRef = useRef<number | null>(null);
 
   // Load history on mount
   useEffect(() => {
@@ -125,22 +124,38 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Auto-hide thought after 5 seconds
-  useEffect(() => {
-    if (thought) {
-      const timer = setTimeout(() => {
-        setThought(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [thought]);
+  const triggerComicCutIn = (clickX?: number, clickY?: number) => {
+    const comicWords = ["WHOOSH!", "SWISH!", "NICE!", "WOW!", "ZOOM!", "YEAH!", "DODGE!"];
+    const word = comicWords[Math.floor(Math.random() * comicWords.length)];
+    
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-  const setReactionState = (dog: ReactionType, gorilla: ReactionType) => {
-    setReaction({ chihuahua: dog, gorilla: gorilla });
-    if (reactionTimeoutRef.current) clearTimeout(reactionTimeoutRef.current);
-    reactionTimeoutRef.current = window.setTimeout(() => {
-      setReaction({ chihuahua: ReactionType.NEUTRAL, gorilla: ReactionType.NEUTRAL });
-    }, 1500);
+    let x = width * 0.8; // Default Right
+    let y = height * 0.5;
+
+    if (clickX !== undefined && clickY !== undefined) {
+      // If clicked on left side, show wipe on left (20%). If right, show on right (80%).
+      const isLeft = clickX < width / 2;
+      x = isLeft ? width * 0.2 : width * 0.8;
+      y = clickY;
+    } else {
+      // Random side if triggered without click (e.g. keyboard)
+      x = Math.random() > 0.5 ? width * 0.2 : width * 0.8;
+      y = height * 0.4 + Math.random() * (height * 0.2);
+    }
+
+    // Clamp Y to avoid overlapping top HUD or bottom Speedometer
+    // Keep between 20% and 80% height
+    y = Math.max(height * 0.2, Math.min(y, height * 0.8));
+
+    // Set with unique ID to force key change in Overlay
+    setDodgeCutIn({ id: Date.now(), text: word, x, y });
+
+    if (cutInTimeoutRef.current) clearTimeout(cutInTimeoutRef.current);
+    cutInTimeoutRef.current = window.setTimeout(() => {
+      setDodgeCutIn(null);
+    }, 1000); // 1 second duration for wipe
   };
 
   const startGame = () => {
@@ -160,22 +175,22 @@ const App: React.FC = () => {
     setHazardActive(false);
     hazardActiveRef.current = false;
     setObstacleProgress(0);
+    setIsDodgeQueued(false);
     
     setProjectileActive(false);
     projectileActiveRef.current = false;
     setProjectileProgress(0);
+    setIsDuckQueued(false);
     
     setIsHit(false);
     setIsGorillaHit(false);
-    setReaction({ chihuahua: ReactionType.NEUTRAL, gorilla: ReactionType.NEUTRAL });
+    setDodgeCutIn(null);
     
     timeSinceLastObstacle.current = 0;
     nextObstacleTime.current = 1.5 + Math.random() * 2; // Faster start
 
     timeSinceLastProjectile.current = 0;
     nextProjectileTime.current = 5 + Math.random() * 5;
-
-    setThought({ text: "Here we go again!", emotion: "excited" });
   };
 
   const returnToTitle = () => {
@@ -199,7 +214,6 @@ const App: React.FC = () => {
     const newHistory = [newEntry, ...history].slice(0, 100); // Keep top 100
     setHistory(newHistory);
     localStorage.setItem('chihuahua_history', JSON.stringify(newHistory));
-    setThought({ text: "I'll get away next time...", emotion: "tired" });
 
     setGameState(GameState.GAME_OVER);
   };
@@ -209,31 +223,24 @@ const App: React.FC = () => {
     else if (gameState === GameState.PAUSED) setGameState(GameState.RUNNING);
   };
 
-  const handleAskThought = async () => {
-    setIsThinking(true);
-    const context = `Running from Gorilla. Lives: ${lives.toFixed(1)}/3. Score: ${score}. Distance: ${distance.toFixed(0)}m.`;
-    const newThought = await generateDogThought(context);
-    setThought(newThought);
-    setIsThinking(false);
-  };
-
   const handleGorillaDefeat = () => {
     setIsGorillaDefeated(true);
-    setThought({ text: "HE'S DOWN!", emotion: "happy" });
     setScore(prev => prev + 500); // Big bonus
     
     // Clear hazards during transition
     setHazardActive(false);
     hazardActiveRef.current = false;
+    setIsDodgeQueued(false);
+    
     setProjectileActive(false);
     projectileActiveRef.current = false;
+    setIsDuckQueued(false);
 
     // Wait for animation, then level up
     setTimeout(() => {
       setGorillaLevel(prev => prev + 1);
       setGorillaHits(0);
       setIsGorillaDefeated(false);
-      setThought({ text: "OH NO! HE'S BIGGER!", emotion: "scared" });
       
       // Push back timer so he doesn't attack instantly
       timeSinceLastObstacle.current = 0;
@@ -241,73 +248,83 @@ const App: React.FC = () => {
     }, 3000);
   };
 
-  // Main Obstacle Dodge
-  const handleDodge = () => {
+  // Helper to extract coordinates from event
+  const getEventCoords = (e?: React.MouseEvent | React.TouchEvent | any) => {
+    if (!e) return { x: undefined, y: undefined };
+    if (e.clientX) return { x: e.clientX, y: e.clientY };
+    if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    return { x: undefined, y: undefined };
+  };
+
+  // Dodge Action Performer (called from Queue)
+  const performDodge = () => {
+    if (obstacleType === ObstacleType.SHEEP) {
+      setDodgeType(DodgeType.JUMP);
+    } else {
+      const types = [DodgeType.JUMP, DodgeType.SIDESTEP, DodgeType.SPIN];
+      setDodgeType(types[Math.floor(Math.random() * types.length)]);
+    }
+
+    isDodgedRef.current = true;
+    setIsDodging(true);
+    
+    // Combo logic
+    setCombo(prev => prev + 1);
+    const bonus = (combo + 1) * 5;
+    setScore(prev => prev + 10 + bonus);
+    
+    setTimeout(() => setIsDodging(false), 500);
+  };
+
+  // Duck Action Performer (called from Queue)
+  const performDuck = () => {
+    setDodgeType(DodgeType.SPIN);
+    isDuckedRef.current = true;
+    setIsDodging(true);
+    
+    setScore(prev => prev + 20); 
+    setTimeout(() => setIsDodging(false), 500);
+  };
+
+  // Main Dodge Button Handler (Queues Action)
+  const handleDodge = (e?: any) => {
     if (gameState !== GameState.RUNNING) return;
     
-    let dodgePerformed = false;
-
+    // Queue Dodge if active
     if (hazardActiveRef.current) {
-      // Force JUMP for Sheep
-      if (obstacleType === ObstacleType.SHEEP) {
-        setDodgeType(DodgeType.JUMP);
-      } else {
-        // Pick random dodge animation for others (No SHAKE)
-        const types = [DodgeType.JUMP, DodgeType.SIDESTEP, DodgeType.SPIN];
-        setDodgeType(types[Math.floor(Math.random() * types.length)]);
-      }
-
-      isDodgedRef.current = true;
-      dodgePerformed = true;
+       setIsDodgeQueued(true);
+       const { x, y } = getEventCoords(e);
+       triggerComicCutIn(x, y);
     }
 
-    // Unified Dodge: Also dodge projectile if active
+    // Unified: Queue Duck if active too
     if (projectileActiveRef.current) {
-      isDuckedRef.current = true;
-      // Also trigger visual dodge if not already triggered by obstacle
-      if (!dodgePerformed) {
-         setDodgeType(DodgeType.SPIN);
-         dodgePerformed = true;
-      }
-    }
-
-    if (dodgePerformed) {
-      setIsDodging(true);
-      
-      // Combo logic
-      setCombo(prev => prev + 1);
-      const bonus = (combo + 1) * 5;
-      setScore(prev => prev + 10 + bonus);
-      
-      setTimeout(() => setIsDodging(false), 500);
+       setIsDuckQueued(true);
+       if (!hazardActiveRef.current) {
+           const { x, y } = getEventCoords(e);
+           triggerComicCutIn(x, y);
+       }
     }
   };
 
-  // Projectile Duck (Actually uses SPIN now)
-  const handleDuck = () => {
+  // Main Duck Button Handler (Queues Action)
+  const handleDuck = (e?: any) => {
     if (gameState !== GameState.RUNNING) return;
-    
-    let dodgePerformed = false;
 
+    // Queue Duck if active
     if (projectileActiveRef.current) {
-      isDuckedRef.current = true;
-      setDodgeType(DodgeType.SPIN); // Replaced SLIDE with SPIN
-      dodgePerformed = true;
+       setIsDuckQueued(true);
+       const { x, y } = getEventCoords(e);
+       triggerComicCutIn(x, y);
     }
-
-    // Unified Dodge: Also dodge obstacle if active
+    
+    // Unified: Queue Dodge if active too
     if (hazardActiveRef.current) {
-      isDodgedRef.current = true;
-      if (!dodgePerformed) {
-        setDodgeType(DodgeType.JUMP); // Generic dodge for obstacle
-        dodgePerformed = true;
-      }
-    }
-
-    if (dodgePerformed) {
-      setIsDodging(true);
-      setScore(prev => prev + 20); // More points for ducking
-      setTimeout(() => setIsDodging(false), 500);
+        setIsDodgeQueued(true);
+        if (!projectileActiveRef.current) {
+           const { x, y } = getEventCoords(e);
+           triggerComicCutIn(x, y);
+        }
     }
   };
 
@@ -319,7 +336,6 @@ const App: React.FC = () => {
       // Speed up every 50 meters
       if (Math.floor(newDist / 50) > Math.floor(prev / 50)) {
          setSpeed(s => Math.min(s + 0.2, 5.0)); // Cap speed at 5.0
-         setThought({ text: "Getting faster!", emotion: "excited" });
       }
       return newDist;
     }); 
@@ -340,10 +356,10 @@ const App: React.FC = () => {
             // Spawn Obstacle
             setHazardActive(true);
             hazardActiveRef.current = true;
+            setIsDodgeQueued(false); // Reset queue for new hazard
             setObstacleProgress(0);
             isDodgedRef.current = false;
             
-            // Random Type (Weighted) - Removed RIVER
             const rand = Math.random();
             let type = ObstacleType.ROCK;
             if (rand < 0.3) type = ObstacleType.CAR;
@@ -353,13 +369,11 @@ const App: React.FC = () => {
             
             setObstacleType(type);
 
-            // Random Button Position (within 20% to 80% to stay on screen)
             const top = 20 + Math.random() * 60;
             const left = 20 + Math.random() * 60;
             setHazardPosition({ top: `${top}%`, left: `${left}%` });
 
             timeSinceLastObstacle.current = 0;
-            // Faster interval: 1.5s to 3.5s
             nextObstacleTime.current = 1.5 + Math.random() * 2.0; 
          }
       }
@@ -370,6 +384,11 @@ const App: React.FC = () => {
       
       setObstacleProgress(newProgress);
 
+      // Check Queue Logic - If close enough (>0.8) and queued, trigger actual dodge
+      if (newProgress > 0.8 && isDodgeQueued && !isDodgedRef.current && !isHit) {
+          performDodge();
+      }
+
       if (newProgress >= 1) {
         if (!isDodgedRef.current && !isHit) {
           // HIT DOG
@@ -377,40 +396,28 @@ const App: React.FC = () => {
           setLives(newLives);
           setIsHit(true);
           setCombo(0); // Reset Combo
-          setThought({ text: "OUCH!!!", emotion: "scared" });
-          setReactionState(ReactionType.PAIN, ReactionType.LAUGH);
           
           setTimeout(() => setIsHit(false), 1500);
 
           if (newLives <= 0) {
             handleGameOver();
           }
-        } else if (isDodgedRef.current) {
-          // SUCCESSFUL DODGE CONTINUATION
-          // Do nothing, let it travel to gorilla
-        }
+        } 
       }
 
       // 2. Gorilla Collision Logic (Past 1.0)
       if (newProgress >= 1) {
         // Only if dodged dog do we check for gorilla
         if (isDodgedRef.current) {
-           // Calculate Gorilla Z position based on lives
-           // Map 0..3 lives to 0..16 Z
            const gorillaZ = Math.min(16, Math.max(0, (lives / 3) * 16));
-           // Map progress to Z (-40 to +X)
-           // Obstacle.tsx: zPos = -40 + (progress * 40)
            const obstacleZ = -40 + (newProgress * 40);
 
-           // Hit if obstacle passes Gorilla's "front" (approx 1.0 unit depth buffer)
            if (obstacleZ >= gorillaZ - 1.0) {
                // HIT GORILLA
                setLives(prev => Math.min(3, prev + 0.2));
                setIsGorillaHit(true);
-               setReactionState(ReactionType.HAPPY, ReactionType.PAIN);
                setTimeout(() => setIsGorillaHit(false), 1000);
                
-               // Increment Gorilla Hits & Check Boss Defeat
                const newHits = gorillaHits + 1;
                setGorillaHits(newHits);
                if (newHits >= 10) {
@@ -420,15 +427,17 @@ const App: React.FC = () => {
                // Reset Obstacle
                setHazardActive(false);
                hazardActiveRef.current = false;
+               setIsDodgeQueued(false);
                setObstacleProgress(0);
                return;
            }
         }
         
-        // Safety Reset if it goes too far back (approx Z=24)
+        // Safety Reset
         if (newProgress > 1.6) {
            setHazardActive(false);
            hazardActiveRef.current = false;
+           setIsDodgeQueued(false);
            setObstacleProgress(0);
         }
       }
@@ -437,24 +446,21 @@ const App: React.FC = () => {
 
   // ----- PROJECTILE LOOP -----
   const handleProjectileTick = (delta: number) => {
-    // Stop spawning if Gorilla is defeated
     if (isGorillaDefeated) return;
 
     if (!projectileActiveRef.current) {
-      // Only increment timer if Obstacle is NOT active
       if (!hazardActiveRef.current) {
          timeSinceLastProjectile.current += delta;
          
          if (timeSinceLastProjectile.current > nextProjectileTime.current) {
-            // Trigger Gorilla Throw Animation
             isThrowingRef.current = true;
             setTimeout(() => {
-                // Determine start Z based on current lives to sync with Gorilla Position
                 const currentGorillaZ = Math.min(16, Math.max(0, (lives / 3) * 16));
                 setProjectileStartZ(currentGorillaZ);
 
                 setProjectileActive(true);
                 projectileActiveRef.current = true;
+                setIsDuckQueued(false); // Reset queue
                 setProjectileProgress(0);
                 isDuckedRef.current = false;
                 isThrowingRef.current = false;
@@ -466,16 +472,16 @@ const App: React.FC = () => {
          }
       }
     } else {
-      // Projectile Speed logic:
-      // Base Speed Multiplier = 5
-      // Level Multiplier = increases speed as level goes up. Level 1 = 5, Level 2 = 7, etc.
       const levelMultiplier = 5 + (gorillaLevel - 1) * 2;
-
-      // Speed in units/sec
       const flySpeed = (speed * delta * levelMultiplier) / Math.max(projectileStartZ, 1); 
       
       const newProgress = projectileProgress + flySpeed;
       setProjectileProgress(newProgress);
+
+      // Check Queue Logic - If close enough (>0.85) and queued, trigger actual duck
+      if (newProgress > 0.85 && isDuckQueued && !isDuckedRef.current && !isHit) {
+          performDuck();
+      }
 
       if (newProgress >= 1) {
         if (!isDuckedRef.current && !isHit) {
@@ -484,8 +490,6 @@ const App: React.FC = () => {
            setLives(newLives);
            setIsHit(true);
            setCombo(0);
-           setThought({ text: "BONK!", emotion: "scared" });
-           setReactionState(ReactionType.PAIN, ReactionType.LAUGH);
            setTimeout(() => setIsHit(false), 1500);
 
            if (newLives <= 0) {
@@ -495,20 +499,25 @@ const App: React.FC = () => {
         // Projectile done
         setProjectileActive(false);
         projectileActiveRef.current = false;
+        setIsDuckQueued(false);
         setProjectileProgress(0);
       }
     }
   }
   
-  // Calculate if the Duck Button should be shown
+  // Calculate visibility based on timing
   const levelMultiplier = 5 + (gorillaLevel - 1) * 2;
   const projectileVelocity = speed * levelMultiplier;
   const projectileTotalTime = Math.max(projectileStartZ, 1) / projectileVelocity;
   const projectileTimeRemaining = (1 - projectileProgress) * projectileTotalTime;
   
-  const showDuckButton = projectileActive && (projectileTimeRemaining <= 1.0);
+  // Visibility Logic: 
+  // 1. Hazard must be active.
+  // 2. Button must NOT have been pressed (queued) yet.
+  // 3. It must NOT be too late (progress < threshold).
+  const showDuckButton = projectileActive && (projectileTimeRemaining <= 1.0) && !isDuckQueued && projectileProgress < 0.85;
+  const showDodgeButton = hazardActive && !isDodgeQueued && obstacleProgress < 0.8;
 
-  // Projectile Scale
   const projectileScale = 1 + (gorillaLevel - 1) * 0.5;
 
   return (
@@ -606,27 +615,24 @@ const App: React.FC = () => {
         gameState={gameState}
         speed={speed}
         dayTime={dayTime}
-        thought={thought}
         score={score}
         distance={distance}
         lives={lives}
         combo={combo}
-        hazardActive={hazardActive}
+        hazardActive={hazardActive} // Still passed for fallback if needed, but we use showDodgeButton mainly
+        showDodgeButton={showDodgeButton} // NEW
         hazardPosition={hazardPosition}
         projectileActive={projectileActive}
         showDuckButton={showDuckButton}
         history={history}
         lastGameDate={lastGameDate}
-        isThinking={isThinking}
         isHit={isHit}
-        reaction={reaction}
+        dodgeCutIn={dodgeCutIn}
         onStartGame={startGame}
         onShowHistory={() => setGameState(GameState.HISTORY)}
         onShowRanking={() => setGameState(GameState.RANKING)}
         onHideHistory={() => setGameState(GameState.TITLE)}
         onTogglePause={handleTogglePause}
-        onSpeedChange={setSpeed}
-        onAskThought={handleAskThought}
         onDodge={handleDodge}
         onDuck={handleDuck}
         onReturnToTitle={returnToTitle}

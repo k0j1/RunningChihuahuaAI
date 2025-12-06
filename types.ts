@@ -28,18 +28,6 @@ export enum DodgeType {
   SPIN = 'SPIN'
 }
 
-export enum ReactionType {
-  NEUTRAL = 'NEUTRAL',
-  HAPPY = 'HAPPY',
-  PAIN = 'PAIN',
-  LAUGH = 'LAUGH'
-}
-
-export interface DogThought {
-  text: string;
-  emotion: 'happy' | 'tired' | 'excited' | 'hungry' | 'philosophical' | 'scared';
-}
-
 export interface GameSettings {
   speed: number;
   dayTime: boolean;
@@ -50,6 +38,11 @@ export interface ScoreEntry {
   formattedDate: string; // Readable string with time
   score: number;
   distance: number;
+}
+
+export interface DogThought {
+  text: string;
+  emotion: string;
 }
 
 // Global JSX definitions for React Three Fiber elements to fix TypeScript errors
