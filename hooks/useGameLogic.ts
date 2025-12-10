@@ -1,7 +1,7 @@
-
 import { useState, useEffect, useRef } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { GameState, ScoreEntry, ObstacleType, DodgeType, ProjectileType, BossType } from '../types';
+import { fetchGlobalRanking, saveScoreToSupabase } from '../services/supabase';
 
 export const useGameLogic = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
@@ -14,6 +14,7 @@ export const useGameLogic = () => {
   const [lives, setLives] = useState(3);
   const [combo, setCombo] = useState(0);
   const [history, setHistory] = useState<ScoreEntry[]>([]);
+  const [globalRanking, setGlobalRanking] = useState<ScoreEntry[]>([]); // Server ranking
   const [lastGameDate, setLastGameDate] = useState<string | null>(null);
 
   // User Context (Farcaster & Wallet)
@@ -121,7 +122,15 @@ export const useGameLogic = () => {
         console.error("Failed to parse history", e);
       }
     }
+    
+    // Load global ranking
+    loadGlobalRanking();
   }, []);
+
+  const loadGlobalRanking = async () => {
+    const ranking = await fetchGlobalRanking();
+    setGlobalRanking(ranking);
+  };
 
   const triggerComicCutIn = (clickX?: number, clickY?: number) => {
     const comicWords = ["WHOOSH!", "SWISH!", "NICE!", "WOW!", "ZOOM!", "YEAH!", "DODGE!"];
@@ -187,7 +196,7 @@ export const useGameLogic = () => {
     nextProjectileTime.current = 5 + Math.random() * 5;
   };
 
-  const handleGameOver = () => {
+  const handleGameOver = async () => {
     const now = new Date();
     const formattedDate = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
     const isoDate = now.toISOString();
@@ -208,9 +217,15 @@ export const useGameLogic = () => {
     
     setLastGameDate(isoDate); 
     
+    // Save locally
     const newHistory = [newEntry, ...history].slice(0, 100); 
     setHistory(newHistory);
     localStorage.setItem('chihuahua_history', JSON.stringify(newHistory));
+
+    // Save to server (Fire and forget, but reload ranking after)
+    saveScoreToSupabase(newEntry).then(() => {
+       loadGlobalRanking();
+    });
 
     setGameState(GameState.CAUGHT_ANIMATION);
     setTimeout(() => {
@@ -467,12 +482,19 @@ export const useGameLogic = () => {
     }
   }
 
+  // Reload ranking when showing ranking screen
+  useEffect(() => {
+    if (gameState === GameState.RANKING) {
+        loadGlobalRanking();
+    }
+  }, [gameState]);
+
   return {
     gameState, setGameState,
     speed, setSpeed,
     dayTime, setDayTime,
     score, distance, lives, combo,
-    history, lastGameDate, farcasterUser, walletAddress,
+    history, globalRanking, lastGameDate, farcasterUser, walletAddress,
     bossType, bossLevel, bossHits, isBossDefeated,
     hazardActive, obstacleProgress, obstacleType, hazardPosition, setObstacleProgress,
     projectileActive, projectileProgress, projectileType, projectileStartZ, setProjectileProgress,

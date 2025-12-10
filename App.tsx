@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Overlay } from './components/Overlay';
@@ -12,7 +11,7 @@ const App: React.FC = () => {
     gameState, speed, dayTime, score, distance, lives, combo,
     hazardActive, hazardPosition, projectileActive, 
     isDodgeQueued, obstacleProgress, isDuckQueued, projectileProgress, projectileStartZ, bossLevel,
-    history, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
+    history, globalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
     startGame, setGameState, handleDodge, handleDuck, clearHistory,
     connectWallet, disconnectWallet
   } = gameLogic;
@@ -55,6 +54,7 @@ const App: React.FC = () => {
         projectileActive={projectileActive}
         showDuckButton={showDuckButton}
         history={history}
+        globalRanking={globalRanking}
         lastGameDate={lastGameDate}
         isHit={isHit}
         dodgeCutIn={dodgeCutIn}

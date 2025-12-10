@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { GameState, ScoreEntry } from '../types';
 import { TitleScreen } from './overlay/TitleScreen';
@@ -21,6 +20,7 @@ interface OverlayProps {
   projectileActive: boolean;
   showDuckButton: boolean;
   history: ScoreEntry[];
+  globalRanking: ScoreEntry[];
   lastGameDate: string | null;
   isHit: boolean;
   dodgeCutIn: { id: number; text: string; x: number; y: number } | null;
@@ -53,6 +53,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   projectileActive,
   showDuckButton,
   history,
+  globalRanking,
   lastGameDate,
   isHit,
   dodgeCutIn,
@@ -70,12 +71,18 @@ export const Overlay: React.FC<OverlayProps> = ({
   onConnectWallet,
   onDisconnectWallet,
 }) => {
-  // Memoize sorted top scores
-  const topScores = useMemo(() => {
+  // Memoize top scores from LOCAL history for Game Over / History comparison
+  const localTopScores = useMemo(() => {
+    return [...history].sort((a, b) => b.score - a.score);
+  }, [history]);
+
+  // Process GLOBAL ranking for deduplication if needed, though server typically handles basic sorting.
+  // We'll use client side deduplication logic here on the fetched global data to ensure one score per user.
+  const uniqueGlobalRanking = useMemo(() => {
     const uniqueMap = new Map<string, ScoreEntry>();
     const anonymousEntries: ScoreEntry[] = [];
 
-    history.forEach((entry) => {
+    globalRanking.forEach((entry) => {
       let key = null;
       if (entry.farcasterUser && entry.farcasterUser.username) {
         key = `fc:${entry.farcasterUser.username}`;
@@ -94,13 +101,10 @@ export const Overlay: React.FC<OverlayProps> = ({
     });
 
     const uniqueEntries = Array.from(uniqueMap.values());
-    // Only sort and return unique users (plus anonymous if needed, but usually ranking shows best users)
-    // If we want a global ranking of unique users, we combine them. 
-    // Anonymous entries might be the same user playing multiple times, so maybe exclude them or limit them?
-    // For now, let's include anonymous entries but they won't be deduplicated against each other.
+    // Combine unique users and anonymous, then sort by score
     const allEntries = [...uniqueEntries, ...anonymousEntries];
     return allEntries.sort((a, b) => b.score - a.score);
-  }, [history]);
+  }, [globalRanking]);
 
   // Title Screen
   if (gameState === GameState.TITLE) {
@@ -122,17 +126,17 @@ export const Overlay: React.FC<OverlayProps> = ({
     return <HistoryScreen history={history} onClearHistory={onClearHistory} onHideHistory={onHideHistory} />;
   }
 
-  // Ranking Screen
+  // Ranking Screen - USE GLOBAL DATA
   if (gameState === GameState.RANKING) {
-    return <RankingScreen topScores={topScores} onHideHistory={onHideHistory} />;
+    return <RankingScreen topScores={uniqueGlobalRanking} onHideHistory={onHideHistory} />;
   }
 
-  // Game Over Screen
+  // Game Over Screen - Use Local Top Scores for comparison
   if (gameState === GameState.GAME_OVER) {
     return (
       <GameOverScreen
         score={score}
-        topScores={topScores}
+        topScores={localTopScores}
         lastGameDate={lastGameDate}
         farcasterUser={farcasterUser}
         walletAddress={walletAddress}
