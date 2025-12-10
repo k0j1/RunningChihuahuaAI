@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 
 export const TitleBackground: React.FC = () => {
@@ -12,153 +13,102 @@ export const TitleBackground: React.FC = () => {
 
     let width: number;
     let height: number;
-    let particles: Particle[] = [];
-    let field: Vector[][] = [];
-    const columns = 50;
-    const rows = 50;
+    let cx: number;
+    let cy: number;
+    let stars: Star[] = [];
     let animationFrameId: number;
 
-    // Vector Helper
-    class Vector {
+    const numStars = 400;
+    const speed = 25; // Warp speed constant
+
+    class Star {
       x: number;
       y: number;
-      constructor(x: number, y: number) {
-        this.x = x;
-        this.y = y;
-      }
-      add(v: Vector) {
-        this.x += v.x;
-        this.y += v.y;
-      }
-    }
-
-    // Particle Class
-    class Particle {
-      pos: Vector;
-      vel: Vector;
-      acc: Vector;
-      maxSpeed: number;
+      z: number;
+      pz: number; // Previous Z for trails
       color: string;
-      prevPos: Vector;
 
-      constructor(w: number, h: number) {
-        this.pos = new Vector(Math.random() * w, Math.random() * h);
-        this.prevPos = new Vector(this.pos.x, this.pos.y);
-        this.vel = new Vector(0, 0);
-        this.acc = new Vector(0, 0);
-        this.maxSpeed = 2 + Math.random() * 2;
+      constructor() {
+        this.x = (Math.random() - 0.5) * width * 3; // Spread wider than screen to avoid empty center gap
+        this.y = (Math.random() - 0.5) * height * 3;
+        this.z = Math.random() * width; // Random depth
+        this.pz = this.z;
         
-        // Colors matching the game theme (Yellow/Orange/Red/Blue)
-        const colors = ['#FFD700', '#FF4500', '#1E90FF', '#00CED1', '#FF69B4'];
+        // Colors: White, Cyan, Blue for Sci-Fi feel
+        const colors = ['#FFFFFF', '#E0F7FA', '#80DEEA', '#4DD0E1', '#00BCD4'];
         this.color = colors[Math.floor(Math.random() * colors.length)];
       }
 
-      follow(vectors: Vector[][], cols: number, rows: number, w: number, h: number) {
-        const x = Math.floor(this.pos.x / (w / cols));
-        const y = Math.floor(this.pos.y / (h / rows));
-        
-        if (x >= 0 && x < cols && y >= 0 && y < rows) {
-          const force = vectors[x][y];
-          this.applyForce(force);
-        }
-      }
-
-      applyForce(force: Vector) {
-        this.acc.x += force.x;
-        this.acc.y += force.y;
-      }
-
       update() {
-        this.prevPos.x = this.pos.x;
-        this.prevPos.y = this.pos.y;
-
-        this.vel.add(this.acc);
+        // Move star closer
+        this.z = this.z - speed;
         
-        // Limit speed
-        const mag = Math.sqrt(this.vel.x * this.vel.x + this.vel.y * this.vel.y);
-        if (mag > this.maxSpeed) {
-          this.vel.x = (this.vel.x / mag) * this.maxSpeed;
-          this.vel.y = (this.vel.y / mag) * this.maxSpeed;
+        // If star passes camera, reset to back
+        if (this.z < 1) {
+          this.z = width;
+          this.x = (Math.random() - 0.5) * width * 3;
+          this.y = (Math.random() - 0.5) * height * 3;
+          this.pz = this.z;
         }
-
-        this.pos.add(this.vel);
-        this.acc.x = 0;
-        this.acc.y = 0;
       }
 
-      edges(w: number, h: number) {
-        if (this.pos.x > w) { this.pos.x = 0; this.prevPos.x = 0; }
-        if (this.pos.x < 0) { this.pos.x = w; this.prevPos.x = w; }
-        if (this.pos.y > h) { this.pos.y = 0; this.prevPos.y = 0; }
-        if (this.pos.y < 0) { this.pos.y = h; this.prevPos.y = h; }
-      }
+      show() {
+        if (!ctx) return;
 
-      show(ctx: CanvasRenderingContext2D) {
+        // Perspective projection: x' = x / z
+        const sx = (this.x / this.z) * width + cx;
+        const sy = (this.y / this.z) * height + cy;
+
+        // Previous position for trail calculation
+        const px = (this.x / this.pz) * width + cx;
+        const py = (this.y / this.pz) * height + cy;
+
+        // Update previous Z for next frame
+        this.pz = this.z;
+
+        // Don't draw if weirdly out of bounds or calculation glitch
+        if (this.z >= width) return;
+
+        // Calculate visual properties
+        const radius = (1 - this.z / width) * 3; // Larger when closer
+        const opacity = (1 - this.z / width);
+
+        // Draw the streak
         ctx.beginPath();
-        ctx.moveTo(this.prevPos.x, this.prevPos.y);
-        ctx.lineTo(this.pos.x, this.pos.y);
+        ctx.moveTo(px, py);
+        ctx.lineTo(sx, sy);
+        
         ctx.strokeStyle = this.color;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Math.max(0.5, radius); // Ensure visible
+        ctx.lineCap = 'round';
+        ctx.globalAlpha = opacity;
         ctx.stroke();
+        ctx.globalAlpha = 1.0;
       }
     }
-
-    // Noise function (Simple pseudo-random noise)
-    const noise = (x: number, y: number) => {
-      const sin = Math.sin(x * 0.1 + y * 0.1);
-      const cos = Math.cos(x * 0.05 - y * 0.05);
-      return (sin + cos) * Math.PI * 2;
-    };
 
     const init = () => {
       width = window.innerWidth;
       height = window.innerHeight;
+      cx = width / 2;
+      cy = height / 2;
       canvas.width = width;
       canvas.height = height;
 
-      // Initialize Field
-      field = [];
-      for (let x = 0; x < columns; x++) {
-        field[x] = [];
-        for (let y = 0; y < rows; y++) {
-          const angle = noise(x, y);
-          // Create vector from angle
-          const v = new Vector(Math.cos(angle) * 0.5, Math.sin(angle) * 0.5); // 0.5 magnitude
-          field[x][y] = v;
-        }
+      stars = [];
+      for (let i = 0; i < numStars; i++) {
+        stars.push(new Star());
       }
-
-      // Initialize Particles
-      particles = [];
-      const particleCount = width < 768 ? 300 : 800; // Less particles on mobile
-      for (let i = 0; i < particleCount; i++) {
-        particles.push(new Particle(width, height));
-      }
-
-      // Fill background black initially
-      ctx.fillStyle = '#111827'; // Tailwind gray-900
-      ctx.fillRect(0, 0, width, height);
     };
 
     const animate = () => {
-      // Trail effect: Draw semi-transparent rect to fade previous frames
-      ctx.fillStyle = 'rgba(17, 24, 39, 0.1)'; // Gray-900 with alpha
+      // Clear screen
+      ctx.fillStyle = '#111827'; // Match app theme background (Gray-900)
       ctx.fillRect(0, 0, width, height);
 
-      // Time evolution for field (slowly changing noise)
-      const time = Date.now() * 0.0002;
-      for (let x = 0; x < columns; x++) {
-        for (let y = 0; y < rows; y++) {
-          const angle = noise(x + time, y + time);
-          field[x][y] = new Vector(Math.cos(angle) * 0.1, Math.sin(angle) * 0.1);
-        }
-      }
-
-      particles.forEach(p => {
-        p.follow(field, columns, rows, width, height);
-        p.update();
-        p.edges(width, height);
-        p.show(ctx);
+      stars.forEach(star => {
+        star.update();
+        star.show();
       });
 
       animationFrameId = requestAnimationFrame(animate);
@@ -179,5 +129,5 @@ export const TitleBackground: React.FC = () => {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-0 opacity-80" />;
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-0" />;
 };
