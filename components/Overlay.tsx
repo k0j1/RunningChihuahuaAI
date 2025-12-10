@@ -1,10 +1,12 @@
+
 import React, { useMemo } from 'react';
-import { GameState, ScoreEntry } from '../types';
+import { GameState, ScoreEntry } from '../../types';
 import { TitleScreen } from './overlay/TitleScreen';
 import { HistoryScreen } from './overlay/HistoryScreen';
 import { RankingScreen } from './overlay/RankingScreen';
 import { GameOverScreen } from './overlay/GameOverScreen';
 import { GameHUD } from './overlay/GameHUD';
+import { RankedEntry } from './overlay/RankingList';
 
 interface OverlayProps {
   gameState: GameState;
@@ -71,13 +73,19 @@ export const Overlay: React.FC<OverlayProps> = ({
   onConnectWallet,
   onDisconnectWallet,
 }) => {
-  // Memoize top scores from LOCAL history for Game Over / History comparison
+  // Memoize top scores from LOCAL history for comparison
   const localTopScores = useMemo(() => {
     return [...history].sort((a, b) => b.score - a.score);
   }, [history]);
 
-  // Process GLOBAL ranking for deduplication if needed, though server typically handles basic sorting.
-  // We'll use client side deduplication logic here on the fetched global data to ensure one score per user.
+  // Determine if the current run is a new local record
+  const isNewRecord = useMemo(() => {
+    if (!lastGameDate || localTopScores.length === 0) return false;
+    // Since localTopScores includes the current run, if index 0 matches current date, it's the best.
+    return localTopScores[0].date === lastGameDate;
+  }, [localTopScores, lastGameDate]);
+
+  // Process GLOBAL ranking for deduplication and sorting
   const uniqueGlobalRanking = useMemo(() => {
     const uniqueMap = new Map<string, ScoreEntry>();
     const anonymousEntries: ScoreEntry[] = [];
@@ -96,15 +104,44 @@ export const Overlay: React.FC<OverlayProps> = ({
           uniqueMap.set(key, entry);
         }
       } else {
-        anonymousEntries.push(entry);
+        anonymousEntries.push(entry); // Keep all anon entries separately or filter them? Keeping for now.
       }
     });
 
     const uniqueEntries = Array.from(uniqueMap.values());
-    // Combine unique users and anonymous, then sort by score
     const allEntries = [...uniqueEntries, ...anonymousEntries];
     return allEntries.sort((a, b) => b.score - a.score);
   }, [globalRanking]);
+
+  // Identify current user's best entry in the global ranking
+  const userBestInfo = useMemo((): RankedEntry | null => {
+    let key = null;
+    if (farcasterUser && farcasterUser.username) {
+      key = `fc:${farcasterUser.username}`;
+    } else if (walletAddress) {
+      key = `wa:${walletAddress}`;
+    }
+
+    if (!key) return null;
+
+    const idx = uniqueGlobalRanking.findIndex(entry => {
+      if (key?.startsWith('fc:') && entry.farcasterUser?.username) {
+        return `fc:${entry.farcasterUser.username}` === key;
+      }
+      if (key?.startsWith('wa:') && entry.walletAddress) {
+        return `wa:${entry.walletAddress}` === key;
+      }
+      return false;
+    });
+
+    if (idx !== -1) {
+      return {
+        entry: uniqueGlobalRanking[idx],
+        rank: idx + 1
+      };
+    }
+    return null;
+  }, [uniqueGlobalRanking, farcasterUser, walletAddress]);
 
   // Title Screen
   if (gameState === GameState.TITLE) {
@@ -126,17 +163,20 @@ export const Overlay: React.FC<OverlayProps> = ({
     return <HistoryScreen history={history} onClearHistory={onClearHistory} onHideHistory={onHideHistory} />;
   }
 
-  // Ranking Screen - USE GLOBAL DATA
+  // Ranking Screen
   if (gameState === GameState.RANKING) {
     return <RankingScreen topScores={uniqueGlobalRanking} onHideHistory={onHideHistory} />;
   }
 
-  // Game Over Screen - Use Local Top Scores for comparison
+  // Game Over Screen
   if (gameState === GameState.GAME_OVER) {
     return (
       <GameOverScreen
         score={score}
-        topScores={localTopScores}
+        ranking={uniqueGlobalRanking}
+        userBestEntry={userBestInfo}
+        recentHistory={history.slice(0, 5)}
+        isNewRecord={isNewRecord}
         lastGameDate={lastGameDate}
         farcasterUser={farcasterUser}
         walletAddress={walletAddress}
