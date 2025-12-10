@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { GameState, ScoreEntry } from '../../types';
+import { GameState, ScoreEntry } from '../types';
 import { TitleScreen } from './overlay/TitleScreen';
 import { HistoryScreen } from './overlay/HistoryScreen';
 import { RankingScreen } from './overlay/RankingScreen';
