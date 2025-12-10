@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export enum GameState {
@@ -8,6 +7,7 @@ export enum GameState {
   IDLE = 'IDLE',
   RUNNING = 'RUNNING',
   PAUSED = 'PAUSED',
+  CAUGHT_ANIMATION = 'CAUGHT_ANIMATION',
   GAME_OVER = 'GAME_OVER'
 }
 
@@ -48,6 +48,13 @@ export interface ScoreEntry {
   formattedDate: string; // Readable string with time
   score: number;
   distance: number;
+  farcasterUser?: {
+    fid?: number;
+    username?: string;
+    displayName?: string;
+    pfpUrl?: string;
+  };
+  walletAddress?: string;
 }
 
 export interface DogThought {
@@ -57,38 +64,9 @@ export interface DogThought {
 
 // Global JSX definitions for React Three Fiber elements to fix TypeScript errors
 declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      group: any;
-      mesh: any;
-      primitive: any;
-      ambientLight: any;
-      directionalLight: any;
-      pointLight: any;
-      spotLight: any;
-      orthographicCamera: any;
-      perspectiveCamera: any;
-      boxGeometry: any;
-      planeGeometry: any;
-      sphereGeometry: any;
-      coneGeometry: any;
-      cylinderGeometry: any;
-      dodecahedronGeometry: any;
-      capsuleGeometry: any;
-      torusGeometry: any;
-      ringGeometry: any;
-      circleGeometry: any;
-      meshStandardMaterial: any;
-      meshBasicMaterial: any;
-      meshPhongMaterial: any;
-      fog: any;
-      color: any;
-      [elemName: string]: any;
-    }
+  interface Window {
+    ethereum?: any;
   }
-}
-
-declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {
       group: any;

@@ -1,3 +1,4 @@
+
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group, Mesh } from 'three';
@@ -9,9 +10,10 @@ interface ChihuahuaProps {
   isDodging: boolean;
   dodgeType: DodgeType;
   isHit: boolean;
+  isDefeated?: boolean;
 }
 
-export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodging, dodgeType, isHit }) => {
+export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodging, dodgeType, isHit, isDefeated }) => {
   const group = useRef<Group>(null);
   
   // Refs for animated parts
@@ -30,6 +32,16 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
       group.current.visible = Math.floor(state.clock.elapsedTime * 20) % 2 === 0;
     } else {
       group.current.visible = true;
+    }
+
+    if (isDefeated) {
+        // Fall over animation
+        // Rotate Z to PI/2 (90 deg) to lie on side
+        group.current.rotation.z += (Math.PI / 2 - group.current.rotation.z) * 0.1;
+        // Move Y down to ground level (adjusting for body thickness)
+        group.current.position.y += (0.2 - group.current.position.y) * 0.1;
+        // Stop running motion
+        return;
     }
 
     if (isRunning) {

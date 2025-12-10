@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@farcaster/frame-sdk": "^0.0.12",
     "@google/genai": "*",
     "@react-three/drei": "^9.100.0",
     "@react-three/fiber": "^8.16.0",

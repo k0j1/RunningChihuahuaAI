@@ -1,3 +1,4 @@
+
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group, Mesh } from 'three';
@@ -8,11 +9,12 @@ interface GorillaProps {
   lives: number; // 3 = Far, 0 = Caught. Can be float.
   isHit?: boolean;
   isThrowing?: boolean;
+  isDrumming?: boolean;
   level: number;
   isDefeated: boolean;
 }
 
-export const Gorilla: React.FC<GorillaProps> = ({ speed, isRunning, lives, isHit, isThrowing, level, isDefeated }) => {
+export const Gorilla: React.FC<GorillaProps> = ({ speed, isRunning, lives, isHit, isThrowing, isDrumming, level, isDefeated }) => {
   const group = useRef<Group>(null);
   
   // Refs for animated parts
@@ -48,6 +50,36 @@ export const Gorilla: React.FC<GorillaProps> = ({ speed, isRunning, lives, isHit
     } else {
       // Reset rotation X if not defeated
       group.current.rotation.x = 0;
+    }
+
+    // Drumming Animation (Caught)
+    if (isDrumming) {
+      // Move closer slightly to be visible
+      group.current.position.z += (2 - group.current.position.z) * 0.1;
+      
+      const t = state.clock.elapsedTime * 20; // Fast drumming
+      
+      // Body Rock
+      group.current.rotation.z = Math.sin(t * 0.5) * 0.1;
+      group.current.position.y = Math.abs(Math.sin(t * 0.5)) * 0.1;
+
+      // Arms Beating Chest
+      if (armLRef.current) {
+        armLRef.current.rotation.x = Math.PI - 0.5 + Math.sin(t) * 0.5;
+        armLRef.current.rotation.z = -0.5;
+        armLRef.current.position.y = 1.0;
+      }
+      if (armRRef.current) {
+        armRRef.current.rotation.x = Math.PI - 0.5 + Math.cos(t) * 0.5; // Offset phase
+        armRRef.current.rotation.z = 0.5;
+        armRRef.current.position.y = 1.0;
+      }
+      
+      // Roaring Head
+      if (headRef.current) {
+         headRef.current.rotation.x = -0.5 + Math.sin(t * 0.2) * 0.1; // Look up
+      }
+      return;
     }
 
     // Smoothly interpolate position Z (Lower lerp factor for smoothness)
