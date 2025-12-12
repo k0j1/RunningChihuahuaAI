@@ -69,6 +69,15 @@ declare global {
   }
   namespace JSX {
     interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
+
+// Augment React's JSX namespace for React 18+ compatibility
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
       group: any;
       mesh: any;
       primitive: any;
