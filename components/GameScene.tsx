@@ -1,6 +1,6 @@
 
 import React, { Suspense } from 'react';
-import { Sky, Environment, SoftShadows, OrbitControls } from '@react-three/drei';
+import { Sky, Environment, OrbitControls } from '@react-three/drei';
 import { Chihuahua } from './Chihuahua';
 import { Gorilla } from './Gorilla';
 import { Cheetah } from './Cheetah';
@@ -60,8 +60,6 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
         />
         { !dayTime && <Environment preset="night" /> }
         
-        <SoftShadows size={10} samples={16} />
-
         <Chihuahua 
           speed={gameState === GameState.RUNNING ? speed : 0} 
           isRunning={gameState === GameState.RUNNING}

@@ -85,6 +85,17 @@ export const Overlay: React.FC<OverlayProps> = ({
     return localTopScores[0].date === lastGameDate;
   }, [localTopScores, lastGameDate]);
 
+  // Find the recorded score for the current game to ensure consistency
+  // This prevents the "Your Score" display from differing from the history log
+  const currentRunEntry = useMemo(() => {
+    return history.find(entry => entry.date === lastGameDate);
+  }, [history, lastGameDate]);
+
+  // Use the recorded score for Game Over display, fallback to state score if not found
+  const displayScore = (gameState === GameState.GAME_OVER && currentRunEntry) 
+    ? currentRunEntry.score 
+    : score;
+
   // Process GLOBAL ranking for deduplication and sorting
   const uniqueGlobalRanking = useMemo(() => {
     const uniqueMap = new Map<string, ScoreEntry>();
@@ -104,7 +115,7 @@ export const Overlay: React.FC<OverlayProps> = ({
           uniqueMap.set(key, entry);
         }
       } else {
-        anonymousEntries.push(entry); // Keep all anon entries separately or filter them? Keeping for now.
+        anonymousEntries.push(entry); 
       }
     });
 
@@ -172,7 +183,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   if (gameState === GameState.GAME_OVER) {
     return (
       <GameOverScreen
-        score={score}
+        score={displayScore}
         ranking={uniqueGlobalRanking}
         userBestEntry={userBestInfo}
         recentHistory={history.slice(0, 5)}
