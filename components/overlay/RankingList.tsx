@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Crown } from 'lucide-react';
 import { ScoreEntry } from '../../types';
@@ -15,6 +14,7 @@ interface RankingListProps {
   showHeader?: boolean;
   showRank?: boolean;
   title?: string;
+  isTotalMode?: boolean;
 }
 
 export const RankingList: React.FC<RankingListProps> = ({ 
@@ -23,7 +23,8 @@ export const RankingList: React.FC<RankingListProps> = ({
   emptyMessage = "No records yet.",
   showHeader = true,
   showRank = true,
-  title
+  title,
+  isTotalMode = false
 }) => {
   if (items.length === 0) {
     return (
@@ -44,8 +45,8 @@ export const RankingList: React.FC<RankingListProps> = ({
               <tr>
                 {showRank && <th className="py-2 pl-2 w-10">Rank</th>}
                 <th className="py-2 pl-2">User</th>
-                <th className="py-2 hidden md:table-cell">Dist.</th>
-                <th className="py-2 text-right pr-2">Score</th>
+                <th className="py-2 hidden md:table-cell">{isTotalMode ? 'Total Dist.' : 'Dist.'}</th>
+                <th className="py-2 text-right pr-2">{isTotalMode ? 'Total Score' : 'Score'}</th>
               </tr>
             </thead>
           )}
@@ -95,9 +96,9 @@ export const RankingList: React.FC<RankingListProps> = ({
                       </div>
                     </div>
                   </td>
-                  <td className="py-1.5 hidden md:table-cell text-xs text-gray-600 font-mono whitespace-nowrap">{entry.distance}m</td>
+                  <td className="py-1.5 hidden md:table-cell text-xs text-gray-600 font-mono whitespace-nowrap">{entry.distance.toLocaleString()}m</td>
                   <td className={`py-1.5 pr-2 text-sm font-black text-right font-mono ${isCurrent ? 'text-red-600' : 'text-yellow-700'}`}>
-                    {entry.score}
+                    {entry.score.toLocaleString()}
                   </td>
                 </tr>
               );

@@ -1,13 +1,13 @@
-
-import React from 'react';
-import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star } from 'lucide-react';
-import { ScoreEntry } from '../../types';
+import React, { useState, useMemo } from 'react';
+import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Ruler, Trophy } from 'lucide-react';
+import { ScoreEntry, PlayerStats } from '../../types';
 import { WalletWidget } from './WalletWidget';
 import { RankingList, RankedEntry } from './RankingList';
 
 interface GameOverScreenProps {
   score: number;
   ranking: ScoreEntry[];
+  totalRanking: PlayerStats[];
   userBestEntry: RankedEntry | null;
   recentHistory: ScoreEntry[];
   isNewRecord: boolean;
@@ -20,9 +20,12 @@ interface GameOverScreenProps {
   onDisconnectWallet: () => void;
 }
 
+type RankingTab = 'HIGH_SCORE' | 'TOTAL_SCORE' | 'TOTAL_DIST';
+
 export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   score,
   ranking,
+  totalRanking,
   userBestEntry,
   recentHistory,
   isNewRecord,
@@ -34,20 +37,68 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   onConnectWallet,
   onDisconnectWallet,
 }) => {
-  // Top 10 for Global Ranking display
-  const top10 = ranking.slice(0, 10).map((entry, index) => ({
+  const [activeTab, setActiveTab] = useState<RankingTab>('HIGH_SCORE');
+
+  // Top 10 for Global Ranking display (High Scores)
+  const top10HighScores = useMemo(() => ranking.slice(0, 10).map((entry, index) => ({
     entry,
     rank: index + 1
-  }));
+  })), [ranking]);
 
-  // Check if current run is inside Top 10
-  const isRankIn = top10.some(item => item.entry.date === lastGameDate);
+  // Top 10 for Total Scores
+  const top10TotalScores = useMemo(() => {
+    return [...totalRanking]
+      .sort((a, b) => b.totalScore - a.totalScore)
+      .slice(0, 10)
+      .map((stat, index) => ({
+        entry: {
+          date: stat.lastActive,
+          formattedDate: 'Total',
+          score: stat.totalScore,
+          distance: stat.totalDistance,
+          farcasterUser: stat.farcasterUser,
+          walletAddress: stat.walletAddress
+        } as ScoreEntry,
+        rank: index + 1
+      }));
+  }, [totalRanking]);
 
-  // Map Recent History for display (Rank is just index+1 visually, or we can hide it)
+  // Top 10 for Total Distance
+  const top10TotalDist = useMemo(() => {
+    return [...totalRanking]
+      .sort((a, b) => b.totalDistance - a.totalDistance)
+      .slice(0, 10)
+      .map((stat, index) => ({
+        entry: {
+          date: stat.lastActive,
+          formattedDate: 'Total',
+          score: stat.totalScore, 
+          distance: stat.totalDistance,
+          farcasterUser: stat.farcasterUser,
+          walletAddress: stat.walletAddress
+        } as ScoreEntry,
+        rank: index + 1
+      }));
+  }, [totalRanking]);
+
+  // Check if current run is inside Top 10 High Scores
+  const isRankIn = top10HighScores.some(item => item.entry.date === lastGameDate);
+
+  // Map Recent History for display
   const historyItems = recentHistory.map((entry, index) => ({
     entry,
     rank: index + 1
   }));
+
+  // Determine which list to show based on tab
+  const activeList = useMemo(() => {
+    switch (activeTab) {
+      case 'TOTAL_SCORE': return top10TotalScores;
+      case 'TOTAL_DIST': return top10TotalDist;
+      case 'HIGH_SCORE':
+      default: return top10HighScores;
+    }
+  }, [activeTab, top10HighScores, top10TotalScores, top10TotalDist]);
 
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-start bg-red-900/90 backdrop-blur-md z-50 p-4 pt-12 overflow-y-auto">
@@ -78,7 +129,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
 
         {/* Current Score */}
         <div className="bg-gray-900 rounded-xl p-3 border-2 border-yellow-500 mb-4 shadow-xl text-center relative overflow-hidden">
-           {isRankIn && (
+           {isRankIn && activeTab === 'HIGH_SCORE' && (
              <div className="absolute top-0 right-0 bg-yellow-500 text-red-900 text-xs font-black px-2 py-1 animate-pulse">
                RANK IN!
              </div>
@@ -91,7 +142,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
 
         <div className="space-y-4">
           
-          {/* Section 1: Self Best */}
+          {/* Section 1: Self Best (Always show personal best high score for reference) */}
           {userBestEntry && (
             <div className="bg-blue-50/80 rounded-xl p-3 border border-blue-200">
                <div className="flex items-center gap-2 mb-2">
@@ -107,16 +158,46 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
             </div>
           )}
 
-          {/* Section 2: Global Top 10 */}
+          {/* Section 2: Global Ranking Tabs */}
           <div className="bg-yellow-50/80 rounded-xl p-3 border border-yellow-200">
-             <div className="flex items-center gap-2 mb-2">
-               <Globe size={16} className="text-yellow-600" />
-               <h3 className="text-xs font-bold text-yellow-700 uppercase">Global Top 10</h3>
+             <div className="flex items-center justify-between gap-2 mb-3">
+               <div className="flex items-center gap-2">
+                 <Globe size={16} className="text-yellow-600" />
+                 <h3 className="text-xs font-bold text-yellow-700 uppercase">Global Leaderboard</h3>
+               </div>
              </div>
+
+             {/* Tabs */}
+             <div className="flex bg-yellow-200/50 p-1 rounded-lg mb-2">
+               <button
+                 onClick={() => setActiveTab('HIGH_SCORE')}
+                 className={`flex-1 py-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${activeTab === 'HIGH_SCORE' ? 'bg-white text-yellow-700 shadow-sm' : 'text-yellow-700/60 hover:text-yellow-700'}`}
+               >
+                 <Trophy size={12} /> High Score
+               </button>
+               <button
+                 onClick={() => setActiveTab('TOTAL_SCORE')}
+                 className={`flex-1 py-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${activeTab === 'TOTAL_SCORE' ? 'bg-white text-blue-600 shadow-sm' : 'text-blue-600/60 hover:text-blue-600'}`}
+               >
+                 <BarChart3 size={12} /> Total Score
+               </button>
+               <button
+                 onClick={() => setActiveTab('TOTAL_DIST')}
+                 className={`flex-1 py-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${activeTab === 'TOTAL_DIST' ? 'bg-white text-green-600 shadow-sm' : 'text-green-600/60 hover:text-green-600'}`}
+               >
+                 <Ruler size={12} /> Total Dist.
+               </button>
+             </div>
+
              <RankingList 
-                items={top10} 
-                highlightDate={lastGameDate} 
-                showHeader={true} 
+                items={activeList} 
+                highlightDate={activeTab === 'HIGH_SCORE' ? lastGameDate : null} 
+                showHeader={true}
+                isTotalMode={activeTab !== 'HIGH_SCORE'}
+                title={
+                  activeTab === 'HIGH_SCORE' ? "Top 10 Runs" : 
+                  activeTab === 'TOTAL_SCORE' ? "Top 10 Cumulative Score" : "Top 10 Cumulative Distance"
+                }
               />
           </div>
 

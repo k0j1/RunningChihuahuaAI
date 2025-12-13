@@ -57,6 +57,25 @@ export interface ScoreEntry {
   walletAddress?: string;
 }
 
+export interface PlayerStats {
+  id: string; // Unique key (username or wallet)
+  farcasterUser?: {
+    username?: string;
+    displayName?: string;
+    pfpUrl?: string;
+  };
+  walletAddress?: string;
+  totalScore: number;
+  totalDistance: number;
+  runCount: number;
+  lastActive: string;
+}
+
+export enum RankingMode {
+  HIGH_SCORE = 'HIGH_SCORE',
+  TOTAL_STATS = 'TOTAL_STATS'
+}
+
 export interface DogThought {
   text: string;
   emotion: string;
@@ -69,12 +88,36 @@ declare global {
   }
   namespace JSX {
     interface IntrinsicElements {
+      group: any;
+      mesh: any;
+      primitive: any;
+      ambientLight: any;
+      directionalLight: any;
+      pointLight: any;
+      spotLight: any;
+      orthographicCamera: any;
+      perspectiveCamera: any;
+      boxGeometry: any;
+      planeGeometry: any;
+      sphereGeometry: any;
+      coneGeometry: any;
+      cylinderGeometry: any;
+      dodecahedronGeometry: any;
+      capsuleGeometry: any;
+      torusGeometry: any;
+      ringGeometry: any;
+      circleGeometry: any;
+      meshStandardMaterial: any;
+      meshBasicMaterial: any;
+      meshPhongMaterial: any;
+      fog: any;
+      color: any;
       [elemName: string]: any;
     }
   }
 }
 
-// Augment React's JSX namespace for React 18+ compatibility
+// Augment React module specifically to ensure compatibility
 declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {

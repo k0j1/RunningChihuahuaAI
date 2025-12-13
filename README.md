@@ -38,7 +38,7 @@ The Chihuahua runs automatically. Your goal is to survive as long as possible wh
 
 ## 🏆 Features
 
-*   **Global Ranking**: Compete with players worldwide. Scores are saved automatically.
+*   **Global Ranking**: Compete with players worldwide. Scores are saved automatically to Supabase.
 *   **Farcaster Integration**: Play within a Farcaster Frame to see your profile picture and username on the leaderboard.
 *   **Wallet Connection**: Connect your Ethereum wallet to link your score to your address.
 *   **Dynamic World**: Day and night cycles change as you run.
@@ -53,12 +53,21 @@ To run this project locally:
     npm install
     ```
 
-2.  **Start the development server**:
+2.  **Set up Supabase**:
+    *   Create a project on [Supabase](https://supabase.com).
+    *   Run the SQL commands below in the Supabase SQL Editor.
+    *   Create a `.env` file in the root directory (or set environment variables):
+        ```
+        VITE_SUPABASE_URL=your_supabase_project_url
+        VITE_SUPABASE_KEY=your_supabase_anon_key
+        ```
+
+3.  **Start the development server**:
     ```bash
     npm run dev
     ```
 
-3.  **Build for production**:
+4.  **Build for production**:
     ```bash
     npm run build
     ```

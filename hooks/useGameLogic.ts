@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import sdk from '@farcaster/frame-sdk';
-import { GameState, ScoreEntry, ObstacleType, DodgeType, ProjectileType, BossType } from '../types';
-import { fetchGlobalRanking, saveScoreToSupabase } from '../services/supabase';
+import { GameState, ScoreEntry, ObstacleType, DodgeType, ProjectileType, BossType, PlayerStats } from '../types';
+import { fetchGlobalRanking, fetchTotalRanking, saveScoreToSupabase } from '../services/supabase';
 
 export const useGameLogic = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
@@ -14,7 +14,8 @@ export const useGameLogic = () => {
   const [lives, setLives] = useState(3);
   const [combo, setCombo] = useState(0);
   const [history, setHistory] = useState<ScoreEntry[]>([]);
-  const [globalRanking, setGlobalRanking] = useState<ScoreEntry[]>([]); // Server ranking
+  const [globalRanking, setGlobalRanking] = useState<ScoreEntry[]>([]); // Single Run High Scores
+  const [totalRanking, setTotalRanking] = useState<PlayerStats[]>([]); // Cumulative Stats
   const [lastGameDate, setLastGameDate] = useState<string | null>(null);
 
   // User Context (Farcaster & Wallet)
@@ -123,13 +124,15 @@ export const useGameLogic = () => {
       }
     }
     
-    // Load global ranking
-    loadGlobalRanking();
+    // Load global rankings
+    loadRankings();
   }, []);
 
-  const loadGlobalRanking = async () => {
+  const loadRankings = async () => {
     const ranking = await fetchGlobalRanking();
     setGlobalRanking(ranking);
+    const totals = await fetchTotalRanking();
+    setTotalRanking(totals);
   };
 
   const triggerComicCutIn = (clickX?: number, clickY?: number) => {
@@ -224,7 +227,7 @@ export const useGameLogic = () => {
 
     // Save to server (Fire and forget, but reload ranking after)
     saveScoreToSupabase(newEntry).then(() => {
-       loadGlobalRanking();
+       loadRankings();
     });
 
     setGameState(GameState.CAUGHT_ANIMATION);
@@ -485,7 +488,7 @@ export const useGameLogic = () => {
   // Reload ranking when showing ranking screen
   useEffect(() => {
     if (gameState === GameState.RANKING) {
-        loadGlobalRanking();
+        loadRankings();
     }
   }, [gameState]);
 
@@ -494,7 +497,7 @@ export const useGameLogic = () => {
     speed, setSpeed,
     dayTime, setDayTime,
     score, distance, lives, combo,
-    history, globalRanking, lastGameDate, farcasterUser, walletAddress,
+    history, globalRanking, totalRanking, lastGameDate, farcasterUser, walletAddress,
     bossType, bossLevel, bossHits, isBossDefeated,
     hazardActive, obstacleProgress, obstacleType, hazardPosition, setObstacleProgress,
     projectileActive, projectileProgress, projectileType, projectileStartZ, setProjectileProgress,

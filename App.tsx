@@ -11,7 +11,7 @@ const App: React.FC = () => {
     gameState, speed, dayTime, score, distance, lives, combo,
     hazardActive, hazardPosition, projectileActive, 
     isDodgeQueued, obstacleProgress, isDuckQueued, projectileProgress, projectileStartZ, bossLevel,
-    history, globalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
+    history, globalRanking, totalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
     startGame, setGameState, handleDodge, handleDuck, clearHistory,
     connectWallet, disconnectWallet
   } = gameLogic;
@@ -55,6 +55,7 @@ const App: React.FC = () => {
         showDuckButton={showDuckButton}
         history={history}
         globalRanking={globalRanking}
+        totalRanking={totalRanking}
         lastGameDate={lastGameDate}
         isHit={isHit}
         dodgeCutIn={dodgeCutIn}

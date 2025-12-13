@@ -1,6 +1,5 @@
-
 import React, { useMemo } from 'react';
-import { GameState, ScoreEntry } from '../types';
+import { GameState, ScoreEntry, PlayerStats } from '../types';
 import { TitleScreen } from './overlay/TitleScreen';
 import { HistoryScreen } from './overlay/HistoryScreen';
 import { RankingScreen } from './overlay/RankingScreen';
@@ -23,6 +22,7 @@ interface OverlayProps {
   showDuckButton: boolean;
   history: ScoreEntry[];
   globalRanking: ScoreEntry[];
+  totalRanking?: PlayerStats[];
   lastGameDate: string | null;
   isHit: boolean;
   dodgeCutIn: { id: number; text: string; x: number; y: number } | null;
@@ -56,6 +56,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   showDuckButton,
   history,
   globalRanking,
+  totalRanking = [],
   lastGameDate,
   isHit,
   dodgeCutIn,
@@ -176,7 +177,7 @@ export const Overlay: React.FC<OverlayProps> = ({
 
   // Ranking Screen
   if (gameState === GameState.RANKING) {
-    return <RankingScreen topScores={uniqueGlobalRanking} onHideHistory={onHideHistory} />;
+    return <RankingScreen topScores={uniqueGlobalRanking} totalStats={totalRanking} onHideHistory={onHideHistory} />;
   }
 
   // Game Over Screen
@@ -185,6 +186,7 @@ export const Overlay: React.FC<OverlayProps> = ({
       <GameOverScreen
         score={displayScore}
         ranking={uniqueGlobalRanking}
+        totalRanking={totalRanking}
         userBestEntry={userBestInfo}
         recentHistory={history.slice(0, 5)}
         isNewRecord={isNewRecord}
