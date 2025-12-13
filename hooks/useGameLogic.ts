@@ -71,10 +71,8 @@ export const useGameLogic = () => {
   // Initialize Farcaster SDK
   useEffect(() => {
     const load = async () => {
+      setFarcasterUser(null);
       try {
-        setFarcasterUser(null);
-        sdk.actions.ready(); 
-        
         const context = await sdk.context;
         if (context?.user) {
           setFarcasterUser({
@@ -85,6 +83,9 @@ export const useGameLogic = () => {
         }
       } catch (error) {
         console.warn("Farcaster SDK load warning:", error);
+      } finally {
+        // Call ready() only after context is loaded (or failed) to prevent UI flash
+        sdk.actions.ready();
       }
     };
     if (sdk && !isSDKLoaded) {
