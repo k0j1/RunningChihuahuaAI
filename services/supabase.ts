@@ -147,29 +147,37 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
   }
 
   // 2. Update player stats (totals)
-  // We already checked userId is present above
+  // Ensure we add the new score to the previous total
   try {
-    // Check if stats row exists or if table exists
+    // Fetch existing stats using maybeSingle to handle case where user doesn't exist yet gracefully
     const { data: currentStats, error: fetchError } = await supabase
       .from('player_stats')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
       
-    // If table doesn't exist, we skip stats update to prevent crashing
-    if (fetchError && (fetchError.code === '42P01' || fetchError.code === 'PGRST301')) {
-       return;
+    // If fetch failed for network reasons (not just "row not found"), we might want to log it
+    if (fetchError) {
+       console.warn('Error checking existing stats:', fetchError);
     }
+
+    // Determine new totals
+    const previousTotalScore = currentStats?.total_score ? Number(currentStats.total_score) : 0;
+    const previousTotalDistance = currentStats?.total_distance ? Number(currentStats.total_distance) : 0;
+    const previousRunCount = currentStats?.run_count ? Number(currentStats.run_count) : 0;
 
     const newStats = {
       user_id: userId,
-      username: entry.farcasterUser?.username || null,
-      display_name: entry.farcasterUser?.displayName || null,
-      pfp_url: entry.farcasterUser?.pfpUrl || null,
-      wallet_address: entry.walletAddress || null,
-      total_score: (currentStats?.total_score || 0) + entry.score,
-      total_distance: (currentStats?.total_distance || 0) + entry.distance,
-      run_count: (currentStats?.run_count || 0) + 1,
+      username: entry.farcasterUser?.username || currentStats?.username || null,
+      display_name: entry.farcasterUser?.displayName || currentStats?.display_name || null,
+      pfp_url: entry.farcasterUser?.pfpUrl || currentStats?.pfp_url || null,
+      wallet_address: entry.walletAddress || currentStats?.wallet_address || null,
+      
+      // Accumulate: Add new entry values to previous totals
+      total_score: previousTotalScore + Number(entry.score),
+      total_distance: previousTotalDistance + Number(entry.distance),
+      run_count: previousRunCount + 1,
+      
       last_active: entry.date
     };
 
@@ -178,12 +186,14 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
       .upsert(newStats);
 
     if (statsError) {
-      // Suppress table missing errors in logs
+       // Only warn if it's not a missing table error (42P01)
        if (statsError.code !== '42P01') {
          console.warn('Error updating player stats:', JSON.stringify(statsError));
        }
+    } else {
+      console.log('Player stats updated (accumulated) successfully');
     }
   } catch (e) {
-    // Ignore
+    console.error("Exception in saveScoreToSupabase stats update:", e);
   }
 };
