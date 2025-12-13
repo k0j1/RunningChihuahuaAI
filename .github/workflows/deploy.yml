@@ -51,7 +51,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/
           server-dir: ./ # Webサーバーの公開ディレクトリに合わせて調整してください
-          dangerous-clean-slate: true
+          dangerous-clean-slate: false
 
       # --- 2. GitHub Pages Deployment ---
       - name: ⚙️ Setup Pages
