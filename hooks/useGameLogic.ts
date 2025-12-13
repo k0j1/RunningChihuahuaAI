@@ -199,6 +199,19 @@ export const useGameLogic = () => {
     nextProjectileTime.current = 5 + Math.random() * 5;
   };
 
+  const shareScore = () => {
+    const text = `I scored ${score} pts and ran ${Math.floor(distance)}m in Running Chihuahua AI! 🐕💨\n\nCan you beat the bosses?`;
+    // Updated to the specified Coreserver URL
+    const url = 'https://runningchihuahuaai.k0j1.v2002.coreserver.jp/';
+    const intentUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(url)}`;
+    
+    try {
+        sdk.actions.openUrl(intentUrl);
+    } catch (e) {
+        window.open(intentUrl, '_blank');
+    }
+  };
+
   const handleGameOver = async () => {
     const now = new Date();
     const formattedDate = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
@@ -507,6 +520,7 @@ export const useGameLogic = () => {
     startGame, handleGameOver, clearHistory, handleBossDefeat,
     handleDodge, handleDuck,
     handleDistanceUpdate, handleObstacleTick, handleProjectileTick,
-    connectWallet, disconnectWallet
+    connectWallet, disconnectWallet,
+    shareScore
   };
 };

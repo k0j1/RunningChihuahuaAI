@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Ruler, Trophy } from 'lucide-react';
+import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Ruler, Trophy, Share2 } from 'lucide-react';
 import { ScoreEntry, PlayerStats } from '../../types';
 import { WalletWidget } from './WalletWidget';
 import { RankingList, RankedEntry } from './RankingList';
@@ -18,6 +18,7 @@ interface GameOverScreenProps {
   onReturnToTitle: () => void;
   onConnectWallet: () => void;
   onDisconnectWallet: () => void;
+  onShare: () => void;
 }
 
 type RankingTab = 'HIGH_SCORE' | 'TOTAL_SCORE' | 'TOTAL_DIST';
@@ -36,6 +37,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   onReturnToTitle,
   onConnectWallet,
   onDisconnectWallet,
+  onShare,
 }) => {
   const [activeTab, setActiveTab] = useState<RankingTab>('HIGH_SCORE');
 
@@ -220,6 +222,13 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
 
         {/* Buttons */}
         <div className="flex flex-col gap-3 mt-6">
+          <button
+            onClick={onShare}
+            className="w-full py-4 bg-purple-600 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 transform hover:scale-105 active:scale-95 duration-200"
+          >
+            <Share2 /> SHARE SCORE
+          </button>
+          
           <button
             onClick={onStartGame}
             className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2 transform hover:scale-105 active:scale-95 duration-200"

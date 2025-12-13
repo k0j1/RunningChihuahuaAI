@@ -13,7 +13,7 @@ const App: React.FC = () => {
     isDodgeQueued, obstacleProgress, isDuckQueued, projectileProgress, projectileStartZ, bossLevel,
     history, globalRanking, totalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
     startGame, setGameState, handleDodge, handleDuck, clearHistory,
-    connectWallet, disconnectWallet
+    connectWallet, disconnectWallet, shareScore
   } = gameLogic;
 
   // UI Button Visibility Logic
@@ -72,6 +72,7 @@ const App: React.FC = () => {
         onClearHistory={clearHistory}
         onConnectWallet={connectWallet}
         onDisconnectWallet={disconnectWallet}
+        onShare={shareScore}
       />
     </div>
   );

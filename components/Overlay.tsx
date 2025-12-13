@@ -39,6 +39,7 @@ interface OverlayProps {
   onClearHistory: () => void;
   onConnectWallet: () => void;
   onDisconnectWallet: () => void;
+  onShare: () => void;
 }
 
 export const Overlay: React.FC<OverlayProps> = ({
@@ -73,6 +74,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   onClearHistory,
   onConnectWallet,
   onDisconnectWallet,
+  onShare,
 }) => {
   // Memoize top scores from LOCAL history for comparison
   const localTopScores = useMemo(() => {
@@ -197,6 +199,7 @@ export const Overlay: React.FC<OverlayProps> = ({
         onReturnToTitle={onReturnToTitle}
         onConnectWallet={onConnectWallet}
         onDisconnectWallet={onDisconnectWallet}
+        onShare={onShare}
       />
     );
   }
