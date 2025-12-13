@@ -2,7 +2,7 @@
 
 **Running Chihuahua AI** is a 3D infinite runner game where you play as a brave Chihuahua running for its life! Escape from giant bosses, dodge obstacles, and compete for the highest score on the global leaderboard.
 
-![Running Chihuahua](https://placehold.co/600x400/png?text=Running+Chihuahua)
+![Running Chihuahua](ttps://runningchihuahuaai.k0j1.v2002.coreserver.jp/images/image.png)
 
 ## 🎮 How to Play
 

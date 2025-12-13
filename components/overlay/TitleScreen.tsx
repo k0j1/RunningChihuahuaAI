@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { History, Trophy } from 'lucide-react';
+import { History, Trophy, FileText } from 'lucide-react';
 import { TitleBackground } from '../TitleBackground';
 import { WalletWidget } from './WalletWidget';
 
@@ -64,6 +64,16 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               <Trophy size={20} /> RANKING
             </button>
           </div>
+
+          <a 
+            href="https://k0j1.github.io/Running-Chihuahua---Light-Paper/" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center justify-center gap-2 text-sm text-blue-300 hover:text-blue-100 transition-colors"
+          >
+            <FileText size={16} />
+            <span>Read Whitepaper</span>
+          </a>
         </div>
       </div>
     </div>
