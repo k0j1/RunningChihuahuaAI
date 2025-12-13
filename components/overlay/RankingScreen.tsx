@@ -102,7 +102,7 @@ export const RankingScreen: React.FC<RankingScreenProps> = ({ topScores, totalSt
         <div className="flex-1 overflow-y-auto pr-2">
           <RankingList 
             items={activeList} 
-            isTotalMode={activeTab !== 'HIGH_SCORE'} 
+            rankingType={activeTab}
             title={
                 activeTab === 'HIGH_SCORE' ? "Top Players (Single Run)" : 
                 activeTab === 'TOTAL_SCORE' ? "Top Players (Cumulative Score)" : "Top Players (Cumulative Distance)"

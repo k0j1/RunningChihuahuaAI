@@ -7,6 +7,8 @@ export interface RankedEntry {
   rank: number;
 }
 
+export type RankingType = 'HIGH_SCORE' | 'TOTAL_SCORE' | 'TOTAL_DIST';
+
 interface RankingListProps {
   items: RankedEntry[];
   highlightDate?: string | null;
@@ -14,7 +16,7 @@ interface RankingListProps {
   showHeader?: boolean;
   showRank?: boolean;
   title?: string;
-  isTotalMode?: boolean;
+  rankingType?: RankingType;
 }
 
 export const RankingList: React.FC<RankingListProps> = ({ 
@@ -24,7 +26,7 @@ export const RankingList: React.FC<RankingListProps> = ({
   showHeader = true,
   showRank = true,
   title,
-  isTotalMode = false
+  rankingType = 'HIGH_SCORE'
 }) => {
   if (items.length === 0) {
     return (
@@ -34,6 +36,23 @@ export const RankingList: React.FC<RankingListProps> = ({
       </div>
     );
   }
+
+  // Column Visibility Logic
+  const showDistance = rankingType === 'HIGH_SCORE' || rankingType === 'TOTAL_DIST';
+  const showScore = rankingType === 'HIGH_SCORE' || rankingType === 'TOTAL_SCORE';
+  
+  const isTotalDist = rankingType === 'TOTAL_DIST';
+
+  // Responsive & Alignment Classes:
+  // If TOTAL_DIST, distance column acts as main metric (right aligned, always visible).
+  // If HIGH_SCORE, distance is secondary (hidden on mobile, left aligned).
+  const distanceHeaderClass = isTotalDist 
+    ? 'text-right pr-2' 
+    : 'hidden md:table-cell';
+
+  const distanceCellClass = isTotalDist
+    ? 'text-right pr-2 text-sm font-black text-green-700'
+    : 'hidden md:table-cell text-xs text-gray-600';
 
   return (
     <div className="w-full">
@@ -45,8 +64,8 @@ export const RankingList: React.FC<RankingListProps> = ({
               <tr>
                 {showRank && <th className="py-2 pl-2 w-10">Rank</th>}
                 <th className="py-2 pl-2">User</th>
-                <th className="py-2 hidden md:table-cell">{isTotalMode ? 'Total Dist.' : 'Dist.'}</th>
-                <th className="py-2 text-right pr-2">{isTotalMode ? 'Total Score' : 'Score'}</th>
+                {showDistance && <th className={`py-2 ${distanceHeaderClass}`}>{isTotalDist ? 'Total Dist.' : 'Dist.'}</th>}
+                {showScore && <th className="py-2 text-right pr-2">{rankingType === 'TOTAL_SCORE' ? 'Total Score' : 'Score'}</th>}
               </tr>
             </thead>
           )}
@@ -96,10 +115,16 @@ export const RankingList: React.FC<RankingListProps> = ({
                       </div>
                     </div>
                   </td>
-                  <td className="py-1.5 hidden md:table-cell text-xs text-gray-600 font-mono whitespace-nowrap">{entry.distance.toLocaleString()}m</td>
-                  <td className={`py-1.5 pr-2 text-sm font-black text-right font-mono ${isCurrent ? 'text-red-600' : 'text-yellow-700'}`}>
-                    {entry.score.toLocaleString()}
-                  </td>
+                  {showDistance && (
+                    <td className={`py-1.5 font-mono whitespace-nowrap ${distanceCellClass}`}>
+                      {entry.distance.toLocaleString()}m
+                    </td>
+                  )}
+                  {showScore && (
+                    <td className={`py-1.5 pr-2 text-sm font-black text-right font-mono ${isCurrent ? 'text-red-600' : 'text-yellow-700'}`}>
+                      {entry.score.toLocaleString()}
+                    </td>
+                  )}
                 </tr>
               );
             })}

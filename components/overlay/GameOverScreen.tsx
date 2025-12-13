@@ -154,6 +154,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
                  highlightDate={lastGameDate} 
                  showHeader={true}
                  showRank={true}
+                 rankingType="HIGH_SCORE"
                />
             </div>
           )}
@@ -193,7 +194,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
                 items={activeList} 
                 highlightDate={activeTab === 'HIGH_SCORE' ? lastGameDate : null} 
                 showHeader={true}
-                isTotalMode={activeTab !== 'HIGH_SCORE'}
+                rankingType={activeTab}
                 title={
                   activeTab === 'HIGH_SCORE' ? "Top 10 Runs" : 
                   activeTab === 'TOTAL_SCORE' ? "Top 10 Cumulative Score" : "Top 10 Cumulative Distance"
