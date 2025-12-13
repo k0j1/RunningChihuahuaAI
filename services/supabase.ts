@@ -34,57 +34,7 @@ export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
   }));
 };
 
-const aggregateStatsFromScores = async (): Promise<PlayerStats[]> => {
-  // Fallback: Fetch a batch of scores to aggregate client-side if dedicated table is missing
-  // We fetch up to 2000 records to get a decent representation without killing bandwidth
-  const { data, error } = await supabase
-    .from('scores')
-    .select('*')
-    .order('created_at', { ascending: false }) 
-    .limit(2000);
-
-  if (error) {
-     console.error('Error fetching scores for aggregation:', JSON.stringify(error));
-     return [];
-  }
-
-  const statsMap = new Map<string, PlayerStats>();
-
-  data.forEach((row: any) => {
-    let userId = null;
-    if (row.username) userId = `fc:${row.username}`;
-    else if (row.wallet_address) userId = `wa:${row.wallet_address}`;
-    
-    if (userId) {
-       const existing = statsMap.get(userId) || {
-         id: userId,
-         farcasterUser: row.username ? { username: row.username, displayName: row.display_name, pfpUrl: row.pfp_url } : undefined,
-         walletAddress: row.wallet_address,
-         totalScore: 0,
-         totalDistance: 0,
-         runCount: 0,
-         lastActive: row.created_at
-       };
-       
-       existing.totalScore += (row.score || 0);
-       existing.totalDistance += (row.distance || 0);
-       existing.runCount += 1;
-       
-       // Update lastActive if this row is newer
-       if (new Date(row.created_at).getTime() > new Date(existing.lastActive).getTime()) {
-         existing.lastActive = row.created_at;
-       }
-       
-       statsMap.set(userId, existing);
-    }
-  });
-
-  return Array.from(statsMap.values())
-    .sort((a, b) => b.totalScore - a.totalScore)
-    .slice(0, 100);
-};
-
-// Fetch aggregated total stats from the 'player_stats' table
+// Fetch aggregated total stats directly from the 'player_stats' table
 export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
   const { data, error } = await supabase
     .from('player_stats')
@@ -93,8 +43,8 @@ export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
     .limit(100);
 
   if (error) {
-    console.warn('Error fetching player_stats (falling back to aggregation):', JSON.stringify(error));
-    return aggregateStatsFromScores();
+    console.error('Error fetching player_stats:', JSON.stringify(error));
+    return [];
   }
 
   return data.map((row: any) => ({
@@ -147,16 +97,15 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
   }
 
   // 2. Update player stats (totals)
-  // Ensure we add the new score to the previous total
+  // This requires RLS policies to be set to allow INSERT/UPDATE on 'player_stats'
   try {
-    // Fetch existing stats using maybeSingle to handle case where user doesn't exist yet gracefully
+    // Fetch existing stats
     const { data: currentStats, error: fetchError } = await supabase
       .from('player_stats')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
       
-    // If fetch failed for network reasons (not just "row not found"), we might want to log it
     if (fetchError) {
        console.warn('Error checking existing stats:', fetchError);
     }
@@ -186,12 +135,9 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
       .upsert(newStats);
 
     if (statsError) {
-       // Only warn if it's not a missing table error (42P01)
-       if (statsError.code !== '42P01') {
-         console.warn('Error updating player stats:', JSON.stringify(statsError));
-       }
+       console.error('Error updating player stats:', JSON.stringify(statsError));
     } else {
-      console.log('Player stats updated (accumulated) successfully');
+      console.log('Player stats updated successfully');
     }
   } catch (e) {
     console.error("Exception in saveScoreToSupabase stats update:", e);
