@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Ruler, Trophy, Share2 } from 'lucide-react';
+import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2 } from 'lucide-react';
 import { ScoreEntry, PlayerStats } from '../../types';
 import { WalletWidget } from './WalletWidget';
 import { RankingList, RankedEntry } from './RankingList';
@@ -21,7 +22,7 @@ interface GameOverScreenProps {
   onShare: () => void;
 }
 
-type RankingTab = 'HIGH_SCORE' | 'TOTAL_SCORE' | 'TOTAL_DIST';
+type RankingTab = 'HIGH_SCORE' | 'TOTAL_SCORE';
 
 export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   score,
@@ -65,24 +66,6 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
       }));
   }, [totalRanking]);
 
-  // Top 10 for Total Distance
-  const top10TotalDist = useMemo(() => {
-    return [...totalRanking]
-      .sort((a, b) => b.totalDistance - a.totalDistance)
-      .slice(0, 10)
-      .map((stat, index) => ({
-        entry: {
-          date: stat.lastActive,
-          formattedDate: 'Total',
-          score: stat.totalScore, 
-          distance: stat.totalDistance,
-          farcasterUser: stat.farcasterUser,
-          walletAddress: stat.walletAddress
-        } as ScoreEntry,
-        rank: index + 1
-      }));
-  }, [totalRanking]);
-
   // Check if current run is inside Top 10 High Scores
   const isRankIn = top10HighScores.some(item => item.entry.date === lastGameDate);
 
@@ -96,11 +79,10 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   const activeList = useMemo(() => {
     switch (activeTab) {
       case 'TOTAL_SCORE': return top10TotalScores;
-      case 'TOTAL_DIST': return top10TotalDist;
       case 'HIGH_SCORE':
       default: return top10HighScores;
     }
-  }, [activeTab, top10HighScores, top10TotalScores, top10TotalDist]);
+  }, [activeTab, top10HighScores, top10TotalScores]);
 
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-start bg-red-900/90 backdrop-blur-md z-50 p-4 pt-12 overflow-y-auto">
@@ -184,12 +166,6 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
                >
                  <BarChart3 size={12} /> Total Score
                </button>
-               <button
-                 onClick={() => setActiveTab('TOTAL_DIST')}
-                 className={`flex-1 py-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${activeTab === 'TOTAL_DIST' ? 'bg-white text-green-600 shadow-sm' : 'text-green-600/60 hover:text-green-600'}`}
-               >
-                 <Ruler size={12} /> Total Dist.
-               </button>
              </div>
 
              <RankingList 
@@ -198,8 +174,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
                 showHeader={true}
                 rankingType={activeTab}
                 title={
-                  activeTab === 'HIGH_SCORE' ? "Top 10 Runs" : 
-                  activeTab === 'TOTAL_SCORE' ? "Top 10 Cumulative Score" : "Top 10 Cumulative Distance"
+                  activeTab === 'HIGH_SCORE' ? "Top 10 Runs" : "Top 10 Cumulative Score"
                 }
               />
           </div>

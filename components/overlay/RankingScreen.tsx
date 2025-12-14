@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import { Trophy, ArrowLeft, BarChart3, Ruler } from 'lucide-react';
+import { Trophy, ArrowLeft, BarChart3 } from 'lucide-react';
 import { ScoreEntry, PlayerStats } from '../../types';
 import { RankingList } from './RankingList';
 
@@ -9,7 +10,7 @@ interface RankingScreenProps {
   onHideHistory: () => void;
 }
 
-type RankingTab = 'HIGH_SCORE' | 'TOTAL_SCORE' | 'TOTAL_DIST';
+type RankingTab = 'HIGH_SCORE' | 'TOTAL_SCORE';
 
 export const RankingScreen: React.FC<RankingScreenProps> = ({ topScores, totalStats = [], onHideHistory }) => {
   const [activeTab, setActiveTab] = useState<RankingTab>('HIGH_SCORE');
@@ -38,32 +39,13 @@ export const RankingScreen: React.FC<RankingScreenProps> = ({ topScores, totalSt
       }));
   }, [totalStats]);
 
-  // 3. Total Distance
-  const rankedTotalDist = useMemo(() => {
-    return [...totalStats]
-      .sort((a, b) => b.totalDistance - a.totalDistance)
-      .slice(0, 100)
-      .map((stat, index) => ({
-        entry: {
-          date: stat.lastActive,
-          formattedDate: 'Total',
-          score: stat.totalScore,
-          distance: stat.totalDistance,
-          farcasterUser: stat.farcasterUser,
-          walletAddress: stat.walletAddress
-        } as ScoreEntry,
-        rank: index + 1
-      }));
-  }, [totalStats]);
-
   const activeList = useMemo(() => {
     switch (activeTab) {
       case 'TOTAL_SCORE': return rankedTotalScores;
-      case 'TOTAL_DIST': return rankedTotalDist;
       case 'HIGH_SCORE':
       default: return rankedHighScores;
     }
-  }, [activeTab, rankedHighScores, rankedTotalScores, rankedTotalDist]);
+  }, [activeTab, rankedHighScores, rankedTotalScores]);
   
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-yellow-900/90 backdrop-blur-md z-50 p-6 pointer-events-auto">
@@ -91,12 +73,6 @@ export const RankingScreen: React.FC<RankingScreenProps> = ({ topScores, totalSt
            >
              <BarChart3 size={16} /> Total Score
            </button>
-           <button 
-             onClick={() => setActiveTab('TOTAL_DIST')}
-             className={`flex-1 py-2 rounded-lg text-xs md:text-sm font-bold flex items-center justify-center gap-1 md:gap-2 transition-all ${activeTab === 'TOTAL_DIST' ? 'bg-white text-green-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-           >
-             <Ruler size={16} /> Total Dist.
-           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2">
@@ -104,8 +80,7 @@ export const RankingScreen: React.FC<RankingScreenProps> = ({ topScores, totalSt
             items={activeList} 
             rankingType={activeTab}
             title={
-                activeTab === 'HIGH_SCORE' ? "Top Players (Single Run)" : 
-                activeTab === 'TOTAL_SCORE' ? "Top Players (Cumulative Score)" : "Top Players (Cumulative Distance)"
+                activeTab === 'HIGH_SCORE' ? "Top Players (Single Run)" : "Top Players (Cumulative Score)"
             }
           />
         </div>

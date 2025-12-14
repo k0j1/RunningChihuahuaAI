@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Crown } from 'lucide-react';
 import { ScoreEntry } from '../../types';
@@ -7,7 +8,7 @@ export interface RankedEntry {
   rank: number;
 }
 
-export type RankingType = 'HIGH_SCORE' | 'TOTAL_SCORE' | 'TOTAL_DIST';
+export type RankingType = 'HIGH_SCORE' | 'TOTAL_SCORE';
 
 interface RankingListProps {
   items: RankedEntry[];
@@ -38,21 +39,13 @@ export const RankingList: React.FC<RankingListProps> = ({
   }
 
   // Column Visibility Logic
-  const showDistance = rankingType === 'HIGH_SCORE' || rankingType === 'TOTAL_DIST';
-  const showScore = rankingType === 'HIGH_SCORE' || rankingType === 'TOTAL_SCORE';
-  
-  const isTotalDist = rankingType === 'TOTAL_DIST';
+  const showDistance = rankingType === 'HIGH_SCORE';
+  const showScore = true;
 
   // Responsive & Alignment Classes:
-  // If TOTAL_DIST, distance column acts as main metric (right aligned, always visible).
-  // If HIGH_SCORE, distance is secondary (hidden on mobile, left aligned).
-  const distanceHeaderClass = isTotalDist 
-    ? 'text-right pr-2' 
-    : 'hidden md:table-cell';
-
-  const distanceCellClass = isTotalDist
-    ? 'text-right pr-2 text-sm font-black text-green-700'
-    : 'hidden md:table-cell text-xs text-gray-600';
+  // Distance is secondary (hidden on mobile, left aligned).
+  const distanceHeaderClass = 'hidden md:table-cell';
+  const distanceCellClass = 'hidden md:table-cell text-xs text-gray-600';
 
   return (
     <div className="w-full">
@@ -64,7 +57,7 @@ export const RankingList: React.FC<RankingListProps> = ({
               <tr>
                 {showRank && <th className="py-2 pl-2 w-10">Rank</th>}
                 <th className="py-2 pl-2">User</th>
-                {showDistance && <th className={`py-2 ${distanceHeaderClass}`}>{isTotalDist ? 'Total Dist.' : 'Dist.'}</th>}
+                {showDistance && <th className={`py-2 ${distanceHeaderClass}`}>Dist.</th>}
                 {showScore && <th className="py-2 text-right pr-2">{rankingType === 'TOTAL_SCORE' ? 'Total Score' : 'Score'}</th>}
               </tr>
             </thead>

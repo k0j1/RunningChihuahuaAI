@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { GameState, ScoreEntry, ObstacleType, DodgeType, ProjectileType, BossType, PlayerStats } from '../types';
@@ -80,6 +81,15 @@ export const useGameLogic = () => {
             displayName: context.user.displayName,
             pfpUrl: context.user.pfpUrl
           });
+          
+          // Attempt to extract wallet address from Farcaster context
+          const userAny = context.user as any;
+          // Check for verifications (linked addresses) first, then custody address
+          if (userAny.verifications && Array.isArray(userAny.verifications) && userAny.verifications.length > 0) {
+             setWalletAddress(userAny.verifications[0]);
+          } else if (userAny.custodyAddress) {
+             setWalletAddress(userAny.custodyAddress);
+          }
         }
       } catch (error) {
         console.warn("Farcaster SDK load warning:", error);
@@ -202,7 +212,6 @@ export const useGameLogic = () => {
 
   const shareScore = () => {
     const text = `I scored ${score} pts and ran ${Math.floor(distance)}m in Running Chihuahua AI! 🐕💨\n\nCan you beat the bosses?`;
-    // Updated to the specified Coreserver URL
     const url = 'https://runningchihuahuaai.k0j1.v2002.coreserver.jp/';
     const intentUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(url)}`;
     
@@ -224,7 +233,7 @@ export const useGameLogic = () => {
       score: score,
       distance: Math.floor(distance),
       farcasterUser: farcasterUser ? {
-        fid: 0, // Not available in context directly without auth
+        fid: 0, 
         username: farcasterUser.username || '',
         displayName: farcasterUser.displayName || '',
         pfpUrl: farcasterUser.pfpUrl || ''
@@ -239,7 +248,7 @@ export const useGameLogic = () => {
     setHistory(newHistory);
     localStorage.setItem('chihuahua_history', JSON.stringify(newHistory));
 
-    // Save to server (Fire and forget, but reload ranking after)
+    // Save to server
     saveScoreToSupabase(newEntry).then(() => {
        loadRankings();
     });
