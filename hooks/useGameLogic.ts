@@ -45,7 +45,7 @@ export const useGameLogic = () => {
   const shareScore = () => {
     const text = `I scored ${scoreSystem.score} pts and ran ${Math.floor(scoreSystem.distance)}m in Running Chihuahua AI! 🐕💨\n\nCan you beat the bosses?`;
     // The App URL that acts as the Frame/MiniApp entry point
-    const appUrl = 'https://runningchihuahuaai.k0j1.v2002.coreserver.jp/';
+    const appUrl = 'https://farcaster.xyz/miniapps/7RH3c4fEALgF/runningchihuahua';
     
     // Construct the Warpcast intent URL with the app URL embedded
     const intentUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(appUrl)}`;

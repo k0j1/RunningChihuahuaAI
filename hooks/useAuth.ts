@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
 
 export const useAuth = () => {
@@ -22,26 +22,6 @@ export const useAuth = () => {
             pfpUrl: user.pfpUrl,
             fid: user.fid
           });
-          
-          // Wallet Extraction Logic
-          // We prioritize:
-          // 1. First Verified Address (Linked identity)
-          // 2. Custody Address (FID owner)
-          let extractedAddress: string | null = null;
-          
-          // Cast to any to access properties that might not be in the type definition
-          const userAny = user as any;
-
-          if (userAny.verifications && Array.isArray(userAny.verifications) && userAny.verifications.length > 0) {
-             extractedAddress = userAny.verifications[0];
-          } else if (userAny.custodyAddress) {
-             extractedAddress = userAny.custodyAddress;
-          }
-
-          if (extractedAddress) {
-             console.log("Farcaster Wallet Extracted:", extractedAddress);
-             setWalletAddress(extractedAddress);
-          }
         }
       } catch (error) {
         console.warn("Farcaster SDK load warning:", error);
@@ -56,10 +36,30 @@ export const useAuth = () => {
     }
   }, [isSDKLoaded]);
 
-  const connectWallet = async () => {
+  // Check for connected wallet (Farcaster Provider)
+  useEffect(() => {
+    if (!isSDKLoaded) return;
+
+    const checkWallet = async () => {
+      try {
+        const provider = sdk.wallet.ethProvider;
+        if (provider) {
+           const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
+           if (Array.isArray(accounts) && accounts.length > 0) {
+             setWalletAddress(accounts[0]);
+           }
+        }
+      } catch (e) {
+        console.warn("Error checking wallet status:", e);
+      }
+    };
+
+    checkWallet();
+  }, [isSDKLoaded]);
+
+  const connectWallet = useCallback(async () => {
     try {
       // 1. Try Farcaster Frame SDK Provider
-      // Access the provider directly as a property
       const provider = sdk.wallet.ethProvider;
       if (provider) {
         const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
@@ -85,11 +85,11 @@ export const useAuth = () => {
     } else {
       alert("No wallet provider found. Please use Warpcast or a Web3 browser.");
     }
-  };
+  }, []);
 
-  const disconnectWallet = () => {
+  const disconnectWallet = useCallback(() => {
     setWalletAddress(null);
-  };
+  }, []);
 
   return {
     farcasterUser,

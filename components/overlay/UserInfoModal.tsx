@@ -1,10 +1,11 @@
 
 import React from 'react';
-import { X, LogOut, Wallet, User } from 'lucide-react';
+import { X, LogOut, Wallet, User, Link } from 'lucide-react';
 
 interface UserInfoModalProps {
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string; fid?: number } | null;
   walletAddress: string | null;
+  onConnect: () => void;
   onDisconnect: () => void;
   onClose: () => void;
 }
@@ -12,6 +13,7 @@ interface UserInfoModalProps {
 export const UserInfoModal: React.FC<UserInfoModalProps> = ({
   farcasterUser,
   walletAddress,
+  onConnect,
   onDisconnect,
   onClose,
 }) => {
@@ -48,9 +50,19 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({
           )}
 
           <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
-             <div className="flex items-center gap-2 mb-1">
-               <Wallet size={14} className="text-gray-400" />
-               <span className="text-xs font-bold text-gray-400 uppercase">Wallet Address</span>
+             <div className="flex items-center justify-between mb-1">
+               <div className="flex items-center gap-2">
+                 <Wallet size={14} className="text-gray-400" />
+                 <span className="text-xs font-bold text-gray-400 uppercase">Wallet Address</span>
+               </div>
+               {!walletAddress && (
+                 <button 
+                   onClick={onConnect}
+                   className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold hover:bg-blue-200 transition-colors flex items-center gap-1"
+                 >
+                   <Link size={10} /> Link
+                 </button>
+               )}
              </div>
              {walletAddress ? (
                <div className="break-all font-mono text-xs text-gray-600 leading-tight">

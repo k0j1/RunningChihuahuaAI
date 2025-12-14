@@ -171,6 +171,7 @@ export const Overlay: React.FC<OverlayProps> = ({
         <UserInfoModal 
           farcasterUser={farcasterUser}
           walletAddress={walletAddress}
+          onConnect={onConnectWallet}
           onDisconnect={onDisconnectWallet}
           onClose={handleCloseProfile}
         />
