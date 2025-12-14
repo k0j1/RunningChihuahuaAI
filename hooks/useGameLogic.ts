@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import sdk from '@farcaster/frame-sdk';
 import { GameState } from '../types';
 import { useAuth } from './useAuth';
 import { useScoreSystem } from './useScoreSystem';
@@ -43,13 +44,22 @@ export const useGameLogic = () => {
 
   const shareScore = () => {
     const text = `I scored ${scoreSystem.score} pts and ran ${Math.floor(scoreSystem.distance)}m in Running Chihuahua AI! 🐕💨\n\nCan you beat the bosses?`;
-    const url = 'https://runningchihuahuaai.k0j1.v2002.coreserver.jp/';
-    const intentUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(url)}`;
-    try {
-       // @ts-ignore
-       if (window.farcaster?.actions) window.farcaster.actions.openUrl(intentUrl);
-       else window.open(intentUrl, '_blank');
-    } catch (e) {
+    // The App URL that acts as the Frame/MiniApp entry point
+    const appUrl = 'https://runningchihuahuaai.k0j1.v2002.coreserver.jp/';
+    
+    // Construct the Warpcast intent URL with the app URL embedded
+    const intentUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(appUrl)}`;
+    
+    if (farcasterUser) {
+       // If Farcaster User exists, we assume we are in the Frame/MiniApp context
+       try {
+          sdk.actions.openUrl(intentUrl);
+       } catch (e) {
+          console.warn("Failed to open URL via SDK, falling back to window.open", e);
+          window.open(intentUrl, '_blank');
+       }
+    } else {
+        // Standard Web Browser context
         window.open(intentUrl, '_blank');
     }
   };

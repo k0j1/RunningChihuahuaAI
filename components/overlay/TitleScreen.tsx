@@ -11,7 +11,7 @@ interface TitleScreenProps {
   onShowHistory: () => void;
   onShowRanking: () => void;
   onConnectWallet: () => void;
-  onDisconnectWallet: () => void;
+  onShowProfile: () => void;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
@@ -21,7 +21,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onShowHistory,
   onShowRanking,
   onConnectWallet,
-  onDisconnectWallet,
+  onShowProfile,
 }) => {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-50 overflow-hidden">
@@ -33,7 +33,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         farcasterUser={farcasterUser}
         walletAddress={walletAddress}
         onConnect={onConnectWallet}
-        onDisconnect={onDisconnectWallet}
+        onShowProfile={onShowProfile}
       />
 
       {/* Content */}

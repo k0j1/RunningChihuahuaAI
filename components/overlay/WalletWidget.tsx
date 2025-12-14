@@ -6,19 +6,22 @@ interface WalletWidgetProps {
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string } | null;
   walletAddress: string | null;
   onConnect: () => void;
-  onDisconnect: () => void;
+  onShowProfile: () => void;
 }
 
 export const WalletWidget: React.FC<WalletWidgetProps> = ({
   farcasterUser,
   walletAddress,
   onConnect,
-  onDisconnect,
+  onShowProfile,
 }) => {
   // If Farcaster user exists, show Farcaster info (Priority 1)
   if (farcasterUser) {
     return (
-      <div className="absolute top-4 right-4 flex items-center gap-2 bg-purple-600/80 p-2 rounded-full backdrop-blur-md shadow-lg border border-purple-400 z-50">
+      <div 
+        onClick={onShowProfile}
+        className="absolute top-4 right-4 flex items-center gap-2 bg-purple-600/80 p-2 rounded-full backdrop-blur-md shadow-lg border border-purple-400 z-50 cursor-pointer hover:bg-purple-500 transition-transform active:scale-95"
+      >
         {farcasterUser.pfpUrl ? (
           <img src={farcasterUser.pfpUrl} className="w-8 h-8 rounded-full border border-white" alt="pfp" />
         ) : (
@@ -38,9 +41,9 @@ export const WalletWidget: React.FC<WalletWidgetProps> = ({
     const shortAddr = `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
     return (
       <div
-        onClick={onDisconnect}
+        onClick={onShowProfile}
         className="absolute top-4 right-4 flex items-center gap-2 bg-blue-600/80 p-1 pr-3 rounded-full backdrop-blur-md shadow-lg border border-blue-400 z-50 cursor-pointer hover:bg-blue-500 transition-colors"
-        title="Click to disconnect"
+        title="View Profile"
       >
         <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full flex items-center justify-center border border-white/20">
           <Wallet size={14} className="text-white" />

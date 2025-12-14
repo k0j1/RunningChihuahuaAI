@@ -14,7 +14,7 @@ export const useAuth = () => {
       try {
         const context = await sdk.context;
         if (context?.user) {
-          const user = context.user as any;
+          const user = context.user;
           
           setFarcasterUser({
             username: user.username,
@@ -24,19 +24,18 @@ export const useAuth = () => {
           });
           
           // Wallet Extraction Logic
-          let extractedAddress = null;
+          // We prioritize:
+          // 1. First Verified Address (Linked identity)
+          // 2. Custody Address (FID owner)
+          let extractedAddress: string | null = null;
+          
+          // Cast to any to access properties that might not be in the type definition
+          const userAny = user as any;
 
-          if (Array.isArray(user.verifications) && user.verifications.length > 0) {
-             extractedAddress = user.verifications[0];
-          } 
-          else if (Array.isArray(user.verified_addresses) && user.verified_addresses.length > 0) {
-             extractedAddress = user.verified_addresses[0];
-          }
-          else if (user.custody_address) {
-             extractedAddress = user.custody_address;
-          }
-          else if (user.custodyAddress) {
-             extractedAddress = user.custodyAddress;
+          if (userAny.verifications && Array.isArray(userAny.verifications) && userAny.verifications.length > 0) {
+             extractedAddress = userAny.verifications[0];
+          } else if (userAny.custodyAddress) {
+             extractedAddress = userAny.custodyAddress;
           }
 
           if (extractedAddress) {
@@ -60,7 +59,7 @@ export const useAuth = () => {
   const connectWallet = async () => {
     try {
       // 1. Try Farcaster Frame SDK Provider
-      // Fixed: sdk.wallet.ethProvider is the property, not getEthereumProvider()
+      // Access the provider directly as a property
       const provider = sdk.wallet.ethProvider;
       if (provider) {
         const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];

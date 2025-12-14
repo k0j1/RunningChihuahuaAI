@@ -19,6 +19,7 @@ interface GameOverScreenProps {
   onReturnToTitle: () => void;
   onConnectWallet: () => void;
   onDisconnectWallet: () => void;
+  onShowProfile: () => void;
   onShare: () => void;
 }
 
@@ -38,6 +39,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   onReturnToTitle,
   onConnectWallet,
   onDisconnectWallet,
+  onShowProfile,
   onShare,
 }) => {
   const [activeTab, setActiveTab] = useState<RankingTab>('HIGH_SCORE');
@@ -91,7 +93,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
         farcasterUser={farcasterUser}
         walletAddress={walletAddress}
         onConnect={onConnectWallet}
-        onDisconnect={onDisconnectWallet}
+        onShowProfile={onShowProfile}
       />
 
       <div className="w-full max-w-lg bg-white/95 rounded-3xl p-4 md:p-6 shadow-2xl border-4 border-red-500 text-center animate-bounce-in my-8 relative flex-shrink-0 backdrop-blur-sm">

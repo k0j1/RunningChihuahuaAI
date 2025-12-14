@@ -119,10 +119,3 @@ declare global {
     interface IntrinsicElements extends R3FElements {}
   }
 }
-
-// Augment React's JSX namespace for newer TS/React versions (React 18+)
-declare module 'react' {
-  namespace JSX {
-    interface IntrinsicElements extends R3FElements {}
-  }
-}
