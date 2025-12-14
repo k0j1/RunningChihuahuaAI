@@ -20,7 +20,7 @@ export const useGameLogic = () => {
   const [lastGameDate, setLastGameDate] = useState<string | null>(null);
 
   // User Context (Farcaster & Wallet)
-  const [farcasterUser, setFarcasterUser] = useState<{username?: string, displayName?: string, pfpUrl?: string} | null>(null);
+  const [farcasterUser, setFarcasterUser] = useState<{username?: string, displayName?: string, pfpUrl?: string, fid?: number} | null>(null);
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
@@ -76,25 +76,45 @@ export const useGameLogic = () => {
       try {
         const context = await sdk.context;
         if (context?.user) {
+          const user = context.user as any;
+          
           setFarcasterUser({
-            username: context.user.username,
-            displayName: context.user.displayName,
-            pfpUrl: context.user.pfpUrl
+            username: user.username,
+            displayName: user.displayName,
+            pfpUrl: user.pfpUrl,
+            fid: user.fid
           });
           
-          // Attempt to extract wallet address from Farcaster context
-          const userAny = context.user as any;
-          // Check for verifications (linked addresses) first, then custody address
-          if (userAny.verifications && Array.isArray(userAny.verifications) && userAny.verifications.length > 0) {
-             setWalletAddress(userAny.verifications[0]);
-          } else if (userAny.custodyAddress) {
-             setWalletAddress(userAny.custodyAddress);
+          // Enhanced Wallet Extraction Logic
+          let extractedAddress = null;
+
+          // 1. Check verifications (Array of strings) - standard Frame SDK
+          if (Array.isArray(user.verifications) && user.verifications.length > 0) {
+             extractedAddress = user.verifications[0];
+          } 
+          // 2. Check verified_addresses (Snake case) - sometimes present in other contexts
+          else if (Array.isArray(user.verified_addresses) && user.verified_addresses.length > 0) {
+             extractedAddress = user.verified_addresses[0];
+          }
+          // 3. Check custody_address (Snake case)
+          else if (user.custody_address) {
+             extractedAddress = user.custody_address;
+          }
+          // 4. Check custodyAddress (Camel case)
+          else if (user.custodyAddress) {
+             extractedAddress = user.custodyAddress;
+          }
+
+          if (extractedAddress) {
+             console.log("Farcaster Wallet Extracted:", extractedAddress);
+             setWalletAddress(extractedAddress);
+          } else {
+             console.log("No Farcaster Wallet found in context");
           }
         }
       } catch (error) {
         console.warn("Farcaster SDK load warning:", error);
       } finally {
-        // Call ready() only after context is loaded (or failed) to prevent UI flash
         sdk.actions.ready();
       }
     };
@@ -233,7 +253,7 @@ export const useGameLogic = () => {
       score: score,
       distance: Math.floor(distance),
       farcasterUser: farcasterUser ? {
-        fid: 0, 
+        fid: farcasterUser.fid, 
         username: farcasterUser.username || '',
         displayName: farcasterUser.displayName || '',
         pfpUrl: farcasterUser.pfpUrl || ''
@@ -249,6 +269,11 @@ export const useGameLogic = () => {
     localStorage.setItem('chihuahua_history', JSON.stringify(newHistory));
 
     // Save to server
+    // Explicitly pass the walletAddress from state to ensure it's captured
+    if (walletAddress && !newEntry.walletAddress) {
+        newEntry.walletAddress = walletAddress;
+    }
+    
     saveScoreToSupabase(newEntry).then(() => {
        loadRankings();
     });

@@ -81,38 +81,48 @@ export interface DogThought {
   emotion: string;
 }
 
+// Define the R3F elements shape to reuse
+interface R3FElements {
+  group: any;
+  mesh: any;
+  primitive: any;
+  ambientLight: any;
+  directionalLight: any;
+  pointLight: any;
+  spotLight: any;
+  orthographicCamera: any;
+  perspectiveCamera: any;
+  boxGeometry: any;
+  planeGeometry: any;
+  sphereGeometry: any;
+  coneGeometry: any;
+  cylinderGeometry: any;
+  dodecahedronGeometry: any;
+  capsuleGeometry: any;
+  torusGeometry: any;
+  ringGeometry: any;
+  circleGeometry: any;
+  meshStandardMaterial: any;
+  meshBasicMaterial: any;
+  meshPhongMaterial: any;
+  fog: any;
+  color: any;
+  [elemName: string]: any;
+}
+
 // Global JSX definitions for React Three Fiber elements to fix TypeScript errors
 declare global {
   interface Window {
     ethereum?: any;
   }
   namespace JSX {
-    interface IntrinsicElements {
-      group: any;
-      mesh: any;
-      primitive: any;
-      ambientLight: any;
-      directionalLight: any;
-      pointLight: any;
-      spotLight: any;
-      orthographicCamera: any;
-      perspectiveCamera: any;
-      boxGeometry: any;
-      planeGeometry: any;
-      sphereGeometry: any;
-      coneGeometry: any;
-      cylinderGeometry: any;
-      dodecahedronGeometry: any;
-      capsuleGeometry: any;
-      torusGeometry: any;
-      ringGeometry: any;
-      circleGeometry: any;
-      meshStandardMaterial: any;
-      meshBasicMaterial: any;
-      meshPhongMaterial: any;
-      fog: any;
-      color: any;
-      [elemName: string]: any;
-    }
+    interface IntrinsicElements extends R3FElements {}
+  }
+}
+
+// Augment React's JSX namespace for newer TS/React versions (React 18+)
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements extends R3FElements {}
   }
 }
