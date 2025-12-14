@@ -60,7 +60,8 @@ export const useAuth = () => {
   const connectWallet = async () => {
     try {
       // 1. Try Farcaster Frame SDK Provider
-      const provider = await sdk.wallet.getEthereumProvider();
+      // Fixed: sdk.wallet.ethProvider is the property, not getEthereumProvider()
+      const provider = sdk.wallet.ethProvider;
       if (provider) {
         const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
         if (Array.isArray(accounts) && accounts.length > 0) {
