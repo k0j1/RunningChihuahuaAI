@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import sdk from '@farcaster/frame-sdk';
 import { ScoreEntry, PlayerStats } from '../types';
 import { fetchGlobalRanking, fetchTotalRanking, saveScoreToSupabase } from '../services/supabase';
 
@@ -57,6 +58,23 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
   };
 
   const saveRun = async () => {
+    let currentWalletAddress = walletAddress;
+
+    // Try to fetch wallet address if missing, specifically for Farcaster context
+    if (!currentWalletAddress) {
+       try {
+         const provider = sdk.wallet.ethProvider;
+         if (provider) {
+            const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
+             if (Array.isArray(accounts) && accounts.length > 0) {
+                 currentWalletAddress = accounts[0];
+             }
+         }
+       } catch (e) {
+         console.warn("Could not fetch wallet address on save:", e);
+       }
+    }
+
     const now = new Date();
     const formattedDate = `${now.getFullYear()}/${(now.getMonth()+1).toString().padStart(2, '0')}/${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
     const isoDate = now.toISOString();
@@ -72,7 +90,7 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
         displayName: farcasterUser.displayName || '',
         pfpUrl: farcasterUser.pfpUrl || ''
       } : undefined,
-      walletAddress: walletAddress || undefined
+      walletAddress: currentWalletAddress || undefined
     };
     
     setLastGameDate(isoDate); 
