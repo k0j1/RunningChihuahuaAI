@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { X, LogOut, Wallet, User, Link } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, LogOut, Wallet, User, Link, Copy, Check } from 'lucide-react';
 
 interface UserInfoModalProps {
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string; fid?: number } | null;
@@ -17,6 +17,17 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({
   onDisconnect,
   onClose,
 }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    if (walletAddress) {
+      navigator.clipboard.writeText(walletAddress).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  };
+
   return (
     <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-in zoom-in duration-200">
@@ -63,10 +74,24 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({
                    <Link size={10} /> Link
                  </button>
                )}
+               {walletAddress && (
+                 <span className={`text-[10px] font-bold uppercase transition-colors ${copied ? 'text-green-500' : 'text-gray-300'}`}>
+                   {copied ? 'Copied' : 'Click to copy'}
+                 </span>
+               )}
              </div>
              {walletAddress ? (
-               <div className="break-all font-mono text-xs text-gray-600 leading-tight">
-                 {walletAddress}
+               <div 
+                 onClick={handleCopy}
+                 className="group cursor-pointer relative"
+                 title="Click to copy"
+               >
+                 <div className="break-all font-mono text-xs text-gray-600 leading-tight group-hover:text-blue-600 transition-colors">
+                   {walletAddress}
+                 </div>
+                 <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                   {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} className="text-blue-400" />}
+                 </div>
                </div>
              ) : (
                <span className="text-xs text-gray-400 italic">No wallet connected</span>

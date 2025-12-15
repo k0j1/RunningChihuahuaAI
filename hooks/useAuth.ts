@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
+import { updatePlayerProfile } from '../services/supabase';
 
 export const useAuth = () => {
   const [farcasterUser, setFarcasterUser] = useState<{username?: string, displayName?: string, pfpUrl?: string, fid?: number} | null>(null);
@@ -56,6 +57,13 @@ export const useAuth = () => {
 
     checkWallet();
   }, [isSDKLoaded]);
+
+  // Sync profile data to Supabase when user/wallet info changes
+  useEffect(() => {
+    if (farcasterUser || walletAddress) {
+      updatePlayerProfile(farcasterUser, walletAddress);
+    }
+  }, [farcasterUser, walletAddress]);
 
   const connectWallet = useCallback(async () => {
     try {

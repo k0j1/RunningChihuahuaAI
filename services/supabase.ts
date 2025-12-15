@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { ScoreEntry, PlayerStats } from '../types';
 
@@ -60,6 +61,61 @@ export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
     runCount: row.run_count || 0,
     lastActive: row.last_active
   }));
+};
+
+// Sync user profile data (username, pfp, wallet) to player_stats without changing scores
+export const updatePlayerProfile = async (farcasterUser: any, walletAddress: string | null) => {
+  let userId = null;
+  if (farcasterUser?.username) {
+    userId = `fc:${farcasterUser.username}`;
+  } else if (walletAddress) {
+    userId = `wa:${walletAddress}`;
+  }
+
+  if (!userId) return;
+
+  // We want to update metadata if the user exists, or insert new if not.
+  // We should NOT overwrite score data if it exists.
+  
+  try {
+    // 1. Check if user exists
+    const { data: existing, error: fetchError } = await supabase
+      .from('player_stats')
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (fetchError) console.warn("Error fetching profile stats:", fetchError);
+
+    const payload = {
+      user_id: userId,
+      username: farcasterUser?.username || null,
+      display_name: farcasterUser?.displayName || null,
+      pfp_url: farcasterUser?.pfpUrl || null,
+      wallet_address: walletAddress || null,
+      last_active: new Date().toISOString()
+    };
+
+    if (existing) {
+      // Update only metadata fields
+      await supabase
+        .from('player_stats')
+        .update(payload)
+        .eq('user_id', userId);
+    } else {
+      // Insert new record with initialized stats
+      await supabase
+        .from('player_stats')
+        .insert({
+          ...payload,
+          total_score: 0,
+          total_distance: 0,
+          run_count: 0
+        });
+    }
+  } catch (e) {
+    console.error("Error updating player profile:", e);
+  }
 };
 
 export const saveScoreToSupabase = async (entry: ScoreEntry) => {
