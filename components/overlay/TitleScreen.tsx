@@ -1,13 +1,13 @@
 
-import React from 'react';
-import { History, Trophy, FileText } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { History, Trophy, FileText, PlayCircle } from 'lucide-react';
 import { TitleBackground } from '../TitleBackground';
 import { WalletWidget } from './WalletWidget';
 
 interface TitleScreenProps {
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string } | null;
   walletAddress: string | null;
-  onStartGame: () => void;
+  onStartGame: (isDemo?: boolean) => void;
   onShowHistory: () => void;
   onShowRanking: () => void;
   onConnectWallet: () => void;
@@ -23,6 +23,35 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onConnectWallet,
   onShowProfile,
 }) => {
+  const [isDemoReady, setIsDemoReady] = useState(false);
+  const pressTimer = useRef<number | null>(null);
+
+  // Check if guest (no Farcaster and no Wallet)
+  const isGuest = !farcasterUser && !walletAddress;
+
+  const handlePressStart = () => {
+    if (!isGuest) return;
+    
+    // Start 15s timer
+    pressTimer.current = window.setTimeout(() => {
+      setIsDemoReady(true);
+    }, 15000);
+  };
+
+  const handlePressEnd = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pressTimer.current) clearTimeout(pressTimer.current);
+    };
+  }, []);
+
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-50 overflow-hidden">
       {/* Generative Background */}
@@ -44,12 +73,27 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         <p className="text-xl mb-4 font-light text-gray-100">Escape the Bosses!</p>
 
         <div className="flex flex-col gap-4">
-          <button
-            onClick={onStartGame}
-            className="px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full text-2xl font-bold shadow-lg hover:scale-105 hover:shadow-blue-500/50 transition-all active:scale-95"
-          >
-            START RUNNING
-          </button>
+          {isDemoReady ? (
+            <button
+              onClick={() => onStartGame(true)}
+              className="px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full text-2xl font-black shadow-lg hover:scale-105 hover:shadow-purple-500/50 transition-all active:scale-95 flex items-center justify-center gap-2 animate-pulse"
+            >
+              <PlayCircle /> DEMO PLAY
+            </button>
+          ) : (
+            <button
+              onClick={() => onStartGame(false)}
+              onMouseDown={handlePressStart}
+              onMouseUp={handlePressEnd}
+              onMouseLeave={handlePressEnd}
+              onTouchStart={handlePressStart}
+              onTouchEnd={handlePressEnd}
+              className="px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full text-2xl font-bold shadow-lg hover:scale-105 hover:shadow-blue-500/50 transition-all active:scale-95 select-none"
+            >
+              START RUNNING
+            </button>
+          )}
+
           <div className="flex gap-4">
             <button
               onClick={onShowHistory}

@@ -7,18 +7,21 @@ import { ProjectileType } from '../types';
 interface ProjectileProps {
   active: boolean;
   type: ProjectileType;
-  progress: number; // 0 to 1
+  progressRef: React.MutableRefObject<number>; // Changed to Ref
   startX: number; // Usually 0 (behind/center)
   startZ: number; // Z position of Gorilla when thrown
   scale: number;
 }
 
-export const Projectile: React.FC<ProjectileProps> = ({ active, type, progress, startX, startZ, scale }) => {
+export const Projectile: React.FC<ProjectileProps> = ({ active, type, progressRef, startX, startZ, scale }) => {
   const groupRef = useRef<Group>(null);
 
   useFrame((state) => {
     if (!groupRef.current || !active) return;
     
+    // Read progress from Ref
+    const progress = progressRef.current;
+
     // Spin animation
     groupRef.current.rotation.x += 0.1;
     groupRef.current.rotation.z += 0.1;
@@ -27,22 +30,25 @@ export const Projectile: React.FC<ProjectileProps> = ({ active, type, progress, 
     if (type === ProjectileType.FIREBALL) {
        groupRef.current.scale.setScalar(0.8 * scale + Math.sin(state.clock.elapsedTime * 20) * 0.1);
     }
+
+    // Parabolic Arc Calculation
+    const endZ = 0;
+    const currentZ = startZ - (progress * (startZ - endZ));
+    
+    const startY = 2.5 * scale;
+    const endY = 0.5;
+    const peakHeight = 5 * scale;
+    
+    const arcY = (4 * peakHeight * progress * (1 - progress)) + (startY * (1-progress) + endY * progress);
+
+    // Apply Position
+    groupRef.current.position.set(startX, arcY, currentZ);
   });
 
   if (!active) return null;
 
-  // Parabolic Arc Calculation
-  const endZ = 0;
-  const currentZ = startZ - (progress * (startZ - endZ));
-  
-  const startY = 2.5 * scale;
-  const endY = 0.5;
-  const peakHeight = 5 * scale;
-  
-  const arcY = (4 * peakHeight * progress * (1 - progress)) + (startY * (1-progress) + endY * progress);
-
   return (
-    <group ref={groupRef} position={[startX, arcY, currentZ]} scale={[0.8 * scale, 0.8 * scale, 0.8 * scale]}>
+    <group ref={groupRef} position={[startX, 0, startZ]} scale={[0.8 * scale, 0.8 * scale, 0.8 * scale]}>
       {type === ProjectileType.BARREL && (
         <mesh castShadow>
           <cylinderGeometry args={[0.4, 0.4, 0.6, 8]} />

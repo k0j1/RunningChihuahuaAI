@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+
+import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Mesh, Group } from 'three';
 import { ObstacleType } from '../types';
@@ -7,33 +8,34 @@ interface ObstacleProps {
   active: boolean;
   type: ObstacleType;
   speed: number;
-  progress: number; // 0 to 1
+  progressRef: React.MutableRefObject<number>; // Changed from number to Ref
 }
 
-export const Obstacle: React.FC<ObstacleProps> = ({ active, type, speed, progress }) => {
+export const Obstacle: React.FC<ObstacleProps> = ({ active, type, speed, progressRef }) => {
   const groupRef = useRef<Group>(null);
 
   useFrame((state) => {
-    if (!groupRef.current) return;
+    if (!groupRef.current || !active) return;
+    
+    // Read progress directly from Ref to avoid passing prop every frame
+    const progress = progressRef.current;
+    
+    // Update Z Position based on ref
+    const zPos = -40 + (progress * 40);
+    groupRef.current.position.z = zPos;
     
     // Rotate animation based on type
-    if (active) {
-       if (type === ObstacleType.ROCK) {
-          groupRef.current.rotation.x += 0.05 * speed;
-          groupRef.current.rotation.y += 0.05 * speed;
-       } else if (type === ObstacleType.ANIMAL || type === ObstacleType.SHEEP) {
-          // Hop animation
-          groupRef.current.position.y = 0.5 + Math.abs(Math.sin(state.clock.elapsedTime * 10)) * 0.3;
-       }
+    if (type === ObstacleType.ROCK) {
+      groupRef.current.rotation.x += 0.05 * speed;
+      groupRef.current.rotation.y += 0.05 * speed;
+    } else if (type === ObstacleType.ANIMAL || type === ObstacleType.SHEEP) {
+      // Hop animation
+      groupRef.current.position.y = 0.5 + Math.abs(Math.sin(state.clock.elapsedTime * 10)) * 0.3;
     }
   });
 
-  if (!active) return null;
-
-  // Map progress (0 to 1) to Z position (-40 to 0)
-  const zPos = -40 + (progress * 40);
-
-  const renderMesh = () => {
+  // Memoize geometry to prevent churn
+  const meshContent = useMemo(() => {
     switch (type) {
       case ObstacleType.CAR:
         return (
@@ -112,11 +114,13 @@ export const Obstacle: React.FC<ObstacleProps> = ({ active, type, speed, progres
           </mesh>
         );
     }
-  };
+  }, [type]);
+
+  if (!active) return null;
 
   return (
-    <group ref={groupRef} position={[0, 0, zPos]}>
-      {renderMesh()}
+    <group ref={groupRef} position={[0, 0, -40]}>
+      {meshContent}
     </group>
   );
 };

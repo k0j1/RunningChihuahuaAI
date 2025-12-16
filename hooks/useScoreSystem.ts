@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { ScoreEntry, PlayerStats } from '../types';
 import { fetchGlobalRanking, fetchTotalRanking, saveScoreToSupabase } from '../services/supabase';
@@ -13,6 +13,9 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
   const [totalRanking, setTotalRanking] = useState<PlayerStats[]>([]);
   const [lastGameDate, setLastGameDate] = useState<string | null>(null);
 
+  // Logical trackers to throttle UI updates
+  const distanceRef = useRef(0);
+  
   // Load history & rankings on mount
   useEffect(() => {
     const saved = localStorage.getItem('chihuahua_history');
@@ -36,28 +39,45 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
   const resetScore = () => {
     setScore(0);
     setDistance(0);
+    distanceRef.current = 0;
     setSpeed(2.0);
     setLastGameDate(null);
   };
 
   const addScore = (amount: number) => {
-    setScore(prev => prev + amount);
+    // Ensure integer addition to prevent float bugs
+    setScore(prev => Math.floor(prev + amount));
   };
 
   const updateDistance = (distDelta: number) => {
     const increment = distDelta / 10;
-    setDistance(prev => {
-      const newDist = prev + increment;
-      // Increase speed every 50m
-      if (Math.floor(newDist / 50) > Math.floor(prev / 50)) {
-         setSpeed(s => Math.min(s + (0.2 * (2/3)), 5.0)); 
-      }
-      return newDist;
-    }); 
-    setScore(prev => prev + 1);
+    const oldDist = distanceRef.current;
+    const newDist = oldDist + increment;
+    distanceRef.current = newDist;
+
+    // Only update React State (triggering render) when integer part changes
+    // This prevents WebGL context loss from too many re-renders
+    if (Math.floor(newDist) > Math.floor(oldDist)) {
+        setDistance(Math.floor(newDist));
+        
+        // Add 10 points per meter to mimic the fast-paced scoring of the original version,
+        // but using integers to ensure stability and database compatibility.
+        setScore(prev => prev + 10);
+        
+        // Speed check based on Ref logic
+        if (Math.floor(newDist / 50) > Math.floor(oldDist / 50)) {
+           setSpeed(s => Math.min(s + (0.2 * (2/3)), 5.0)); 
+        }
+    }
   };
 
-  const saveRun = async () => {
+  const saveRun = async (isDemoMode: boolean = false) => {
+    // If it's a demo run, do not save anything
+    if (isDemoMode) {
+      console.log("Demo Mode: Score not saved.");
+      return;
+    }
+
     let currentWalletAddress = walletAddress;
 
     // Try to fetch wallet address if missing, specifically for Farcaster context
@@ -83,7 +103,7 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
       date: isoDate,
       formattedDate: formattedDate,
       score: score,
-      distance: Math.floor(distance),
+      distance: Math.floor(distanceRef.current),
       farcasterUser: farcasterUser ? {
         fid: farcasterUser.fid, 
         username: farcasterUser.username || '',

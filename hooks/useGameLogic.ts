@@ -12,6 +12,7 @@ import { useProjectileSystem } from './useProjectileSystem';
 export const useGameLogic = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
   const [dayTime, setDayTime] = useState<boolean>(true);
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
 
   // --- Sub-Systems ---
   const { farcasterUser, walletAddress, connectWallet, disconnectWallet } = useAuth();
@@ -27,7 +28,8 @@ export const useGameLogic = () => {
 
   // --- Actions ---
 
-  const startGame = () => {
+  const startGame = (demoMode: boolean = false) => {
+    setIsDemoMode(demoMode);
     setGameState(GameState.RUNNING);
     setDayTime(true);
     scoreSystem.resetScore();
@@ -39,7 +41,7 @@ export const useGameLogic = () => {
   };
 
   const handleGameOver = () => {
-    scoreSystem.saveRun();
+    scoreSystem.saveRun(isDemoMode);
     setGameState(GameState.CAUGHT_ANIMATION);
     setTimeout(() => {
         setGameState(GameState.GAME_OVER);
@@ -48,7 +50,7 @@ export const useGameLogic = () => {
 
   const handleGameClear = () => {
      setGameState(GameState.GAME_CLEAR);
-     scoreSystem.saveRun();
+     scoreSystem.saveRun(isDemoMode);
      setTimeout(() => {
          setGameState(GameState.GAME_OVER);
      }, 6000); // Show clear screen for 6 seconds
@@ -133,13 +135,23 @@ export const useGameLogic = () => {
        const res = obstacleSystem.updateObstacle(delta, scoreSystem.speed);
        const progress = res.progress;
 
+       // --- AUTO PLAY LOGIC (DEMO MODE) ---
+       if (isDemoMode && progress > 0.82 && !obstacleDodgedRef.current && !playerSystem.isHit) {
+           const bonusCombo = playerSystem.performDodge(obstacleSystem.obstacleType);
+           const bonus = bonusCombo * 10;
+           scoreSystem.addScore(10 + bonus);
+           obstacleDodgedRef.current = true;
+           // Trigger visual only, center screen
+           playerSystem.triggerComicCutIn(); 
+       }
+
        // A. Input Timing Check (Dodge)
        // Check if dodge queued and timing is right.
        if (progress > 0.8 && playerSystem.isDodgeQueued && !playerSystem.isHit) {
            // Ensure we haven't already dodged this specific obstacle instance
            if (!obstacleDodgedRef.current) {
                 const bonusCombo = playerSystem.performDodge(obstacleSystem.obstacleType);
-                const bonus = bonusCombo * 5;
+                const bonus = bonusCombo * 10; // Combo x 10 points
                 scoreSystem.addScore(10 + bonus);
                 obstacleDodgedRef.current = true; // Mark this obstacle as successfully deflected
            }
@@ -218,6 +230,13 @@ export const useGameLogic = () => {
         const res = projectileSystem.updateProjectile(delta, scoreSystem.speed, bossSystem.bossLevel);
         const progress = res.progress;
 
+        // --- AUTO PLAY LOGIC (DEMO MODE) ---
+        if (isDemoMode && progress > 0.88 && !playerSystem.isDuckedRef.current && !playerSystem.isHit) {
+            playerSystem.performDuck();
+            scoreSystem.addScore(20);
+            playerSystem.triggerComicCutIn();
+        }
+
         // A. Input Timing Check (Duck)
         if (progress > 0.85 && playerSystem.isDuckQueued && !playerSystem.isDuckedRef.current && !playerSystem.isHit) {
             playerSystem.performDuck();
@@ -244,6 +263,7 @@ export const useGameLogic = () => {
     // Game State
     gameState, setGameState,
     dayTime, setDayTime,
+    isDemoMode,
     
     // Auth
     farcasterUser, walletAddress, connectWallet, disconnectWallet,

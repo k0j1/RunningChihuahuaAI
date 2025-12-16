@@ -4,7 +4,8 @@ import { ObstacleType } from '../types';
 
 export const useObstacleSystem = () => {
   const [hazardActive, setHazardActive] = useState(false);
-  const [obstacleProgress, setObstacleProgress] = useState(0); 
+  // Removed state for progress, using Ref for performance (animation loop)
+  const obstacleProgressRef = useRef(0); 
   const [obstacleType, setObstacleType] = useState<ObstacleType>(ObstacleType.ROCK);
   const [hazardPosition, setHazardPosition] = useState({ top: '50%', left: '50%' });
 
@@ -16,7 +17,7 @@ export const useObstacleSystem = () => {
   const resetObstacles = () => {
     setHazardActive(false);
     hazardActiveRef.current = false;
-    setObstacleProgress(0);
+    obstacleProgressRef.current = 0;
     timeSinceLastObstacle.current = 0;
     nextObstacleTime.current = 1.5 + Math.random() * 2;
   };
@@ -24,7 +25,7 @@ export const useObstacleSystem = () => {
   const spawnObstacle = () => {
     setHazardActive(true);
     hazardActiveRef.current = true;
-    setObstacleProgress(0);
+    obstacleProgressRef.current = 0;
     
     const rand = Math.random();
     let type = ObstacleType.ROCK;
@@ -45,13 +46,13 @@ export const useObstacleSystem = () => {
   const updateObstacle = (delta: number, speed: number) => {
     if (hazardActiveRef.current) {
         const approachSpeed = 0.5 * speed * delta; 
-        const newProgress = obstacleProgress + approachSpeed;
-        setObstacleProgress(newProgress);
+        const newProgress = obstacleProgressRef.current + approachSpeed;
+        obstacleProgressRef.current = newProgress;
         
         if (newProgress > 1.6) {
             setHazardActive(false);
             hazardActiveRef.current = false;
-            setObstacleProgress(0);
+            obstacleProgressRef.current = 0;
             return { active: false, progress: 0 };
         }
         return { active: true, progress: newProgress };
@@ -65,8 +66,13 @@ export const useObstacleSystem = () => {
     }
   };
 
+  // Helper to force set progress (mainly for reset logic in main loop)
+  const setObstacleProgress = (val: number) => {
+    obstacleProgressRef.current = val;
+  }
+
   return {
-    hazardActive, hazardActiveRef, obstacleProgress, obstacleType, hazardPosition,
+    hazardActive, hazardActiveRef, obstacleProgressRef, obstacleType, hazardPosition,
     setObstacleProgress, setHazardActive,
     resetObstacles, updateObstacle
   };

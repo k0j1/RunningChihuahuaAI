@@ -31,7 +31,7 @@ interface OverlayProps {
   dodgeCutIn: { id: number; text: string; x: number; y: number } | null;
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string; fid?: number } | null;
   walletAddress: string | null;
-  onStartGame: () => void;
+  onStartGame: (isDemo?: boolean) => void;
   onShowHistory: () => void;
   onShowRanking: () => void;
   onHideHistory: () => void;

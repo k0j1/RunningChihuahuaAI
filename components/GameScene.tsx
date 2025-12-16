@@ -20,11 +20,11 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
   const {
     gameState, speed, dayTime, lives,
     bossType, bossLevel, isBossDefeated, isBossHit, isThrowing,
-    hazardActive, obstacleType, obstacleProgress, 
-    projectileActive, projectileType, projectileProgress, projectileStartZ,
+    hazardActive, obstacleType, obstacleProgressRef, 
+    projectileActive, projectileType, projectileProgressRef, projectileStartZ,
     isDodging, dodgeType, isHit, isCelebrating,
-    handleDistanceUpdate, handleObstacleTick, setObstacleProgress,
-    handleProjectileTick, setProjectileProgress
+    handleDistanceUpdate, handleObstacleTick,
+    handleProjectileTick
   } = gameLogic;
 
   const projectileScale = 1 + (bossLevel - 1) * 0.5;
@@ -123,13 +123,13 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
            active={hazardActive}
            type={obstacleType}
            speed={speed}
-           progress={obstacleProgress}
+           progressRef={obstacleProgressRef}
         />
 
         <Projectile 
            active={projectileActive}
            type={projectileType}
-           progress={projectileProgress}
+           progressRef={projectileProgressRef}
            startX={0}
            startZ={projectileStartZ}
            scale={projectileScale}

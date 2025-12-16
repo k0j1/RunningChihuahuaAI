@@ -4,7 +4,8 @@ import { ProjectileType, BossType } from '../types';
 
 export const useProjectileSystem = () => {
   const [projectileActive, setProjectileActive] = useState(false);
-  const [projectileProgress, setProjectileProgress] = useState(0);
+  // Removed state, using Ref for 60fps animation
+  const projectileProgressRef = useRef(0);
   const [projectileType, setProjectileType] = useState<ProjectileType>(ProjectileType.BARREL);
   const [projectileStartZ, setProjectileStartZ] = useState(8);
   
@@ -17,7 +18,7 @@ export const useProjectileSystem = () => {
   const resetProjectiles = () => {
     setProjectileActive(false);
     projectileActiveRef.current = false;
-    setProjectileProgress(0);
+    projectileProgressRef.current = 0;
     isThrowingRef.current = false;
     timeSinceLastProjectile.current = 0;
     nextProjectileTime.current = 5 + Math.random() * 5;
@@ -32,7 +33,7 @@ export const useProjectileSystem = () => {
         setProjectileStartZ(currentBossZ);
         setProjectileActive(true);
         projectileActiveRef.current = true;
-        setProjectileProgress(0);
+        projectileProgressRef.current = 0;
         isThrowingRef.current = false;
         
         let pType = ProjectileType.BARREL;
@@ -51,13 +52,13 @@ export const useProjectileSystem = () => {
     if (projectileActiveRef.current) {
         const levelMultiplier = 5 + (bossLevel - 1) * 2;
         const flySpeed = (speed * delta * levelMultiplier) / Math.max(projectileStartZ, 1); 
-        const newProgress = projectileProgress + flySpeed;
-        setProjectileProgress(newProgress);
+        const newProgress = projectileProgressRef.current + flySpeed;
+        projectileProgressRef.current = newProgress;
         
         if (newProgress >= 1) {
             setProjectileActive(false);
             projectileActiveRef.current = false;
-            setProjectileProgress(0);
+            projectileProgressRef.current = 0;
             return { active: false, progress: 1, finished: true };
         }
         return { active: true, progress: newProgress };
@@ -75,8 +76,13 @@ export const useProjectileSystem = () => {
       return false;
   };
 
+  // Helper setter
+  const setProjectileProgress = (val: number) => {
+    projectileProgressRef.current = val;
+  }
+
   return {
-    projectileActive, projectileActiveRef, projectileProgress, projectileType, projectileStartZ, isThrowingRef,
+    projectileActive, projectileActiveRef, projectileProgressRef, projectileType, projectileStartZ, isThrowingRef,
     setProjectileProgress, setProjectileActive,
     resetProjectiles, checkSpawn, triggerThrow, updateProjectile
   };
