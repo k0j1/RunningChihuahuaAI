@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2 } from 'lucide-react';
-import { ScoreEntry, PlayerStats } from '../../types';
+import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2, Coins, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { ScoreEntry, PlayerStats, ClaimResult } from '../../types';
 import { WalletWidget } from './WalletWidget';
 import { RankingList, RankedEntry } from './RankingList';
 
@@ -16,6 +16,11 @@ interface GameOverScreenProps {
   lastGameDate: string | null;
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string } | null;
   walletAddress: string | null;
+  // Reward Props
+  isClaiming: boolean;
+  claimResult: ClaimResult | null;
+  handleClaimReward: (wallet: string | null, score: number) => void;
+  // Actions
   onStartGame: () => void;
   onReturnToTitle: () => void;
   onConnectWallet: () => void;
@@ -37,6 +42,9 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   lastGameDate,
   farcasterUser,
   walletAddress,
+  isClaiming,
+  claimResult,
+  handleClaimReward,
   onStartGame,
   onReturnToTitle,
   onConnectWallet,
@@ -47,6 +55,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   const [activeTab, setActiveTab] = useState<RankingTab>('HIGH_SCORE');
 
   const isGameClear = lives > 0;
+  const rewardAmount = Math.floor(score * 0.1);
 
   // Top 10 for Global Ranking display (High Scores)
   const top10HighScores = useMemo(() => ranking.slice(0, 10).map((entry, index) => ({
@@ -136,6 +145,79 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
               {score.toLocaleString()}
            </span>
         </div>
+
+        {/* --- REWARD SECTION --- */}
+        <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-xl p-4 border border-yellow-300 mb-6 shadow-inner relative overflow-hidden">
+           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-orange-500"></div>
+           
+           {!claimResult ? (
+             <div className="flex flex-col items-center">
+                <div className="flex items-center gap-2 mb-2">
+                   <Coins className="text-yellow-600" size={24} />
+                   <h3 className="text-lg font-black text-yellow-800 uppercase italic tracking-tighter">Token Rewards</h3>
+                </div>
+                
+                {walletAddress ? (
+                   <>
+                      <p className="text-sm font-bold text-gray-700 mb-3">
+                        Earn <span className="text-orange-600 font-black">{rewardAmount} $CHH</span> for this run!
+                      </p>
+                      <button
+                        onClick={() => handleClaimReward(walletAddress, score)}
+                        disabled={isClaiming || rewardAmount <= 0}
+                        className="w-full bg-gradient-to-b from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 text-white font-black py-3 rounded-xl shadow-lg transform active:scale-95 transition-all flex items-center justify-center gap-2 border-b-4 border-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isClaiming ? <Loader2 className="animate-spin" /> : <Coins fill="white" size={20} />}
+                        {isClaiming ? 'SENDING...' : 'CLAIM REWARDS'}
+                      </button>
+                      <p className="text-[10px] text-gray-500 mt-2 text-center">
+                         *Gas covered by developer treasury.
+                      </p>
+                   </>
+                ) : (
+                   <div className="text-center">
+                      <p className="text-sm text-gray-600 mb-2 font-medium">Connect wallet to claim <span className="font-bold">{rewardAmount} $CHH</span>.</p>
+                      <button 
+                        onClick={onConnectWallet}
+                        className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-4 rounded-full shadow transition-colors"
+                      >
+                        Connect Wallet
+                      </button>
+                   </div>
+                )}
+             </div>
+           ) : (
+             <div className={`flex flex-col items-center animate-in zoom-in duration-300 ${claimResult.success ? 'text-green-700' : 'text-red-600'}`}>
+                {claimResult.success ? (
+                   <>
+                     <CheckCircle2 size={32} className="mb-2 text-green-500" />
+                     <h3 className="text-xl font-black uppercase mb-1">Claim Successful!</h3>
+                     <p className="text-sm font-bold mb-2">
+                        Sent {claimResult.amount} $CHH to wallet.
+                     </p>
+                     {claimResult.txHash && (
+                        <a href={`https://basescan.org/tx/${claimResult.txHash}`} target="_blank" rel="noreferrer" className="text-[10px] underline opacity-70 hover:opacity-100 font-mono">
+                           Tx: {claimResult.txHash.slice(0, 10)}...
+                        </a>
+                     )}
+                   </>
+                ) : (
+                   <>
+                     <AlertCircle size={32} className="mb-2 text-red-500" />
+                     <h3 className="text-lg font-bold uppercase mb-1">Claim Failed</h3>
+                     <p className="text-xs font-medium">{claimResult.message}</p>
+                     <button 
+                       onClick={() => handleClaimReward(walletAddress, score)}
+                       className="mt-2 text-xs font-bold underline hover:no-underline"
+                     >
+                       Try Again
+                     </button>
+                   </>
+                )}
+             </div>
+           )}
+        </div>
+        {/* --- END REWARD SECTION --- */}
 
         <div className="space-y-4">
           

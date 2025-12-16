@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 export enum GameState {
@@ -83,33 +82,11 @@ export interface DogThought {
   emotion: string;
 }
 
-// Define the R3F elements shape to reuse
-interface R3FElements {
-  group: any;
-  mesh: any;
-  primitive: any;
-  ambientLight: any;
-  directionalLight: any;
-  pointLight: any;
-  spotLight: any;
-  orthographicCamera: any;
-  perspectiveCamera: any;
-  boxGeometry: any;
-  planeGeometry: any;
-  sphereGeometry: any;
-  coneGeometry: any;
-  cylinderGeometry: any;
-  dodecahedronGeometry: any;
-  capsuleGeometry: any;
-  torusGeometry: any;
-  ringGeometry: any;
-  circleGeometry: any;
-  meshStandardMaterial: any;
-  meshBasicMaterial: any;
-  meshPhongMaterial: any;
-  fog: any;
-  color: any;
-  [elemName: string]: any;
+export interface ClaimResult {
+  success: boolean;
+  message: string;
+  txHash?: string;
+  amount?: number;
 }
 
 // Global JSX definitions for React Three Fiber elements to fix TypeScript errors
@@ -118,6 +95,32 @@ declare global {
     ethereum?: any;
   }
   namespace JSX {
-    interface IntrinsicElements extends R3FElements {}
+    interface IntrinsicElements {
+      group: any;
+      mesh: any;
+      primitive: any;
+      ambientLight: any;
+      directionalLight: any;
+      pointLight: any;
+      spotLight: any;
+      orthographicCamera: any;
+      perspectiveCamera: any;
+      boxGeometry: any;
+      planeGeometry: any;
+      sphereGeometry: any;
+      coneGeometry: any;
+      cylinderGeometry: any;
+      dodecahedronGeometry: any;
+      capsuleGeometry: any;
+      torusGeometry: any;
+      ringGeometry: any;
+      circleGeometry: any;
+      meshStandardMaterial: any;
+      meshBasicMaterial: any;
+      meshPhongMaterial: any;
+      fog: any;
+      color: any;
+      [elemName: string]: any;
+    }
   }
 }

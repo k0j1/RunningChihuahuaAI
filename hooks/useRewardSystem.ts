@@ -1,0 +1,39 @@
+import { useState, useCallback } from 'react';
+import { claimTokenReward } from '../services/tokenService';
+import { ClaimResult } from '../types';
+
+export const useRewardSystem = () => {
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
+
+  const handleClaimReward = useCallback(async (walletAddress: string | null, score: number) => {
+    if (!walletAddress) {
+        setClaimResult({ success: false, message: "No wallet connected." });
+        return;
+    }
+
+    setIsClaiming(true);
+    setClaimResult(null);
+
+    try {
+      const result = await claimTokenReward(walletAddress, score);
+      setClaimResult(result);
+    } catch (e) {
+      setClaimResult({ success: false, message: "Network error occurred." });
+    } finally {
+      setIsClaiming(false);
+    }
+  }, []);
+
+  const resetClaimStatus = useCallback(() => {
+    setClaimResult(null);
+    setIsClaiming(false);
+  }, []);
+
+  return {
+    isClaiming,
+    claimResult,
+    handleClaimReward,
+    resetClaimStatus
+  };
+};

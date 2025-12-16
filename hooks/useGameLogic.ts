@@ -8,6 +8,7 @@ import { usePlayerSystem } from './usePlayerSystem';
 import { useBossSystem } from './useBossSystem';
 import { useObstacleSystem } from './useObstacleSystem';
 import { useProjectileSystem } from './useProjectileSystem';
+import { useRewardSystem } from './useRewardSystem';
 
 export const useGameLogic = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
@@ -22,6 +23,7 @@ export const useGameLogic = () => {
   const bossSystem = useBossSystem();
   const obstacleSystem = useObstacleSystem();
   const projectileSystem = useProjectileSystem();
+  const rewardSystem = useRewardSystem(); // New Reward System
 
   // Track if the currently active obstacle has been successfully dodged/deflected
   const obstacleDodgedRef = useRef(false);
@@ -37,6 +39,7 @@ export const useGameLogic = () => {
     bossSystem.resetBoss();
     obstacleSystem.resetObstacles();
     projectileSystem.resetProjectiles();
+    rewardSystem.resetClaimStatus(); // Reset rewards on new game
     obstacleDodgedRef.current = false;
   };
 
@@ -274,6 +277,7 @@ export const useGameLogic = () => {
     ...bossSystem,
     ...obstacleSystem,
     ...projectileSystem,
+    ...rewardSystem, // Export reward props
 
     // Computed properties for View
     isThrowing: projectileSystem.isThrowingRef.current,

@@ -13,6 +13,7 @@ const App: React.FC = () => {
     hazardActive, hazardPosition, projectileActive, 
     isDodgeQueued, obstacleProgressRef, isDuckQueued, projectileProgressRef, projectileStartZ, bossLevel,
     history, globalRanking, totalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
+    isClaiming, claimResult, handleClaimReward, // Reward Props
     startGame, setGameState, handleDodge, handleDuck, clearHistory,
     connectWallet, disconnectWallet, shareScore
   } = gameLogic;
@@ -70,6 +71,9 @@ const App: React.FC = () => {
         dodgeCutIn={dodgeCutIn}
         farcasterUser={farcasterUser}
         walletAddress={walletAddress}
+        isClaiming={isClaiming}
+        claimResult={claimResult}
+        handleClaimReward={handleClaimReward}
         onStartGame={startGame}
         onShowHistory={() => setGameState(GameState.HISTORY)}
         onShowRanking={() => setGameState(GameState.RANKING)}

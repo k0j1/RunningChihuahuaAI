@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { GameState, ScoreEntry, PlayerStats } from '../types';
+import { GameState, ScoreEntry, PlayerStats, ClaimResult } from '../types';
 import { TitleScreen } from './overlay/TitleScreen';
 import { HistoryScreen } from './overlay/HistoryScreen';
 import { RankingScreen } from './overlay/RankingScreen';
@@ -31,6 +31,11 @@ interface OverlayProps {
   dodgeCutIn: { id: number; text: string; x: number; y: number } | null;
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string; fid?: number } | null;
   walletAddress: string | null;
+  // Reward Props
+  isClaiming: boolean;
+  claimResult: ClaimResult | null;
+  handleClaimReward: (wallet: string | null, score: number) => void;
+  // Actions
   onStartGame: (isDemo?: boolean) => void;
   onShowHistory: () => void;
   onShowRanking: () => void;
@@ -66,6 +71,9 @@ export const Overlay: React.FC<OverlayProps> = ({
   dodgeCutIn,
   farcasterUser,
   walletAddress,
+  isClaiming,
+  claimResult,
+  handleClaimReward,
   onStartGame,
   onShowHistory,
   onShowRanking,
@@ -224,6 +232,9 @@ export const Overlay: React.FC<OverlayProps> = ({
               lastGameDate={lastGameDate}
               farcasterUser={farcasterUser}
               walletAddress={walletAddress}
+              isClaiming={isClaiming}
+              claimResult={claimResult}
+              handleClaimReward={handleClaimReward}
               onStartGame={onStartGame}
               onReturnToTitle={onReturnToTitle}
               onConnectWallet={onConnectWallet}
