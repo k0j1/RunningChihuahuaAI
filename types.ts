@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export enum GameState {
@@ -8,6 +9,7 @@ export enum GameState {
   RUNNING = 'RUNNING',
   PAUSED = 'PAUSED',
   CAUGHT_ANIMATION = 'CAUGHT_ANIMATION',
+  GAME_CLEAR = 'GAME_CLEAR',
   GAME_OVER = 'GAME_OVER'
 }
 

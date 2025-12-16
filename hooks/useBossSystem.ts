@@ -25,9 +25,14 @@ export const useBossSystem = () => {
     return newHits;
   };
 
-  const defeatBoss = () => {
+  const defeatBoss = (isFinal: boolean = false) => {
     setIsBossDefeated(true);
     
+    // If it's the final boss (Game Clear), we don't trigger the next level spawn logic
+    if (isFinal) {
+        return;
+    }
+
     setTimeout(() => {
       // Level Up / Type Switch Logic
       if (bossLevel >= 2) {

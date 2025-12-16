@@ -1,7 +1,7 @@
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import sdk from '@farcaster/frame-sdk';
-import { GameState } from '../types';
+import { GameState, BossType } from '../types';
 import { useAuth } from './useAuth';
 import { useScoreSystem } from './useScoreSystem';
 import { usePlayerSystem } from './usePlayerSystem';
@@ -22,6 +22,9 @@ export const useGameLogic = () => {
   const obstacleSystem = useObstacleSystem();
   const projectileSystem = useProjectileSystem();
 
+  // Track if the currently active obstacle has been successfully dodged/deflected
+  const obstacleDodgedRef = useRef(false);
+
   // --- Actions ---
 
   const startGame = () => {
@@ -32,6 +35,7 @@ export const useGameLogic = () => {
     bossSystem.resetBoss();
     obstacleSystem.resetObstacles();
     projectileSystem.resetProjectiles();
+    obstacleDodgedRef.current = false;
   };
 
   const handleGameOver = () => {
@@ -40,6 +44,14 @@ export const useGameLogic = () => {
     setTimeout(() => {
         setGameState(GameState.GAME_OVER);
     }, 3000);
+  };
+
+  const handleGameClear = () => {
+     setGameState(GameState.GAME_CLEAR);
+     scoreSystem.saveRun();
+     setTimeout(() => {
+         setGameState(GameState.GAME_OVER);
+     }, 6000); // Show clear screen for 6 seconds
   };
 
   const shareScore = () => {
@@ -105,7 +117,7 @@ export const useGameLogic = () => {
   };
 
   const handleObstacleTick = (delta: number) => {
-    if (bossSystem.isBossDefeated || gameState === GameState.CAUGHT_ANIMATION) return;
+    if (bossSystem.isBossDefeated || gameState === GameState.CAUGHT_ANIMATION || gameState === GameState.GAME_CLEAR) return;
 
     // 1. Check Spawning (Only if projectile not spawning)
     if (!obstacleSystem.hazardActiveRef.current && !projectileSystem.projectileActiveRef.current && !projectileSystem.isThrowingRef.current) {
@@ -113,6 +125,7 @@ export const useGameLogic = () => {
        const res = obstacleSystem.updateObstacle(delta, scoreSystem.score); // Passing score just to advance timer
        if (res.spawned) {
          playerSystem.clearQueues();
+         obstacleDodgedRef.current = false; // Reset tracked status for new obstacle
        }
     } 
     // 2. Update Active Obstacle
@@ -121,15 +134,21 @@ export const useGameLogic = () => {
        const progress = res.progress;
 
        // A. Input Timing Check (Dodge)
-       if (progress > 0.8 && playerSystem.isDodgeQueued && !playerSystem.isDodgedRef.current && !playerSystem.isHit) {
-           const bonusCombo = playerSystem.performDodge(obstacleSystem.obstacleType);
-           const bonus = bonusCombo * 5;
-           scoreSystem.addScore(10 + bonus);
+       // Check if dodge queued and timing is right.
+       if (progress > 0.8 && playerSystem.isDodgeQueued && !playerSystem.isHit) {
+           // Ensure we haven't already dodged this specific obstacle instance
+           if (!obstacleDodgedRef.current) {
+                const bonusCombo = playerSystem.performDodge(obstacleSystem.obstacleType);
+                const bonus = bonusCombo * 5;
+                scoreSystem.addScore(10 + bonus);
+                obstacleDodgedRef.current = true; // Mark this obstacle as successfully deflected
+           }
        }
 
        // B. Hit Player Check
        if (progress >= 1.0 && progress < 1.1) {
-          if (!playerSystem.isDodgedRef.current && !playerSystem.isHit) {
+          // If we haven't deflected it, and we aren't currently immune (isDodgedRef), take damage
+          if (!obstacleDodgedRef.current && !playerSystem.isDodgedRef.current && !playerSystem.isHit) {
              const remainingLives = playerSystem.takeDamage();
              if (remainingLives <= 0.2) handleGameOver();
           }
@@ -137,7 +156,8 @@ export const useGameLogic = () => {
 
        // C. Hit Boss Check (Counter Attack)
        if (progress >= 1.0) {
-          if (playerSystem.isDodgedRef.current) {
+          // If the obstacle was successfully deflected (kicked back), check if it reaches the boss
+          if (obstacleDodgedRef.current) {
               const bossZ = Math.min(16, Math.max(0, (playerSystem.lives / 3) * 16));
               const obstacleZ = -40 + (progress * 40);
               
@@ -147,8 +167,21 @@ export const useGameLogic = () => {
                   bossSystem.registerHit();
                   
                   if (bossSystem.bossHits + 1 >= 10) {
-                      bossSystem.defeatBoss();
-                      scoreSystem.addScore(1000);
+                      // Defeated logic
+                      
+                      // Check for Game Clear Condition (Dragon Level 2)
+                      if (bossSystem.bossType === BossType.DRAGON && bossSystem.bossLevel >= 2) {
+                          bossSystem.defeatBoss(true); // Final defeat
+                          scoreSystem.addScore(1000 + 20000); // Boss Bonus + Game Clear Bonus
+                          playerSystem.triggerCelebration();
+                          handleGameClear();
+                      } else {
+                          // Normal boss defeat
+                          bossSystem.defeatBoss(false);
+                          scoreSystem.addScore(1000);
+                          playerSystem.triggerCelebration(); // Trigger happiness!
+                      }
+                      
                       // Reset hazards
                       obstacleSystem.setHazardActive(false);
                       obstacleSystem.hazardActiveRef.current = false;
@@ -160,6 +193,7 @@ export const useGameLogic = () => {
                   obstacleSystem.hazardActiveRef.current = false;
                   obstacleSystem.setObstacleProgress(0);
                   playerSystem.clearQueues();
+                  obstacleDodgedRef.current = false;
               }
           }
        }
@@ -167,7 +201,7 @@ export const useGameLogic = () => {
   };
 
   const handleProjectileTick = (delta: number) => {
-    if (bossSystem.isBossDefeated || gameState === GameState.CAUGHT_ANIMATION) return;
+    if (bossSystem.isBossDefeated || gameState === GameState.CAUGHT_ANIMATION || gameState === GameState.GAME_CLEAR) return;
 
     // 1. Check Spawning
     if (!projectileSystem.projectileActiveRef.current) {

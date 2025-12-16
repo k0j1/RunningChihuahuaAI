@@ -39,6 +39,10 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   const startCamPos = new Vector3(0, faceHeight, bossFaceZ - 2.5);
   const overheadPos = new Vector3(0, 12, 5); 
   const centerScenePos = new Vector3(0, 0, 2);
+  
+  // Victory Camera Positions
+  const victoryCamPos = new Vector3(2, 2, -3); // Low angle front/side view
+  const victoryTarget = new Vector3(0, 1, 0);
 
   useEffect(() => {
     if (gameState === GameState.CAUGHT_ANIMATION) {
@@ -59,7 +63,22 @@ export const CameraController: React.FC<CameraControllerProps> = ({
        // Lerp LookAt Target from Face to Ground Center
        lookAtTarget.current.lerp(centerScenePos, delta * 0.5);
        camera.lookAt(lookAtTarget.current);
-    } else {
+    } 
+    else if (gameState === GameState.GAME_CLEAR) {
+       // Victory Spin / Pan
+       const time = state.clock.getElapsedTime();
+       // Slowly rotate around or just maintain a nice angle
+       const radius = 4;
+       const x = Math.sin(time * 0.5) * radius;
+       const z = Math.cos(time * 0.5) * radius - 2; // Offset Z slightly
+       
+       const clearPos = new Vector3(x, 2, z);
+       
+       camera.position.lerp(clearPos, delta * 2);
+       lookAtTarget.current.lerp(victoryTarget, delta * 2);
+       camera.lookAt(lookAtTarget.current);
+    }
+    else {
        // Standard Game Camera
        const target = isMobile ? new Vector3(1.5, 6, -12) : new Vector3(3, 3, -5);
        camera.position.lerp(target, delta * 5);

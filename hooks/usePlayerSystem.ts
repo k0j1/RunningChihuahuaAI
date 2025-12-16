@@ -6,6 +6,7 @@ export const usePlayerSystem = () => {
   const [lives, setLives] = useState(3);
   const [combo, setCombo] = useState(0);
   const [isHit, setIsHit] = useState(false);
+  const [isCelebrating, setIsCelebrating] = useState(false);
   
   // Actions
   const [isDodging, setIsDodging] = useState(false);
@@ -17,12 +18,15 @@ export const usePlayerSystem = () => {
   // Logic Refs
   const isDodgedRef = useRef(false);
   const isDuckedRef = useRef(false);
+  const comboRef = useRef(0); // Ref to track combo synchronously
   const cutInTimeoutRef = useRef<number | null>(null);
 
   const resetPlayer = () => {
     setLives(3);
     setCombo(0);
+    comboRef.current = 0;
     setIsHit(false);
+    setIsCelebrating(false);
     setIsDodging(false);
     setIsDodgeQueued(false);
     setIsDuckQueued(false);
@@ -36,6 +40,8 @@ export const usePlayerSystem = () => {
     setLives(newLives);
     setIsHit(true);
     setCombo(0);
+    comboRef.current = 0; // Reset combo ref
+    setIsCelebrating(false); // Stop celebrating if hit
     setTimeout(() => setIsHit(false), 1500);
     return newLives;
   };
@@ -54,18 +60,42 @@ export const usePlayerSystem = () => {
 
     isDodgedRef.current = true;
     setIsDodging(true);
-    setCombo(prev => prev + 1);
+    setIsDodgeQueued(false); // Consume queue immediately
     
-    setTimeout(() => setIsDodging(false), 500);
-    return combo + 1; // Return new combo for score calculation
+    // Increment total hits
+    comboRef.current += 1;
+    
+    // Use the raw streak count.
+    // 1st hit = 1.
+    // 2nd hit = 2.
+    // GameHUD checks (combo > 1), so it will display starting from 2nd hit ("x2").
+    setCombo(comboRef.current); 
+    
+    setTimeout(() => {
+      setIsDodging(false);
+      isDodgedRef.current = false; // Reset immunity after animation
+    }, 500);
+
+    return comboRef.current; // Return the up-to-date combo value
   };
 
   const performDuck = () => {
     setDodgeType(DodgeType.SPIN);
     isDuckedRef.current = true;
     setIsDodging(true);
+    setIsDuckQueued(false); // Consume queue immediately
     
-    setTimeout(() => setIsDodging(false), 500);
+    setTimeout(() => {
+      setIsDodging(false);
+      isDuckedRef.current = false; // Reset immunity after animation
+    }, 500);
+  };
+
+  const triggerCelebration = () => {
+    setIsCelebrating(true);
+    setTimeout(() => {
+      setIsCelebrating(false);
+    }, 4000); // Celebrate for 4 seconds
   };
 
   const triggerComicCutIn = (x?: number, y?: number) => {
@@ -98,14 +128,12 @@ export const usePlayerSystem = () => {
 
   const queueDodge = () => {
       setIsDodgeQueued(true);
-      // Reset flags for new action
-      isDodgedRef.current = false; 
+      // Do not reset isDodgedRef here to prevent double triggering if spamming during active dodge
   }
   
   const queueDuck = () => {
       setIsDuckQueued(true);
-      // Reset flags for new action
-      isDuckedRef.current = false;
+      // Do not reset isDuckedRef here
   }
 
   const clearQueues = () => {
@@ -114,10 +142,10 @@ export const usePlayerSystem = () => {
   }
 
   return {
-    lives, combo, isHit,
+    lives, combo, isHit, isCelebrating,
     isDodging, dodgeType, isDodgeQueued, isDuckQueued,
     dodgeCutIn, isDodgedRef, isDuckedRef,
-    resetPlayer, takeDamage, heal, performDodge, performDuck,
+    resetPlayer, takeDamage, heal, performDodge, performDuck, triggerCelebration,
     queueDodge, queueDuck, clearQueues, triggerComicCutIn
   };
 };

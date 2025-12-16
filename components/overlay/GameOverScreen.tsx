@@ -7,6 +7,7 @@ import { RankingList, RankedEntry } from './RankingList';
 
 interface GameOverScreenProps {
   score: number;
+  lives?: number; // Added optional lives prop to check for Clear state
   ranking: ScoreEntry[];
   totalRanking: PlayerStats[];
   userBestEntry: RankedEntry | null;
@@ -27,6 +28,7 @@ type RankingTab = 'HIGH_SCORE' | 'TOTAL_SCORE';
 
 export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   score,
+  lives = 0,
   ranking,
   totalRanking,
   userBestEntry,
@@ -43,6 +45,8 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   onShare,
 }) => {
   const [activeTab, setActiveTab] = useState<RankingTab>('HIGH_SCORE');
+
+  const isGameClear = lives > 0;
 
   // Top 10 for Global Ranking display (High Scores)
   const top10HighScores = useMemo(() => ranking.slice(0, 10).map((entry, index) => ({
@@ -87,7 +91,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   }, [activeTab, top10HighScores, top10TotalScores]);
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-start bg-red-900/90 backdrop-blur-md z-50 p-4 pt-12 overflow-y-auto">
+    <div className={`absolute inset-0 flex flex-col items-center justify-start backdrop-blur-md z-50 p-4 pt-12 overflow-y-auto ${isGameClear ? 'bg-yellow-900/90' : 'bg-red-900/90'}`}>
       {/* Wallet Widget */}
       <WalletWidget
         farcasterUser={farcasterUser}
@@ -96,10 +100,17 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
         onShowProfile={onShowProfile}
       />
 
-      <div className="w-full max-w-lg bg-white/95 rounded-3xl p-4 md:p-6 shadow-2xl border-4 border-red-500 text-center animate-bounce-in my-8 relative flex-shrink-0 backdrop-blur-sm">
+      <div className={`w-full max-w-lg bg-white/95 rounded-3xl p-4 md:p-6 shadow-2xl border-4 ${isGameClear ? 'border-yellow-400' : 'border-red-500'} text-center animate-bounce-in my-8 relative flex-shrink-0 backdrop-blur-sm`}>
         
         {/* Header Section */}
-        {isNewRecord ? (
+        {isGameClear ? (
+            <div className="mb-4">
+                <h2 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-400 to-orange-500 tracking-tighter drop-shadow-lg">
+                  GAME CLEAR!!
+                </h2>
+                <Crown className="w-12 h-12 mx-auto text-yellow-500 animate-pulse mt-2 filter drop-shadow-lg" />
+            </div>
+        ) : isNewRecord ? (
           <div className="mb-4">
             <h2 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-400 to-yellow-300 animate-pulse drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
               NEW RECORD!!
@@ -121,8 +132,8 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
              </div>
            )}
            <span className="text-gray-400 font-bold uppercase text-[10px] block mb-1">Your Score</span>
-           <span className={`text-4xl font-black font-mono ${isNewRecord ? 'text-yellow-400' : 'text-white'}`}>
-              {score}
+           <span className={`text-4xl font-black font-mono ${isNewRecord || isGameClear ? 'text-yellow-400' : 'text-white'}`}>
+              {score.toLocaleString()}
            </span>
         </div>
 

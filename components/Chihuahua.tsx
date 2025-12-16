@@ -2,6 +2,7 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group, Mesh } from 'three';
+import { Text } from '@react-three/drei';
 import { DodgeType } from '../types';
 
 interface ChihuahuaProps {
@@ -10,10 +11,49 @@ interface ChihuahuaProps {
   isDodging: boolean;
   dodgeType: DodgeType;
   isHit: boolean;
+  isCelebrating?: boolean;
   isDefeated?: boolean;
 }
 
-export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodging, dodgeType, isHit, isDefeated }) => {
+const MusicalNote: React.FC<{ offset: number; active: boolean }> = ({ offset, active }) => {
+  const ref = useRef<Group>(null);
+  
+  useFrame((state) => {
+    // Optimization: Don't animate if not active/visible
+    if (!active) return;
+
+    if (ref.current) {
+      const t = state.clock.elapsedTime + offset;
+      // Float up and sway
+      ref.current.position.y = 1.0 + (t % 1.5);
+      ref.current.position.x = Math.sin(t * 3) * 0.2;
+      ref.current.rotation.z = Math.sin(t * 5) * 0.2;
+      
+      // Fade out logic could go here by manipulating material opacity, 
+      // but simple movement conveys the effect well enough.
+      const scale = 1.0 - ((t % 1.5) / 1.5); // Shrink as it goes up
+      ref.current.scale.setScalar(scale);
+    }
+  });
+
+  return (
+    <group ref={ref}>
+      <Text
+        color="#F43F5E" // Pinkish Red
+        fontSize={0.5}
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.02}
+        outlineColor="#FFFFFF"
+        characters="♫♪" // Preload specific characters to optimize font atlas
+      >
+        {offset % 2 > 1 ? "♫" : "♪"}
+      </Text>
+    </group>
+  );
+};
+
+export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodging, dodgeType, isHit, isCelebrating, isDefeated }) => {
   const group = useRef<Group>(null);
   
   // Refs for animated parts
@@ -36,11 +76,8 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
 
     if (isDefeated) {
         // Fall over animation
-        // Rotate Z to PI/2 (90 deg) to lie on side
         group.current.rotation.z += (Math.PI / 2 - group.current.rotation.z) * 0.1;
-        // Move Y down to ground level (adjusting for body thickness)
         group.current.position.y += (0.2 - group.current.position.y) * 0.1;
-        // Stop running motion
         return;
     }
 
@@ -53,18 +90,24 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
         let targetRotZ = Math.sin(t) * 0.05;
         let targetRotY = Math.PI; // Default facing back towards camera (180 deg)
 
-        // Dodge logic
-        if (isDodging) {
+        // Celebration Override
+        if (isCelebrating) {
+             // Happy Bounce
+             targetY = Math.abs(Math.sin(state.clock.elapsedTime * 15)) * 0.5;
+             targetRotZ = 0;
+             // Wag tail furiously logic below
+        }
+        // Dodge logic (Priority over celebration movement if dodging happened to trigger)
+        else if (isDodging) {
              if (dodgeType === DodgeType.SIDESTEP) {
                 targetX = 1.5; // Move Right
                 targetRotZ = 0.3;
              } else if (dodgeType === DodgeType.JUMP) {
                 targetY = 2.0; // Jump High
              } else if (dodgeType === DodgeType.SPIN) {
-                // 360 Spin
                 const spinSpeed = 15; 
                 targetRotY = Math.PI + (state.clock.elapsedTime * spinSpeed); 
-                targetY = 1.0; // Hop while spinning
+                targetY = 1.0; 
              }
         } else {
              // Normal running bounce
@@ -72,18 +115,14 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
         }
 
         // Apply transforms
-        // Use simpler lerp for positions
         group.current.position.x += (targetX - group.current.position.x) * 0.2;
         group.current.position.y += (targetY - group.current.position.y) * 0.2;
         group.current.scale.y += (targetScaleY - group.current.scale.y) * 0.2;
         
-        // Rotations need careful handling for SPIN
         if (dodgeType === DodgeType.SPIN && isDodging) {
              group.current.rotation.y = targetRotY;
         } else {
-             // Lerp back to Math.PI
              let currentY = group.current.rotation.y;
-             // Normalize currentY to be close to Math.PI to avoid spinning the long way round
              while (currentY > Math.PI * 2) currentY -= Math.PI * 2;
              group.current.rotation.y += (Math.PI - currentY) * 0.1;
         }
@@ -97,7 +136,13 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
         if (legBRRef.current) legBRRef.current.rotation.x = Math.sin(t) * 0.8;
 
         // Tail wag
-        if (tailRef.current) tailRef.current.rotation.y = Math.sin(t * 2) * 0.5;
+        if (tailRef.current) {
+            if (isCelebrating) {
+                 tailRef.current.rotation.y = Math.sin(state.clock.elapsedTime * 25) * 1.0; // Furious wag
+            } else {
+                 tailRef.current.rotation.y = Math.sin(t * 2) * 0.5;
+            }
+        }
         
         // Head bob
         if (headRef.current) headRef.current.rotation.x = Math.sin(t * 0.5) * 0.1 - 0.2;
@@ -117,6 +162,18 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
   
   return (
     <group ref={group} position={[0, 0, 0]} rotation={[0, Math.PI, 0]} scale={[1.2, 1.2, 1.2]}>
+      {/* Celebration Particles 
+          NOTE: We render this ALWAYS (visible toggled) to ensure the Font/Text geometry 
+          is preloaded by React Three Fiber when the game starts. 
+          If we conditionally render {isCelebrating && ...}, Suspense might trigger on win, 
+          causing a screen blackout. 
+      */}
+      <group position={[0, 1.5, 0]} visible={!!isCelebrating}>
+         <MusicalNote offset={0} active={!!isCelebrating} />
+         <group position={[0.6, -0.2, 0]}><MusicalNote offset={0.5} active={!!isCelebrating} /></group>
+         <group position={[-0.6, -0.2, 0]}><MusicalNote offset={1.0} active={!!isCelebrating} /></group>
+      </group>
+
       {/* Body */}
       <mesh position={[0, 0.4, 0]} castShadow receiveShadow>
         <boxGeometry args={[0.5, 0.5, 0.9]} />

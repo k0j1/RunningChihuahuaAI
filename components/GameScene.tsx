@@ -1,6 +1,6 @@
 
 import React, { Suspense } from 'react';
-import { Sky, Environment, OrbitControls } from '@react-three/drei';
+import { Sky, Environment, OrbitControls, Preload } from '@react-three/drei';
 import { Chihuahua } from './Chihuahua';
 import { Gorilla } from './Gorilla';
 import { Cheetah } from './Cheetah';
@@ -22,12 +22,21 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
     bossType, bossLevel, isBossDefeated, isBossHit, isThrowing,
     hazardActive, obstacleType, obstacleProgress, 
     projectileActive, projectileType, projectileProgress, projectileStartZ,
-    isDodging, dodgeType, isHit,
+    isDodging, dodgeType, isHit, isCelebrating,
     handleDistanceUpdate, handleObstacleTick, setObstacleProgress,
     handleProjectileTick, setProjectileProgress
   } = gameLogic;
 
   const projectileScale = 1 + (bossLevel - 1) * 0.5;
+
+  // OrbitControls should only be active when the camera is NOT being automatically controlled
+  const isCameraControlled = 
+    gameState === GameState.RUNNING || 
+    gameState === GameState.CAUGHT_ANIMATION || 
+    gameState === GameState.GAME_CLEAR;
+
+  // Force celebration during Game Clear
+  const effectiveIsCelebrating = isCelebrating || gameState === GameState.GAME_CLEAR;
 
   return (
     <>
@@ -66,6 +75,7 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
           isDodging={isDodging}
           dodgeType={dodgeType}
           isHit={isHit}
+          isCelebrating={effectiveIsCelebrating}
           isDefeated={gameState === GameState.CAUGHT_ANIMATION || gameState === GameState.GAME_OVER}
         />
 
@@ -126,6 +136,7 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
         />
 
         <OrbitControls 
+          enabled={!isCameraControlled}
           enablePan={false} 
           maxPolarAngle={Math.PI / 2 - 0.1} 
           minPolarAngle={Math.PI / 4}
@@ -134,6 +145,9 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
         />
         
         <fog attach="fog" args={[dayTime ? '#87CEEB' : '#050505', 10, 50]} />
+        
+        {/* Keeps assets loaded to avoid re-mounting flickers */}
+        <Preload all />
       </Suspense>
     </>
   );

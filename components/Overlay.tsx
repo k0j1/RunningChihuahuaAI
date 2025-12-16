@@ -6,6 +6,7 @@ import { HistoryScreen } from './overlay/HistoryScreen';
 import { RankingScreen } from './overlay/RankingScreen';
 import { GameOverScreen } from './overlay/GameOverScreen';
 import { GameHUD } from './overlay/GameHUD';
+import { GameClearScreen } from './overlay/GameClearScreen';
 import { RankedEntry } from './overlay/RankingList';
 import { UserInfoModal } from './overlay/UserInfoModal';
 
@@ -204,11 +205,17 @@ export const Overlay: React.FC<OverlayProps> = ({
           return <RankingScreen topScores={uniqueGlobalRanking} totalStats={totalRanking} onHideHistory={onHideHistory} />;
         }
 
+        // Game Clear Screen
+        if (gameState === GameState.GAME_CLEAR) {
+            return <GameClearScreen score={score} />;
+        }
+
         // Game Over Screen
         if (gameState === GameState.GAME_OVER) {
           return (
             <GameOverScreen
               score={displayScore}
+              lives={lives}
               ranking={uniqueGlobalRanking}
               totalRanking={totalRanking}
               userBestEntry={userBestInfo}
