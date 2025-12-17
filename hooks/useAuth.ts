@@ -12,6 +12,9 @@ export const useAuth = () => {
     const load = async () => {
       setFarcasterUser(null);
       try {
+        // First ensure the SDK is ready before any context or provider calls
+        await sdk.actions.ready();
+        
         const context = await sdk.context;
         if (context?.user) {
           const user = context.user;
@@ -25,8 +28,6 @@ export const useAuth = () => {
         }
       } catch (error) {
         console.warn("Farcaster SDK load warning:", error);
-      } finally {
-        sdk.actions.ready();
       }
     };
     
@@ -44,14 +45,13 @@ export const useAuth = () => {
       try {
         const provider = sdk.wallet.ethProvider;
         if (provider) {
-           // Use try-catch for each individual request to handle provider internal errors
            try {
              const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
              if (Array.isArray(accounts) && accounts.length > 0) {
                setWalletAddress(accounts[0]);
              }
            } catch (reqErr) {
-             console.log("eth_accounts silent failure (expected for some frames):", reqErr);
+             console.log("eth_accounts silent failure:", reqErr);
            }
         }
       } catch (e) {
@@ -71,7 +71,6 @@ export const useAuth = () => {
 
   const connectWallet = useCallback(async () => {
     try {
-      // 1. Try Farcaster Frame SDK Provider
       const provider = sdk.wallet.ethProvider;
       if (provider) {
         try {
@@ -82,14 +81,12 @@ export const useAuth = () => {
           }
         } catch (sdkReqErr: any) {
           console.warn("SDK eth_requestAccounts failed:", sdkReqErr);
-          // Fall through to fallback
         }
       }
     } catch (e) {
       console.warn("Farcaster Wallet Provider failed:", e);
     }
 
-    // 2. Fallback to window.ethereum
     if (typeof window !== 'undefined' && window.ethereum) {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });

@@ -5,8 +5,9 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const generateDogThought = async (context: string): Promise<DogThought> => {
   try {
+    // Using gemini-3-flash-preview as recommended for basic text tasks
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: `User is playing 'Running Chihuahua'. The dog is running from a GORILLA and dodging cars, animals, and rocks.
       Context: ${context}. 
       Generate a short, funny, scared, or philosophical thought (max 10 words).`,
