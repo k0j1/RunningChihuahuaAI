@@ -3,106 +3,93 @@
 
 // CORS Headers
 header("Access-Control-Allow-Origin: *");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Content-Type: application/json");
+header('Content-Type: application/json');
 
-// Preflightリクエストの処理
+// Handle Preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
-    exit;
+    exit();
 }
 
-// オートローダーの読み込み
-$vendorPath = __DIR__ . '/../vendor/autoload.php'; // ローカル
-if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-    $vendorPath = __DIR__ . '/vendor/autoload.php'; // 本番
-}
-
-if (!file_exists($vendorPath)) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Composer dependencies not installed.']);
-    exit;
-}
-
-require_once $vendorPath;
+require __DIR__ . '/vendor/autoload.php';
 
 use Dotenv\Dotenv;
-use kornrunner\Keccak;
 use Elliptic\EC;
+use kornrunner\Keccak;
 
 try {
-    // .env ファイルの読み込み
-    if (file_exists(__DIR__ . '/../.env')) {
-        $dotenv = Dotenv::createImmutable(__DIR__ . '/../');
-        $dotenv->load();
-    } elseif (file_exists(__DIR__ . '/.env')) {
+    // 1. Load Environment Variables
+    if (file_exists(__DIR__ . '/.env')) {
         $dotenv = Dotenv::createImmutable(__DIR__);
         $dotenv->load();
     }
 
-    $privateKeyHex = $_ENV['PRIVATE_KEY'] ?? getenv('PRIVATE_KEY');
-
-    if (!$privateKeyHex) {
-        throw new Exception('Server configuration error: Private Key not found.');
+    $privateKey = $_ENV['PRIVATE_KEY'] ?? getenv('PRIVATE_KEY');
+    if (!$privateKey) {
+        throw new Exception("Server configuration error: Private Key not found.");
     }
 
+    // 2. Get Input
     $input = json_decode(file_get_contents('php://input'), true);
     $walletAddress = $input['walletAddress'] ?? '';
     $score = $input['score'] ?? 0;
 
-    if (!$walletAddress || !is_numeric($score)) {
-        throw new Exception('Invalid input: walletAddress and score are required.');
+    if (empty($walletAddress) || !is_numeric($score)) {
+        throw new Exception("Invalid input: walletAddress and score are required.");
     }
 
-    // --- 1. データパッキング (Solidity: abi.encodePacked(walletAddress, score)) ---
+    // 3. Prepare Data for Signing (Must match Solidity abi.encodePacked)
     
-    // Address (20 bytes)
-    $addrHex = str_replace('0x', '', $walletAddress);
-    if (strlen($addrHex) !== 40) {
-        throw new Exception('Invalid wallet address format.');
+    // Address: Remove '0x', ensure lowercase, convert to binary (20 bytes)
+    $addressClean = strtolower(str_replace('0x', '', $walletAddress));
+    if (strlen($addressClean) !== 40) {
+        throw new Exception("Invalid wallet address length.");
     }
-    
-    // Score (uint256 -> 32 bytes hex)
-    $scoreHex = str_pad(dechex((int)$score), 64, '0', STR_PAD_LEFT);
-    
-    // バイナリ結合
-    $packedData = hex2bin($addrHex) . hex2bin($scoreHex);
+    $addressBin = hex2bin($addressClean);
 
-    // --- 2. メッセージハッシュ (Keccak256) ---
-    // Keccak::hash($data, 256) はHex文字列を返す
-    $messageHashHex = Keccak::hash($packedData, 256);
-    $messageHashBin = hex2bin($messageHashHex);
+    // Score: Convert to hex, pad to 32 bytes (64 hex chars), convert to binary
+    // Note: dechex handles standard integers. For very large numbers, consider using BCMath.
+    $scoreHex = dechex((int)$score);
+    if (strlen($scoreHex) % 2 != 0) {
+        $scoreHex = '0' . $scoreHex; // Ensure even length
+    }
+    $scoreHex = str_pad($scoreHex, 64, '0', STR_PAD_LEFT);
+    $scoreBin = hex2bin($scoreHex);
 
-    // --- 3. Ethereum Signed Message Prefix ---
-    // "\x19Ethereum Signed Message:\n32" + binary hash
-    $prefix = "\x19Ethereum Signed Message:\n32";
-    $prefixedMessage = $prefix . $messageHashBin;
-    
-    // 署名対象の最終ハッシュ (Hex文字列)
-    $finalHashHex = Keccak::hash($prefixedMessage, 256);
+    // Pack: Address (20 bytes) + Score (32 bytes)
+    $packedData = $addressBin . $scoreBin;
 
-    // --- 4. 署名 (Secp256k1) ---
+    // 4. Hash (Keccak256)
+    $hash = Keccak::hash($packedData, 256);
+
+    // 5. Sign with EIP-191 Prefix ("\x19Ethereum Signed Message:\n32")
+    // This is required because Solidity's ECDSA.recover expects this prefix by default
+    // or typically contracts use `toEthSignedMessageHash` on the hash.
+    $ethMessage = "\x19Ethereum Signed Message:\n32" . hex2bin($hash);
+    $ethMessageHash = Keccak::hash($ethMessage, 256);
+
+    // 6. Generate Signature using Elliptic Curve (secp256k1)
     $ec = new EC('secp256k1');
-    $key = $ec->keyFromPrivate($privateKeyHex);
+    $key = $ec->keyFromPrivate($privateKey);
     
-    // 署名生成
-    $signature = $key->sign($finalHashHex, ['canonical' => true]);
-    
-    $r = $signature->r->toString(16);
-    $s = $signature->s->toString(16);
-    $v = $signature->recoveryParam + 27;
+    // Sign the hash
+    $signature = $key->sign($ethMessageHash, ['canonical' => true]);
 
-    $r = str_pad($r, 64, '0', STR_PAD_LEFT);
-    $s = str_pad($s, 64, '0', STR_PAD_LEFT);
-    $v = dechex($v);
+    // 7. Format Signature (r + s + v)
+    $r = str_pad($signature->r->toString(16), 64, '0', STR_PAD_LEFT);
+    $s = str_pad($signature->s->toString(16), 64, '0', STR_PAD_LEFT);
+    // recoveryParam is 0 or 1. Add 27 to get standard v (27 or 28)
+    $v = dechex($signature->recoveryParam + 27);
 
-    $fullSignature = '0x' . $r . $s . $v;
+    $finalSignature = '0x' . $r . $s . $v;
 
     echo json_encode([
         'success' => true,
-        'message' => 'Signature generated successfully.',
-        'signature' => $fullSignature,
-        'score' => (int)$score
+        'signature' => $finalSignature,
+        'debug_score' => $score,
+        'debug_address' => $walletAddress
     ]);
 
 } catch (Exception $e) {
@@ -112,3 +99,4 @@ try {
         'message' => $e->getMessage()
     ]);
 }
+?>

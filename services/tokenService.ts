@@ -69,22 +69,18 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     console.log("Sending transaction to contract...", { score, signature });
     
     // Fix: Pass score as string to safely handle uint256
-    // Fix: Add manual gasLimit. 'estimateGas' often fails with "missing revert data" if the contract checks 
-    // strictly or if the RPC is strict. Providing a limit bypasses the estimation check.
+    // Fix: Increase gasLimit to 500,000 to safely bypass strict node estimation checks which cause 'execution reverted'.
     const tx = await contract.claimScore(score.toString(), signature, {
-        gasLimit: 250000 
+        gasLimit: 500000 
     });
 
     console.log("Transaction sent:", tx.hash);
-
-    // Optional: Wait for confirmation (comment out if you want UI to handle pending state differently)
-    // await tx.wait();
 
     return {
       success: true,
       message: "Transaction sent! Waiting for confirmation.",
       txHash: tx.hash,
-      amount: score // The amount minted depends on contract logic, but conceptually it's based on score
+      amount: score 
     };
 
   } catch (error: any) {
@@ -93,6 +89,11 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     // Handle user rejection
     if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
         return { success: false, message: "Transaction rejected by user." };
+    }
+    
+    // Handle execution reverted
+    if (error.code === 'CALL_EXCEPTION' || error.message?.includes('reverted')) {
+         return { success: false, message: "Transaction failed (Reverted). The signature may be invalid or you may have already claimed." };
     }
 
     return {
