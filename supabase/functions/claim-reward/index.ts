@@ -9,16 +9,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Configuration
-const TOKEN_CONTRACT_ADDRESS = "0x8f1319df35b63990053e8471C3F41B0d7067d5B7"; // $CHH Contract
-const TOKEN_DECIMALS = 18; // Assuming 18 decimals. Adjust if different.
-
-// Minimal ERC20 ABI to execute transfer
-const ERC20_ABI = [
-  "function transfer(address to, uint256 amount) returns (bool)",
-  "function decimals() view returns (uint8)"
-];
-
 serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
@@ -28,66 +18,45 @@ serve(async (req) => {
   try {
     const { walletAddress, score } = await req.json()
 
-    if (!walletAddress || !score) {
+    if (!walletAddress || score === undefined) {
       throw new Error('Missing walletAddress or score')
     }
 
     // --- SECURITY & VALIDATION ---
     // In production: Verify score integrity via DB check or signature verification.
     
-    // Calculate Reward Amount (e.g., 10% of score)
-    // Example: 1000 score = 100 CHH
-    const rewardAmount = Math.floor(score * 0.1);
-
-    if (rewardAmount <= 0) {
-        throw new Error('Score too low for reward');
-    }
-
-    // --- BLOCKCHAIN INTERACTION ---
+    // We are now signing the exact score provided.
+    // Ensure the score passed here matches what is stored in the database if necessary.
     
-    const rpcUrl = Deno.env.get('RPC_URL');
+    // --- SIGNATURE GENERATION ---
     const privateKey = Deno.env.get('PRIVATE_KEY');
-
-    if (!rpcUrl || !privateKey) {
-      console.error("Missing RPC_URL or PRIVATE_KEY in environment variables.");
-      // Fallback for development/demo if keys aren't set (simulated success)
-      // Remove this block in production to ensure real tokens are sent.
-      const mockTxHash = "0x" + Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join("");
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: `(Mock) Successfully claimed ${rewardAmount} $CHH! Set RPC/Keys for real tx.`,
-          txHash: mockTxHash,
-          amount: rewardAmount
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
+    if (!privateKey) {
+       throw new Error("Server configuration error: Missing Private Key");
     }
 
-    // Initialize Provider and Wallet
-    const provider = new ethers.JsonRpcProvider(rpcUrl);
-    const wallet = new ethers.Wallet(privateKey, provider);
-    const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, ERC20_ABI, wallet);
+    const wallet = new ethers.Wallet(privateKey);
 
-    // Convert amount to BigInt based on decimals
-    const amountToSend = ethers.parseUnits(rewardAmount.toString(), TOKEN_DECIMALS);
+    // 1. Create the Hash matching Solidity's: keccak256(abi.encodePacked(msg.sender, score))
+    // In ethers v6, solidityPackedKeccak256 handles abi.encodePacked + keccak256
+    const hash = ethers.solidityPackedKeccak256(
+      ["address", "uint256"], 
+      [walletAddress, score]
+    );
 
-    console.log(`Sending ${rewardAmount} $CHH to ${walletAddress}...`);
+    // 2. Sign the binary hash. 
+    // ethers.wallet.signMessage automatically adds the "\x19Ethereum Signed Message:\n" prefix (EIP-191).
+    // Solidity's `toEthSignedMessageHash().recover(signature)` expects this standard signature.
+    // We must pass the hash as bytes, otherwise it treats the hash string as text.
+    const signature = await wallet.signMessage(ethers.getBytes(hash));
 
-    // Execute Transfer
-    // NOTE: The backend wallet must have enough $CHH and native gas token (ETH/BaseETH)
-    const tx = await contract.transfer(walletAddress, amountToSend);
-    
-    // Wait for transaction to be mined (optional, can return hash immediately for speed)
-    // await tx.wait(); 
+    console.log(`Generated signature for ${walletAddress} with score ${score}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully claimed ${rewardAmount} $CHH!`,
-        txHash: tx.hash,
-        amount: rewardAmount
+        message: `Signature generated successfully.`,
+        signature: signature,
+        score: score
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -96,9 +65,9 @@ serve(async (req) => {
     )
 
   } catch (error) {
-    console.error("Claim Error:", error);
+    console.error("Signing Error:", error);
     return new Response(
-      JSON.stringify({ success: false, message: error.message || "Transaction failed" }),
+      JSON.stringify({ success: false, message: error.message || "Signing failed" }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,

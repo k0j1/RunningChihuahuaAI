@@ -1,28 +1,97 @@
 import { supabase } from './supabase';
 import { ClaimResult } from '../types';
+import { ethers } from 'ethers';
+import sdk from '@farcaster/frame-sdk';
+
+// Configuration
+const TOKEN_CONTRACT_ADDRESS = "0x8f1319df35b63990053e8471C3F41B0d7067d5B7"; // GameToken Address
+
+// Updated ABI to match the GameToken contract with claimScore
+const GAME_TOKEN_ABI = [
+  "function claimScore(uint256 score, bytes calldata signature) external",
+  "function decimals() view returns (uint8)"
+];
 
 export const claimTokenReward = async (walletAddress: string, score: number): Promise<ClaimResult> => {
   try {
-    // Call Supabase Edge Function
-    const { data, error } = await supabase.functions.invoke('claim-reward', {
-      body: { walletAddress, score }
+    // 1. Request Signature from Backend (PHP API)
+    // The backend validates the score and signs (walletAddress + score) with the admin private key.
+    
+    // Determine API URL (Relative path works if served from same domain, otherwise configure full URL)
+    const apiUrl = './api/claim.php'; 
+
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ walletAddress, score })
     });
 
-    if (error) {
-      throw new Error(error.message || 'Failed to invoke function');
+    if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`API Error: ${errText}`);
     }
 
-    if (!data.success) {
-      throw new Error(data.message || 'Claim failed');
+    const data = await response.json();
+
+    if (!data.success || !data.signature) {
+      throw new Error(data.message || 'Failed to generate signature');
     }
 
-    return data as ClaimResult;
+    const { signature } = data;
+
+    // 2. Prepare Wallet Provider
+    // Try to use Farcaster Frame SDK provider first, then fallback to window.ethereum
+    let provider: ethers.BrowserProvider;
+
+    if (sdk.wallet.ethProvider) {
+       provider = new ethers.BrowserProvider(sdk.wallet.ethProvider as any);
+    } else if (window.ethereum) {
+       provider = new ethers.BrowserProvider(window.ethereum);
+    } else {
+       throw new Error("No crypto wallet found. Please use a Web3 browser or Warpcast.");
+    }
+
+    // Get the signer (the user)
+    const signer = await provider.getSigner();
+    
+    // Verify the signer address matches the one we signed for (sanity check)
+    const signerAddress = await signer.getAddress();
+    if (signerAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+        throw new Error("Wallet address mismatch. Please use the connected wallet.");
+    }
+
+    // 3. Instantiate Contract
+    const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, signer);
+
+    // 4. Send Transaction (User pays gas)
+    console.log("Sending transaction to contract...", { score, signature });
+    const tx = await contract.claimScore(score, signature);
+
+    console.log("Transaction sent:", tx.hash);
+
+    // Optional: Wait for confirmation (comment out if you want UI to handle pending state differently)
+    // await tx.wait();
+
+    return {
+      success: true,
+      message: "Transaction sent! Waiting for confirmation.",
+      txHash: tx.hash,
+      amount: score // The amount minted depends on contract logic, but conceptually it's based on score
+    };
 
   } catch (error: any) {
     console.error("Token Claim Error:", error);
+    
+    // Handle user rejection
+    if (error.code === 'ACTION_REJECTED' || error.code === 4001) {
+        return { success: false, message: "Transaction rejected by user." };
+    }
+
     return {
       success: false,
-      message: error.message || "Unknown error occurred during claim."
+      message: error.reason || error.message || "Unknown error occurred during claim."
     };
   }
 };
