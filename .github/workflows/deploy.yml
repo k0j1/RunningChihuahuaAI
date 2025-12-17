@@ -6,13 +6,11 @@ on:
     branches: ["main"]
   workflow_dispatch:
 
-# GitHub Pagesのデプロイに必要な権限設定
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# 同時実行の制御（Pagesデプロイ用）
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -27,6 +25,7 @@ jobs:
       - name: 🚚 Get latest code
         uses: actions/checkout@v4
 
+      # --- Node.js Build (Frontend) ---
       - name: 🟢 Set up Node
         uses: actions/setup-node@v4
         with:
@@ -42,6 +41,34 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_KEY }}
 
+      # --- PHP Build (Backend) ---
+      - name: 🐘 Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          
+      - name: 🎼 Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader
+
+      # --- Prepare Distribution Folder ---
+      - name: 📂 Prepare API files
+        run: |
+          # Create api folder in dist
+          mkdir -p dist/api
+          
+          # Copy PHP file and vendor folder
+          cp api/claim.php dist/api/
+          cp -r vendor dist/api/
+          
+          # Create .env file for PHP using Secrets
+          echo "PRIVATE_KEY=${{ secrets.PRIVATE_KEY }}" > dist/api/.env
+          
+          # Create .htaccess to protect .env (Apache)
+          echo "<Files .env>" > dist/api/.htaccess
+          echo "Order allow,deny" >> dist/api/.htaccess
+          echo "Deny from all" >> dist/api/.htaccess
+          echo "</Files>" >> dist/api/.htaccess
+
       # --- 1. FTP Server Deployment ---
       - name: 📂 Sync files via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -53,7 +80,8 @@ jobs:
           server-dir: ./ # Webサーバーの公開ディレクトリに合わせて調整してください
           dangerous-clean-slate: false
 
-      # --- 2. GitHub Pages Deployment ---
+      # --- 2. GitHub Pages Deployment (Frontend Only) ---
+      # Note: PHP won't work on GitHub Pages, but we deploy the frontend artifacts anyway.
       - name: ⚙️ Setup Pages
         uses: actions/configure-pages@v5
 
