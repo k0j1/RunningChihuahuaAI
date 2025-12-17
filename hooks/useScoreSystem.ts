@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { ScoreEntry, PlayerStats } from '../types';
@@ -78,6 +77,13 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
       return;
     }
 
+    // Check for zero values to prevent saving empty runs
+    const currentDistance = Math.floor(distanceRef.current);
+    if (score <= 0 || currentDistance <= 0) {
+      console.log("Score or distance is zero. Skipping save.");
+      return;
+    }
+
     let currentWalletAddress = walletAddress;
 
     // Try to fetch wallet address if missing, specifically for Farcaster context
@@ -103,7 +109,7 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
       date: isoDate,
       formattedDate: formattedDate,
       score: score,
-      distance: Math.floor(distanceRef.current),
+      distance: currentDistance,
       farcasterUser: farcasterUser ? {
         fid: farcasterUser.fid, 
         username: farcasterUser.username || '',
