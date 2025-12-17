@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2, Coins, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2, Coins, AlertCircle, CheckCircle2, Loader2, Copy } from 'lucide-react';
 import { ScoreEntry, PlayerStats, ClaimResult } from '../../types';
 import { WalletWidget } from './WalletWidget';
 import { RankingList, RankedEntry } from './RankingList';
@@ -205,7 +205,20 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
                    <>
                      <AlertCircle size={32} className="mb-2 text-red-500" />
                      <h3 className="text-lg font-bold uppercase mb-1">Claim Failed</h3>
-                     <p className="text-xs font-medium">{claimResult.message}</p>
+                     
+                     <div className="w-full flex items-center gap-2 mb-2 max-w-xs mx-auto">
+                        <div className="flex-1 bg-red-50 p-2 rounded border border-red-200 text-[10px] font-mono text-red-800 break-all select-all text-left">
+                           {claimResult.message}
+                        </div>
+                        <button 
+                            onClick={() => navigator.clipboard.writeText(claimResult.message)}
+                            className="p-2 bg-white border border-gray-200 rounded hover:bg-gray-100 transition-colors flex-shrink-0"
+                            title="Copy Error"
+                        >
+                            <Copy size={14} className="text-gray-500" />
+                        </button>
+                     </div>
+
                      <button 
                        onClick={() => handleClaimReward(walletAddress, score)}
                        className="mt-2 text-xs font-bold underline hover:no-underline"
