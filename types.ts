@@ -124,3 +124,36 @@ declare global {
     }
   }
 }
+
+// Augment React's JSX namespace for React 18+ to support R3F elements
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      group: any;
+      mesh: any;
+      primitive: any;
+      ambientLight: any;
+      directionalLight: any;
+      pointLight: any;
+      spotLight: any;
+      orthographicCamera: any;
+      perspectiveCamera: any;
+      boxGeometry: any;
+      planeGeometry: any;
+      sphereGeometry: any;
+      coneGeometry: any;
+      cylinderGeometry: any;
+      dodecahedronGeometry: any;
+      capsuleGeometry: any;
+      torusGeometry: any;
+      ringGeometry: any;
+      circleGeometry: any;
+      meshStandardMaterial: any;
+      meshBasicMaterial: any;
+      meshPhongMaterial: any;
+      fog: any;
+      color: any;
+      [elemName: string]: any;
+    }
+  }
+}
