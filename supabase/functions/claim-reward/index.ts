@@ -36,11 +36,16 @@ serve(async (req) => {
 
     const wallet = new ethers.Wallet(privateKey);
 
+    // 0. Ensure Address is Checksummed
+    // This is critical. Solidity ecrecover returns a checksummed address.
+    // If we hash a lowercase string, the signature will differ from what the contract recovers.
+    const checksummedAddress = ethers.getAddress(walletAddress);
+
     // 1. Create the Hash matching Solidity's: keccak256(abi.encodePacked(msg.sender, score))
     // In ethers v6, solidityPackedKeccak256 handles abi.encodePacked + keccak256
     const hash = ethers.solidityPackedKeccak256(
       ["address", "uint256"], 
-      [walletAddress, score]
+      [checksummedAddress, score]
     );
 
     // 2. Sign the binary hash. 
@@ -49,7 +54,7 @@ serve(async (req) => {
     // We must pass the hash as bytes, otherwise it treats the hash string as text.
     const signature = await wallet.signMessage(ethers.getBytes(hash));
 
-    console.log(`Generated signature for ${walletAddress} with score ${score}`);
+    console.log(`Generated signature for ${checksummedAddress} with score ${score}`);
 
     return new Response(
       JSON.stringify({

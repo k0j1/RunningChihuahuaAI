@@ -67,7 +67,13 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
 
     // 4. Send Transaction (User pays gas)
     console.log("Sending transaction to contract...", { score, signature });
-    const tx = await contract.claimScore(score, signature);
+    
+    // Fix: Pass score as string to safely handle uint256
+    // Fix: Add manual gasLimit. 'estimateGas' often fails with "missing revert data" if the contract checks 
+    // strictly or if the RPC is strict. Providing a limit bypasses the estimation check.
+    const tx = await contract.claimScore(score.toString(), signature, {
+        gasLimit: 250000 
+    });
 
     console.log("Transaction sent:", tx.hash);
 
