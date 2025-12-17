@@ -44,7 +44,6 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     const { signature } = data;
 
     // 2. Prepare Wallet Provider
-    let provider: ethers.BrowserProvider;
     let windowProvider: any; 
 
     if (sdk.wallet.ethProvider) {
@@ -55,34 +54,28 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
        throw new Error("No crypto wallet found. Please use a Web3 browser or Warpcast.");
     }
 
-    // Initialize provider for read operations if needed, but we will use windowProvider for sending
-    provider = new ethers.BrowserProvider(windowProvider, "any");
-
     // --- NETWORK SWITCH LOGIC (BASE CHECK) ---
+    // We use raw request instead of ethers provider to avoid the 'coalesce error'
     try {
-        let currentChainId = 0;
+        let chainIdHex = '';
         try {
-            const chainIdHex = await windowProvider.request({ method: 'eth_chainId' });
-            currentChainId = parseInt(chainIdHex, 16);
-        } catch (rawErr) {
-            console.warn("Raw eth_chainId failed, falling back to provider.getNetwork", rawErr);
-            const network = await provider.getNetwork();
-            currentChainId = Number(network.chainId);
+            chainIdHex = await windowProvider.request({ method: 'eth_chainId' });
+        } catch (e) {
+            console.warn("Could not fetch chainId, proceeding without switch", e);
         }
-        
-        console.log(`Current Chain ID: ${currentChainId}`);
 
-        if (currentChainId !== BASE_CHAIN_ID_DEC) {
-            console.log("Switching to Base network...");
+        if (chainIdHex && chainIdHex !== BASE_CHAIN_ID_HEX) {
+            console.log("Attempting to switch to Base network...");
             try {
                 await windowProvider.request({ 
                     method: "wallet_switchEthereumChain", 
                     params: [{ chainId: BASE_CHAIN_ID_HEX }] 
                 });
             } catch (switchError: any) {
+                // Error 4902: Chain not added
                 if (switchError.code === 4902 || 
                     switchError.data?.originalError?.code === 4902 ||
-                    switchError.message?.includes("Unrecognized chain ID")) {
+                    (switchError.message && switchError.message.includes("Unrecognized chain ID"))) {
                     console.log("Base network not found, adding it...");
                     await windowProvider.request({
                         method: "wallet_addEthereumChain",
@@ -99,37 +92,37 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
                         }]
                     });
                 } else {
-                    throw switchError;
+                    console.warn("Switching failed, user may need to switch manually:", switchError);
                 }
             }
         }
     } catch (networkErr) {
-        console.warn("Network switching failed or ignored:", networkErr);
+        console.warn("Network check logic encountered an error:", networkErr);
     }
     // ----------------------------------------
 
-    // 3. Send Transaction via raw provider to bypass Ethers.js eth_accounts checks
-    // This resolves the 'could not coalesce error' related to eth_accounts in Frame environments
+    // 3. Send Transaction via raw provider
     console.log("Sending transaction on Base (Raw)...", { score, signature });
 
     const iface = new ethers.Interface(GAME_TOKEN_ABI);
     const dataEncoded = iface.encodeFunctionData("claimScore", [score.toString(), signature]);
 
+    // Use eth_sendTransaction directly to bypass any ethers internal checks that trigger eth_accounts
     const txHash = await windowProvider.request({
         method: 'eth_sendTransaction',
         params: [{
             from: walletAddress,
             to: TOKEN_CONTRACT_ADDRESS,
             data: dataEncoded,
-            // gas: "0x7A120" // Optional: let wallet estimate
+            // DO NOT set gas here, let the wallet/frame handle estimation
         }]
     });
 
-    console.log("Transaction sent:", txHash);
+    console.log("Transaction successfully requested:", txHash);
 
     return {
       success: true,
-      message: "Transaction sent! Waiting for confirmation.",
+      message: "Transaction sent! Please confirm in your wallet.",
       txHash: txHash,
       amount: score 
     };
@@ -137,18 +130,19 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
   } catch (error: any) {
     console.error("Token Claim Error:", error);
     
-    if (error.code === 'ACTION_REJECTED' || error.code === 4001 || (error.message && error.message.includes('User rejected'))) {
+    // Improved error matching for different wallet responses
+    const errMsg = error.message || "";
+    if (error.code === 4001 || errMsg.includes('rejected') || errMsg.includes('denied')) {
         return { success: false, message: "Transaction rejected by user." };
     }
     
-    // Check for revert strings in message
-    if (error.message?.includes('Already claimed') || error.data?.message?.includes('Already claimed')) {
+    if (errMsg.includes('Already claimed')) {
          return { success: false, message: "You have already claimed this score!" };
     }
 
     return {
       success: false,
-      message: error.reason || error.message || "Unknown error occurred during claim."
+      message: error.reason || errMsg || "Unknown error occurred during claim. Please try again."
     };
   }
 };

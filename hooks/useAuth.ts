@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { updatePlayerProfile } from '../services/supabase';
@@ -45,9 +44,14 @@ export const useAuth = () => {
       try {
         const provider = sdk.wallet.ethProvider;
         if (provider) {
-           const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
-           if (Array.isArray(accounts) && accounts.length > 0) {
-             setWalletAddress(accounts[0]);
+           // Use try-catch for each individual request to handle provider internal errors
+           try {
+             const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
+             if (Array.isArray(accounts) && accounts.length > 0) {
+               setWalletAddress(accounts[0]);
+             }
+           } catch (reqErr) {
+             console.log("eth_accounts silent failure (expected for some frames):", reqErr);
            }
         }
       } catch (e) {
@@ -70,10 +74,15 @@ export const useAuth = () => {
       // 1. Try Farcaster Frame SDK Provider
       const provider = sdk.wallet.ethProvider;
       if (provider) {
-        const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
-        if (Array.isArray(accounts) && accounts.length > 0) {
-          setWalletAddress(accounts[0]);
-          return;
+        try {
+          const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
+          if (Array.isArray(accounts) && accounts.length > 0) {
+            setWalletAddress(accounts[0]);
+            return;
+          }
+        } catch (sdkReqErr: any) {
+          console.warn("SDK eth_requestAccounts failed:", sdkReqErr);
+          // Fall through to fallback
         }
       }
     } catch (e) {
