@@ -18,7 +18,6 @@ const GAME_TOKEN_ABI = [
 export const claimTokenReward = async (walletAddress: string, score: number): Promise<ClaimResult> => {
   try {
     // 1. Request Signature from Backend (PHP API)
-    // The backend signs (walletAddress + score) so the contract can verify the user earned this score.
     const apiUrl = './api/claim.php'; 
 
     console.log(`Requesting signature for ${walletAddress} score: ${score}`);
@@ -46,47 +45,72 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
 
     // 2. Prepare Wallet Provider
     let provider: ethers.BrowserProvider;
-    let windowProvider: any; // Raw provider to send RPC commands
+    let windowProvider: any; 
 
     if (sdk.wallet.ethProvider) {
        windowProvider = sdk.wallet.ethProvider;
-       provider = new ethers.BrowserProvider(sdk.wallet.ethProvider as any);
     } else if (window.ethereum) {
        windowProvider = window.ethereum;
-       provider = new ethers.BrowserProvider(window.ethereum);
     } else {
        throw new Error("No crypto wallet found. Please use a Web3 browser or Warpcast.");
     }
 
-    // --- NETWORK SWITCH LOGIC (BASE CHECK) ---
-    const network = await provider.getNetwork();
-    console.log(`Current Network: ${network.chainId}`);
+    // Use "any" network to handle wallet network switches gracefully and avoid initial strict checks
+    // This fixes the 'could not coalesce error' in some frame environments
+    provider = new ethers.BrowserProvider(windowProvider, "any");
 
-    if (Number(network.chainId) !== BASE_CHAIN_ID_DEC) {
-        console.log("Switching to Base network...");
+    // --- NETWORK SWITCH LOGIC (BASE CHECK) ---
+    try {
+        // Attempt to get Chain ID directly via EIP-1193 request first to bypass potential Ethers parsing issues
+        let currentChainId = 0;
         try {
-            await provider.send("wallet_switchEthereumChain", [{ chainId: BASE_CHAIN_ID_HEX }]);
-        } catch (switchError: any) {
-            // This error code indicates that the chain has not been added to the wallet.
-            if (switchError.code === 4902) {
-                console.log("Base network not found, adding it...");
-                await provider.send("wallet_addEthereumChain", [{
-                    chainId: BASE_CHAIN_ID_HEX,
-                    chainName: 'Base',
-                    rpcUrls: ['https://mainnet.base.org'],
-                    nativeCurrency: {
-                        name: 'Ether',
-                        symbol: 'ETH',
-                        decimals: 18
-                    },
-                    blockExplorerUrls: ['https://basescan.org']
-                }]);
-            } else {
-                throw switchError;
-            }
+            const chainIdHex = await windowProvider.request({ method: 'eth_chainId' });
+            currentChainId = parseInt(chainIdHex, 16);
+        } catch (rawErr) {
+            console.warn("Raw eth_chainId failed, falling back to provider.getNetwork", rawErr);
+            const network = await provider.getNetwork();
+            currentChainId = Number(network.chainId);
         }
-        // Force a slight delay or re-instantiate provider to ensure state is synced
-        // In most cases, the existing provider instance updates automatically.
+        
+        console.log(`Current Chain ID: ${currentChainId}`);
+
+        if (currentChainId !== BASE_CHAIN_ID_DEC) {
+            console.log("Switching to Base network...");
+            try {
+                await windowProvider.request({ 
+                    method: "wallet_switchEthereumChain", 
+                    params: [{ chainId: BASE_CHAIN_ID_HEX }] 
+                });
+            } catch (switchError: any) {
+                // This error code indicates that the chain has not been added to the wallet.
+                // 4902 is standard, but check for other indicators too
+                if (switchError.code === 4902 || 
+                    switchError.data?.originalError?.code === 4902 ||
+                    switchError.message?.includes("Unrecognized chain ID")) {
+                    console.log("Base network not found, adding it...");
+                    await windowProvider.request({
+                        method: "wallet_addEthereumChain",
+                        params: [{
+                            chainId: BASE_CHAIN_ID_HEX,
+                            chainName: 'Base',
+                            rpcUrls: ['https://mainnet.base.org'],
+                            nativeCurrency: {
+                                name: 'Ether',
+                                symbol: 'ETH',
+                                decimals: 18
+                            },
+                            blockExplorerUrls: ['https://basescan.org']
+                        }]
+                    });
+                } else {
+                    throw switchError;
+                }
+            }
+            // Re-sync provider just in case
+            provider = new ethers.BrowserProvider(windowProvider, "any");
+        }
+    } catch (networkErr) {
+        console.warn("Network switching failed or ignored:", networkErr);
     }
     // ----------------------------------------
 
@@ -104,8 +128,7 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     // 4. Send Transaction
     console.log("Sending transaction on Base...", { score, signature });
     
-    // Set explicit gasLimit to avoid 'execution reverted' during estimation if conditions aren't perfectly met during simulation.
-    // The user pays this gas.
+    // Set explicit gasLimit to avoid 'execution reverted' during estimation if conditions aren't perfectly met.
     const tx = await contract.claimScore(score.toString(), signature, {
         gasLimit: 500000 
     });
