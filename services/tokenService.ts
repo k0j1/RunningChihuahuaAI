@@ -63,11 +63,14 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
       await sdk.actions.ready();
     }
 
-    // --- FIX: Explicitly set network to avoid automatic discovery calls ---
-    // This addresses the "Cannot read properties of undefined (reading 'error')" issue.
+    // --- FIX: Use staticNetwork: true to ignore transient network changes ---
+    // This addresses the "network changed: 8453 => 1" error by forcing the provider 
+    // to stick to the expected configuration without re-polling and emitting events.
     const provider = new ethers.BrowserProvider(windowProvider, {
         chainId: BASE_CHAIN_ID_DEC,
         name: 'base'
+    }, {
+        staticNetwork: true
     });
 
     // 3. Send Transaction
@@ -79,7 +82,6 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
 
     // Call claimScore using the contract instance
     // Note: If gas estimation fails, ethers will throw a CALL_EXCEPTION.
-    // Explicitly setting the "to" address by using the correct contract instance.
     const tx = await contract.claimScore(score.toString(), signature);
     
     console.log("Transaction successfully requested:", tx.hash);
@@ -95,6 +97,15 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     console.error("Token Claim Error:", error);
     
     const errMsg = error.message || "";
+    
+    // Handle Network Change specifically
+    if (error.code === 'NETWORK_ERROR') {
+        return { 
+          success: false, 
+          message: "Network error detected. Please ensure your wallet is set to the Base network and try again." 
+        };
+    }
+
     if (error.code === 4001 || error.code === 'ACTION_REJECTED' || errMsg.includes('rejected') || errMsg.includes('denied')) {
         return { success: false, message: "Transaction rejected by user." };
     }
@@ -107,7 +118,7 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     if (error.code === 'CALL_EXCEPTION') {
         return { 
           success: false, 
-          message: "Contract execution failed. Ensure you are on Base network and have enough ETH for gas. Check if the claim contract address is correct." 
+          message: "Contract execution failed. Ensure you are on Base network and have enough ETH for gas." 
         };
     }
 
