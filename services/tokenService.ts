@@ -3,11 +3,8 @@ import { ClaimResult } from '../types';
 import { ethers } from 'ethers';
 import sdk from '@farcaster/frame-sdk';
 
-// Configuration
-// $CHH Token Address: 0x8f1319df35b63990053e8471C3F41B0d7067d5B7
-// Claim/Distributor Contract Address: 0xB6eDacfc0dFc759E9AC5b9b8B6eB32310ac1Bb49
-const CLAIM_CONTRACT_ADDRESS = "0xB6eDacfc0dFc759E9AC5b9b8B6eB32310ac1Bb49"; 
-const CHH_TOKEN_ADDRESS = "0x8f1319df35b63990053e8471C3F41B0d7067d5B7";
+// --- 修正・確認ポイント ---
+const TOKEN_CONTRACT_ADDRESS = "0x8f1319df35b63990053e8471C3F41B0d7067d5B7"; 
 
 const BASE_CHAIN_ID_HEX = '0x2105'; // 8453 in Hex
 const BASE_CHAIN_ID_DEC = 8453;
@@ -63,9 +60,7 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
       await sdk.actions.ready();
     }
 
-    // --- FIX: Use staticNetwork: true to ignore transient network changes ---
-    // This addresses the "network changed: 8453 => 1" error by forcing the provider 
-    // to stick to the expected configuration without re-polling and emitting events.
+    // --- FIX: Use staticNetwork: true to ignore transient network changes (e.g., 8453 => 1) ---
     const provider = new ethers.BrowserProvider(windowProvider, {
         chainId: BASE_CHAIN_ID_DEC,
         name: 'base'
@@ -74,14 +69,19 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     });
 
     // 3. Send Transaction
-    console.log("Sending transaction to Claim Contract on Base...", { score, signature, target: CLAIM_CONTRACT_ADDRESS });
+    console.log("Sending transaction on Base...", { 
+      score, 
+      signature, 
+      target: TOKEN_CONTRACT_ADDRESS 
+    });
 
     const signer = await provider.getSigner(walletAddress);
-    // Use the CLAIM_CONTRACT_ADDRESS (Distributor) instead of the Token address
-    const contract = new ethers.Contract(CLAIM_CONTRACT_ADDRESS, GAME_TOKEN_ABI, signer);
+    
+    // ここで contract を作成する際に、TOKEN_CONTRACT_ADDRESS を渡しています。
+    // これにより、ethers.js が自動的にトランザクションの "to" をこのアドレスに設定します。
+    const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, signer);
 
-    // Call claimScore using the contract instance
-    // Note: If gas estimation fails, ethers will throw a CALL_EXCEPTION.
+    // 実行
     const tx = await contract.claimScore(score.toString(), signature);
     
     console.log("Transaction successfully requested:", tx.hash);
