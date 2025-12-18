@@ -32,8 +32,9 @@ interface OverlayProps {
   walletAddress: string | null;
   // Reward Props
   isClaiming: boolean;
+  isRefreshing?: boolean;
   claimResult: ClaimResult | null;
-  totalClaimed: number; // New prop
+  totalClaimed: number;
   handleClaimReward: (wallet: string | null, score: number) => void;
   // Actions
   onStartGame: (isDemo?: boolean) => void;
@@ -41,7 +42,7 @@ interface OverlayProps {
   onShowRanking: () => void;
   onConnectWallet: () => void;
   onDisconnectWallet: () => void;
-  onShowProfile: () => void;
+  // onShowProfile Removed as it is handled internally
   onShare: () => void;
   onReturnToTitle: () => void;
   onClearHistory: () => void;
@@ -73,6 +74,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   farcasterUser,
   walletAddress,
   isClaiming,
+  isRefreshing = false,
   claimResult,
   totalClaimed,
   handleClaimReward,
@@ -213,6 +215,7 @@ export const Overlay: React.FC<OverlayProps> = ({
               farcasterUser={farcasterUser}
               walletAddress={walletAddress}
               isClaiming={isClaiming}
+              isRefreshing={isRefreshing}
               claimResult={claimResult}
               totalClaimed={totalClaimed}
               handleClaimReward={handleClaimReward}
