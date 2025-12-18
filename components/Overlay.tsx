@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { GameState, ScoreEntry, PlayerStats, ClaimResult } from '../types';
 import { TitleScreen } from './overlay/TitleScreen';
@@ -34,20 +33,22 @@ interface OverlayProps {
   // Reward Props
   isClaiming: boolean;
   claimResult: ClaimResult | null;
+  totalClaimed: number; // New prop
   handleClaimReward: (wallet: string | null, score: number) => void;
   // Actions
   onStartGame: (isDemo?: boolean) => void;
   onShowHistory: () => void;
   onShowRanking: () => void;
+  onConnectWallet: () => void;
+  onDisconnectWallet: () => void;
+  onShowProfile: () => void;
+  onShare: () => void;
+  onReturnToTitle: () => void;
+  onClearHistory: () => void;
   onHideHistory: () => void;
   onTogglePause: () => void;
   onDodge: (e: any) => void;
   onDuck: (e: any) => void;
-  onReturnToTitle: () => void;
-  onClearHistory: () => void;
-  onConnectWallet: () => void;
-  onDisconnectWallet: () => void;
-  onShare: () => void;
 }
 
 export const Overlay: React.FC<OverlayProps> = ({
@@ -73,6 +74,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   walletAddress,
   isClaiming,
   claimResult,
+  totalClaimed,
   handleClaimReward,
   onStartGame,
   onShowHistory,
@@ -89,30 +91,23 @@ export const Overlay: React.FC<OverlayProps> = ({
 }) => {
   const [showUserInfo, setShowUserInfo] = useState(false);
 
-  // Memoize top scores from LOCAL history for comparison
   const localTopScores = useMemo(() => {
     return [...history].sort((a, b) => b.score - a.score);
   }, [history]);
 
-  // Determine if the current run is a new local record
   const isNewRecord = useMemo(() => {
     if (!lastGameDate || localTopScores.length === 0) return false;
-    // Since localTopScores includes the current run, if index 0 matches current date, it's the best.
     return localTopScores[0].date === lastGameDate;
   }, [localTopScores, lastGameDate]);
 
-  // Find the recorded score for the current game to ensure consistency
-  // This prevents the "Your Score" display from differing from the history log
   const currentRunEntry = useMemo(() => {
     return history.find(entry => entry.date === lastGameDate);
   }, [history, lastGameDate]);
 
-  // Use the recorded score for Game Over display, fallback to state score if not found
   const displayScore = (gameState === GameState.GAME_OVER && currentRunEntry) 
     ? currentRunEntry.score 
     : score;
 
-  // Process GLOBAL ranking for deduplication and sorting
   const uniqueGlobalRanking = useMemo(() => {
     const uniqueMap = new Map<string, ScoreEntry>();
     const anonymousEntries: ScoreEntry[] = [];
@@ -140,7 +135,6 @@ export const Overlay: React.FC<OverlayProps> = ({
     return allEntries.sort((a, b) => b.score - a.score);
   }, [globalRanking]);
 
-  // Identify current user's best entry in the global ranking
   const userBestInfo = useMemo((): RankedEntry | null => {
     let key = null;
     if (farcasterUser && farcasterUser.username) {
@@ -148,9 +142,7 @@ export const Overlay: React.FC<OverlayProps> = ({
     } else if (walletAddress) {
       key = `wa:${walletAddress}`;
     }
-
     if (!key) return null;
-
     const idx = uniqueGlobalRanking.findIndex(entry => {
       if (key?.startsWith('fc:') && entry.farcasterUser?.username) {
         return `fc:${entry.farcasterUser.username}` === key;
@@ -160,7 +152,6 @@ export const Overlay: React.FC<OverlayProps> = ({
       }
       return false;
     });
-
     if (idx !== -1) {
       return {
         entry: uniqueGlobalRanking[idx],
@@ -170,7 +161,6 @@ export const Overlay: React.FC<OverlayProps> = ({
     return null;
   }, [uniqueGlobalRanking, farcasterUser, walletAddress]);
 
-  // User Info Modal Control
   const handleShowProfile = () => setShowUserInfo(true);
   const handleCloseProfile = () => setShowUserInfo(false);
 
@@ -186,9 +176,7 @@ export const Overlay: React.FC<OverlayProps> = ({
         />
       )}
 
-      {/* Screens */}
       {(() => {
-        // Title Screen
         if (gameState === GameState.TITLE) {
           return (
             <TitleScreen
@@ -202,23 +190,15 @@ export const Overlay: React.FC<OverlayProps> = ({
             />
           );
         }
-
-        // History Screen
         if (gameState === GameState.HISTORY) {
           return <HistoryScreen history={history} onClearHistory={onClearHistory} onHideHistory={onHideHistory} />;
         }
-
-        // Ranking Screen
         if (gameState === GameState.RANKING) {
           return <RankingScreen topScores={uniqueGlobalRanking} totalStats={totalRanking} onHideHistory={onHideHistory} />;
         }
-
-        // Game Clear Screen
         if (gameState === GameState.GAME_CLEAR) {
             return <GameClearScreen score={score} />;
         }
-
-        // Game Over Screen
         if (gameState === GameState.GAME_OVER) {
           return (
             <GameOverScreen
@@ -234,6 +214,7 @@ export const Overlay: React.FC<OverlayProps> = ({
               walletAddress={walletAddress}
               isClaiming={isClaiming}
               claimResult={claimResult}
+              totalClaimed={totalClaimed}
               handleClaimReward={handleClaimReward}
               onStartGame={onStartGame}
               onReturnToTitle={onReturnToTitle}
@@ -244,8 +225,6 @@ export const Overlay: React.FC<OverlayProps> = ({
             />
           );
         }
-
-        // HUD & Gameplay Overlay
         return (
           <GameHUD
             distance={distance}

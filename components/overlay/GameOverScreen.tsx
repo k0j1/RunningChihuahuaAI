@@ -1,13 +1,12 @@
-
 import React, { useState, useMemo } from 'react';
-import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2, Coins, AlertCircle, CheckCircle2, Loader2, Copy } from 'lucide-react';
+import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2, Coins, AlertCircle, CheckCircle2, Loader2, Copy, RefreshCw } from 'lucide-react';
 import { ScoreEntry, PlayerStats, ClaimResult } from '../../types';
 import { WalletWidget } from './WalletWidget';
 import { RankingList, RankedEntry } from './RankingList';
 
 interface GameOverScreenProps {
   score: number;
-  lives?: number; // Added optional lives prop to check for Clear state
+  lives?: number;
   ranking: ScoreEntry[];
   totalRanking: PlayerStats[];
   userBestEntry: RankedEntry | null;
@@ -18,7 +17,9 @@ interface GameOverScreenProps {
   walletAddress: string | null;
   // Reward Props
   isClaiming: boolean;
+  isRefreshing?: boolean;
   claimResult: ClaimResult | null;
+  totalClaimed: number;
   handleClaimReward: (wallet: string | null, score: number) => void;
   // Actions
   onStartGame: () => void;
@@ -43,7 +44,9 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   farcasterUser,
   walletAddress,
   isClaiming,
+  isRefreshing = false,
   claimResult,
+  totalClaimed,
   handleClaimReward,
   onStartGame,
   onReturnToTitle,
@@ -55,15 +58,15 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   const [activeTab, setActiveTab] = useState<RankingTab>('HIGH_SCORE');
 
   const isGameClear = lives > 0;
-  const rewardAmount = Math.floor(score * 0.1);
+  
+  // Updated Reward Calculation: score * 0.1
+  const rewardTokens = (score * 0.1).toFixed(1); 
 
-  // Top 10 for Global Ranking display (High Scores)
   const top10HighScores = useMemo(() => ranking.slice(0, 10).map((entry, index) => ({
     entry,
     rank: index + 1
   })), [ranking]);
 
-  // Top 10 for Total Scores
   const top10TotalScores = useMemo(() => {
     return [...totalRanking]
       .sort((a, b) => b.totalScore - a.totalScore)
@@ -81,16 +84,13 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
       }));
   }, [totalRanking]);
 
-  // Check if current run is inside Top 10 High Scores
   const isRankIn = top10HighScores.some(item => item.entry.date === lastGameDate);
 
-  // Map Recent History for display
   const historyItems = recentHistory.map((entry, index) => ({
     entry,
     rank: index + 1
   }));
 
-  // Determine which list to show based on tab
   const activeList = useMemo(() => {
     switch (activeTab) {
       case 'TOTAL_SCORE': return top10TotalScores;
@@ -101,7 +101,6 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
 
   return (
     <div className={`absolute inset-0 flex flex-col items-center justify-start backdrop-blur-md z-50 p-4 pt-12 overflow-y-auto ${isGameClear ? 'bg-yellow-900/90' : 'bg-red-900/90'}`}>
-      {/* Wallet Widget */}
       <WalletWidget
         farcasterUser={farcasterUser}
         walletAddress={walletAddress}
@@ -111,7 +110,6 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
 
       <div className={`w-full max-w-lg bg-white/95 rounded-3xl p-4 md:p-6 shadow-2xl border-4 ${isGameClear ? 'border-yellow-400' : 'border-red-500'} text-center animate-bounce-in my-8 relative flex-shrink-0 backdrop-blur-sm`}>
         
-        {/* Header Section */}
         {isGameClear ? (
             <div className="mb-4">
                 <h2 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-400 to-orange-500 tracking-tighter drop-shadow-lg">
@@ -133,97 +131,114 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
           </div>
         )}
 
-        {/* Current Score */}
         <div className="bg-gray-900 rounded-xl p-3 border-2 border-yellow-500 mb-4 shadow-xl text-center relative overflow-hidden">
            {isRankIn && activeTab === 'HIGH_SCORE' && (
              <div className="absolute top-0 right-0 bg-yellow-500 text-red-900 text-xs font-black px-2 py-1 animate-pulse">
                RANK IN!
              </div>
            )}
-           <span className="text-gray-400 font-bold uppercase text-[10px] block mb-1">Your Score</span>
+           <span className="text-gray-400 font-bold uppercase text-[10px] block mb-1">Your Run Score</span>
            <span className={`text-4xl font-black font-mono ${isNewRecord || isGameClear ? 'text-yellow-400' : 'text-white'}`}>
               {score.toLocaleString()}
            </span>
         </div>
 
         {/* --- REWARD SECTION --- */}
-        <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-xl p-4 border border-yellow-300 mb-6 shadow-inner relative overflow-hidden">
-           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-400 to-orange-500"></div>
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200 mb-6 shadow-inner relative overflow-hidden">
+           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500"></div>
            
            {!claimResult ? (
              <div className="flex flex-col items-center">
-                <div className="flex items-center gap-2 mb-2">
-                   <Coins className="text-yellow-600" size={24} />
-                   <h3 className="text-lg font-black text-yellow-800 uppercase italic tracking-tighter">Token Rewards</h3>
+                <div className="flex items-center gap-2 mb-3">
+                   <Coins className="text-blue-600" size={24} />
+                   <h3 className="text-lg font-black text-blue-800 uppercase italic tracking-tighter">Run Rewards</h3>
                 </div>
                 
                 {walletAddress ? (
                    <>
-                      <p className="text-sm font-bold text-gray-700 mb-3">
-                        Earn <span className="text-orange-600 font-black">{rewardAmount} $CHH</span> for this run!
-                      </p>
+                      <div className="w-full bg-white/60 rounded-lg p-3 mb-4 border border-blue-100 flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black text-gray-400 uppercase">Payout Rate:</span>
+                          <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Score × 0.1</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-blue-100 pt-2">
+                          <span className="text-sm font-bold text-gray-700 uppercase">You will get:</span>
+                          <span className="text-2xl font-black text-blue-700">{rewardTokens} <span className="text-xs">$CHH</span></span>
+                        </div>
+                      </div>
+
                       <button
                         onClick={() => handleClaimReward(walletAddress, score)}
-                        disabled={isClaiming || rewardAmount <= 0}
-                        className="w-full bg-gradient-to-b from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 text-white font-black py-3 rounded-xl shadow-lg transform active:scale-95 transition-all flex items-center justify-center gap-2 border-b-4 border-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={isClaiming || score <= 0 || isRefreshing}
+                        className="w-full bg-gradient-to-b from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-black py-4 rounded-xl shadow-lg transform active:scale-95 transition-all flex flex-col items-center justify-center gap-0 border-b-4 border-indigo-800 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed group"
                       >
-                        {isClaiming ? <Loader2 className="animate-spin" /> : <Coins fill="white" size={20} />}
-                        {isClaiming ? 'SENDING...' : 'CLAIM REWARDS'}
+                        <div className="flex items-center gap-2">
+                           {isClaiming ? <Loader2 className="animate-spin" /> : <Coins fill="white" size={20} className="group-hover:rotate-12 transition-transform" />}
+                           <span className="text-lg uppercase italic">
+                             {isClaiming ? 'PROCESSING...' : score > 0 ? 'CLAIM THIS RUN' : 'NO SCORE TO CLAIM'}
+                           </span>
+                        </div>
+                        {score > 0 && !isClaiming && (
+                           <span className="text-[10px] opacity-80 font-bold">Claiming {rewardTokens} tokens on Base</span>
+                        )}
                       </button>
-                      <p className="text-[10px] text-gray-500 mt-2 text-center">
-                         *Gas covered by developer treasury.
+                      <p className="text-[9px] text-gray-400 mt-2 italic font-medium">
+                        *Claim reward for this run score regardless of past claims.
                       </p>
                    </>
                 ) : (
-                   <div className="text-center">
-                      <p className="text-sm text-gray-600 mb-2 font-medium">Connect wallet to claim <span className="font-bold">{rewardAmount} $CHH</span>.</p>
+                   <div className="text-center py-2">
+                      <p className="text-xs text-gray-600 mb-3 font-medium">Connect wallet to claim your tokens on Base!</p>
                       <button 
                         onClick={onConnectWallet}
-                        className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-4 rounded-full shadow transition-colors"
+                        className="bg-blue-600 hover:bg-blue-500 text-white text-sm font-black py-3 px-8 rounded-full shadow-lg transition-all active:scale-95"
                       >
-                        Connect Wallet
+                        CONNECT WALLET
                       </button>
                    </div>
                 )}
              </div>
            ) : (
-             <div className={`flex flex-col items-center animate-in zoom-in duration-300 ${claimResult.success ? 'text-green-700' : 'text-red-600'}`}>
+             <div className={`flex flex-col items-center animate-in zoom-in duration-300 p-2 ${claimResult.success ? 'text-green-700' : 'text-red-600'}`}>
                 {claimResult.success ? (
                    <>
-                     <CheckCircle2 size={32} className="mb-2 text-green-500" />
-                     <h3 className="text-xl font-black uppercase mb-1">Claim Successful!</h3>
-                     <p className="text-sm font-bold mb-2">
-                        Sent {claimResult.amount} $CHH to wallet.
+                     <div className="bg-green-100 p-3 rounded-full mb-3">
+                        <CheckCircle2 size={40} className="text-green-500" />
+                     </div>
+                     <h3 className="text-xl font-black uppercase mb-1 italic">CLAIM SUCCESSFUL!</h3>
+                     <p className="text-xs font-bold mb-4 text-gray-600">
+                        {rewardTokens} $CHH has been sent to your wallet.
                      </p>
                      {claimResult.txHash && (
-                        <a href={`https://basescan.org/tx/${claimResult.txHash}`} target="_blank" rel="noreferrer" className="text-[10px] underline opacity-70 hover:opacity-100 font-mono">
-                           Tx: {claimResult.txHash.slice(0, 10)}...
+                        <a 
+                          href={`https://basescan.org/tx/${claimResult.txHash}`} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="bg-white px-4 py-2 rounded-lg border border-green-200 text-[10px] font-mono hover:bg-green-50 transition-colors flex items-center gap-2"
+                        >
+                           VIEW ON BASESCAN
+                           <RefreshCw size={10} />
                         </a>
                      )}
                    </>
                 ) : (
                    <>
-                     <AlertCircle size={32} className="mb-2 text-red-500" />
-                     <h3 className="text-lg font-bold uppercase mb-1">Claim Failed</h3>
-                     
-                     <div className="w-full flex items-center gap-2 mb-2 max-w-xs mx-auto">
-                        <div className="flex-1 bg-red-50 p-2 rounded border border-red-200 text-[10px] font-mono text-red-800 break-all select-all text-left">
-                           {claimResult.message}
-                        </div>
+                     <AlertCircle size={40} className="mb-3 text-red-500" />
+                     <h3 className="text-lg font-black uppercase mb-1">CLAIM FAILED</h3>
+                     <div className="w-full bg-red-50 p-3 rounded-xl border border-red-100 text-[10px] font-mono text-red-800 break-all text-left mb-4 flex gap-2">
+                        <span className="flex-1">{claimResult.message}</span>
                         <button 
                             onClick={() => navigator.clipboard.writeText(claimResult.message)}
-                            className="p-2 bg-white border border-gray-200 rounded hover:bg-gray-100 transition-colors flex-shrink-0"
-                            title="Copy Error"
+                            className="shrink-0 p-1 hover:bg-red-200 rounded"
                         >
-                            <Copy size={14} className="text-gray-500" />
+                            <Copy size={14} />
                         </button>
                      </div>
-
                      <button 
                        onClick={() => handleClaimReward(walletAddress, score)}
-                       className="mt-2 text-xs font-bold underline hover:no-underline"
+                       className="bg-red-600 text-white text-xs font-black py-2 px-6 rounded-full hover:bg-red-500 transition-colors"
                      >
-                       Try Again
+                       RETRY CLAIM
                      </button>
                    </>
                 )}
@@ -233,8 +248,6 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
         {/* --- END REWARD SECTION --- */}
 
         <div className="space-y-4">
-          
-          {/* Section 1: Self Best (Always show personal best high score for reference) */}
           {userBestEntry && (
             <div className="bg-blue-50/80 rounded-xl p-3 border border-blue-200">
                <div className="flex items-center gap-2 mb-2">
@@ -251,7 +264,6 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
             </div>
           )}
 
-          {/* Section 2: Global Ranking Tabs */}
           <div className="bg-yellow-50/80 rounded-xl p-3 border border-yellow-200">
              <div className="flex items-center justify-between gap-2 mb-3">
                <div className="flex items-center gap-2">
@@ -260,7 +272,6 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
                </div>
              </div>
 
-             {/* Tabs */}
              <div className="flex bg-yellow-200/50 p-1 rounded-lg mb-2">
                <button
                  onClick={() => setActiveTab('HIGH_SCORE')}
@@ -286,24 +297,8 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
                 }
               />
           </div>
-
-          {/* Section 3: Recent History */}
-          <div className="bg-gray-50/80 rounded-xl p-3 border border-gray-200">
-             <div className="flex items-center gap-2 mb-2">
-               <Clock size={16} className="text-gray-500" />
-               <h3 className="text-xs font-bold text-gray-600 uppercase">Recent History (Last 5)</h3>
-             </div>
-             <RankingList 
-               items={historyItems} 
-               highlightDate={lastGameDate} 
-               showHeader={false} // Hide header for cleaner history view
-               showRank={false}   // Don't show rank for history
-               emptyMessage="No history yet"
-             />
-          </div>
         </div>
 
-        {/* Buttons */}
         <div className="flex flex-col gap-3 mt-6">
           <button
             onClick={onShare}

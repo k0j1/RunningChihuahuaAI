@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Overlay } from './components/Overlay';
@@ -13,19 +12,14 @@ const App: React.FC = () => {
     hazardActive, hazardPosition, projectileActive, 
     isDodgeQueued, obstacleProgressRef, isDuckQueued, projectileProgressRef, projectileStartZ, bossLevel,
     history, globalRanking, totalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
-    isClaiming, claimResult, handleClaimReward, // Reward Props
+    isClaiming, claimResult, totalClaimed, handleClaimReward, // Reward Props
     startGame, setGameState, handleDodge, handleDuck, clearHistory,
     connectWallet, disconnectWallet, shareScore
   } = gameLogic;
 
-  // UI Button Visibility Logic (Using Ref.current for logic check is tricky inside render if it updates 60fps)
-  // But for button visibility, we can rely on standard state triggers or accept slight delay.
-  // Actually, we should probably check Ref here, but since this component renders on distance update (integer), it's close enough.
-  
   const levelMultiplier = 5 + (bossLevel - 1) * 2;
   const projectileVelocity = speed * levelMultiplier;
   const projectileTotalTime = Math.max(projectileStartZ, 1) / projectileVelocity;
-  // Use ref current value for momentary calculation
   const projectileTimeRemaining = (1 - projectileProgressRef.current) * projectileTotalTime;
   
   const showDuckButton = projectileActive && (projectileTimeRemaining <= 1.0) && !isDuckQueued && projectileProgressRef.current < 0.85;
@@ -38,18 +32,16 @@ const App: React.FC = () => {
 
   return (
     <div className="w-full h-[100dvh] relative bg-gray-900 overflow-hidden">
-      {/* 3D Scene */}
       <div className="absolute inset-0 z-0">
         <Canvas 
           shadows 
           camera={{ position: [3, 3, -5], fov: 60 }}
-          dpr={[1, 1.5]} // Limit pixel ratio to save GPU
+          dpr={[1, 1.5]}
         >
           <GameScene gameLogic={gameLogic} />
         </Canvas>
       </div>
 
-      {/* UI Overlay */}
       <Overlay
         gameState={gameState}
         speed={speed}
@@ -73,6 +65,7 @@ const App: React.FC = () => {
         walletAddress={walletAddress}
         isClaiming={isClaiming}
         claimResult={claimResult}
+        totalClaimed={totalClaimed}
         handleClaimReward={handleClaimReward}
         onStartGame={startGame}
         onShowHistory={() => setGameState(GameState.HISTORY)}

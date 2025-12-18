@@ -9,12 +9,42 @@ const TOKEN_CONTRACT_ADDRESS = "0x8f1319df35b63990053e8471C3F41B0d7067d5B7";
 const BASE_CHAIN_ID_HEX = '0x2105'; // 8453 in Hex
 const BASE_CHAIN_ID_DEC = 8453;
 
-// ABI matching the Solidity contract for the claim operation
+// ABI matching the provided Solidity contract
 const GAME_TOKEN_ABI = [
   "function claimScore(uint256 score, bytes calldata signature) external",
   "function decimals() view returns (uint8)",
   "function totalClaimed(address) view returns (uint256)"
 ];
+
+/**
+ * Fetches the total score already claimed by the user from the contract.
+ */
+export const fetchTotalClaimed = async (walletAddress: string): Promise<number> => {
+  try {
+    let windowProvider: any; 
+    if (sdk.wallet.ethProvider) {
+       windowProvider = sdk.wallet.ethProvider;
+    } else if (window.ethereum) {
+       windowProvider = window.ethereum;
+    } else {
+       return 0;
+    }
+
+    const provider = new ethers.BrowserProvider(windowProvider, {
+        chainId: BASE_CHAIN_ID_DEC,
+        name: 'base'
+    }, {
+        staticNetwork: true
+    });
+
+    const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, provider);
+    const claimed: bigint = await contract.totalClaimed(walletAddress);
+    return Number(claimed);
+  } catch (error) {
+    console.error("Error fetching totalClaimed:", error);
+    return 0;
+  }
+};
 
 export const claimTokenReward = async (walletAddress: string, score: number): Promise<ClaimResult> => {
   try {
@@ -55,12 +85,10 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
        throw new Error("No crypto wallet found. Please use a Web3 browser or Warpcast.");
     }
 
-    // Ensure SDK is ready before provider operations to prevent Internal Error
     if (sdk.actions.ready) {
       await sdk.actions.ready();
     }
 
-    // --- FIX: Use staticNetwork: true to ignore transient network changes (e.g., 8453 => 1) ---
     const provider = new ethers.BrowserProvider(windowProvider, {
         chainId: BASE_CHAIN_ID_DEC,
         name: 'base'
@@ -69,19 +97,16 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     });
 
     // 3. Send Transaction
-    console.log("Sending transaction on Base...", { 
+    console.log("Sending claimScore transaction on Base...", { 
       score, 
       signature, 
       target: TOKEN_CONTRACT_ADDRESS 
     });
 
     const signer = await provider.getSigner(walletAddress);
-    
-    // ここで contract を作成する際に、TOKEN_CONTRACT_ADDRESS を渡しています。
-    // これにより、ethers.js が自動的にトランザクションの "to" をこのアドレスに設定します。
     const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, signer);
 
-    // 実行
+    // Call claimScore(uint256 score, bytes signature)
     const tx = await contract.claimScore(score.toString(), signature);
     
     console.log("Transaction successfully requested:", tx.hash);
@@ -98,33 +123,35 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     
     const errMsg = error.message || "";
     
-    // Handle Network Change specifically
     if (error.code === 'NETWORK_ERROR') {
         return { 
           success: false, 
-          message: "Network error detected. Please ensure your wallet is set to the Base network and try again." 
+          message: "Network error. Please ensure your wallet is on Base." 
         };
     }
 
-    if (error.code === 4001 || error.code === 'ACTION_REJECTED' || errMsg.includes('rejected') || errMsg.includes('denied')) {
+    if (error.code === 4001 || error.code === 'ACTION_REJECTED' || errMsg.includes('rejected')) {
         return { success: false, message: "Transaction rejected by user." };
     }
     
-    if (errMsg.includes('Already claimed')) {
-         return { success: false, message: "You have already claimed this score!" };
+    if (errMsg.includes('Already claimed this score')) {
+         return { success: false, message: "You have already claimed this score or higher!" };
     }
 
-    // Handle generic call exception with better user guidance
+    if (errMsg.includes('Not enough tokens in vault')) {
+         return { success: false, message: "The prize vault is currently empty. Please wait for refill." };
+    }
+
     if (error.code === 'CALL_EXCEPTION') {
         return { 
           success: false, 
-          message: "Contract execution failed. Ensure you are on Base network and have enough ETH for gas." 
+          message: "Contract call failed. Check your balance and network." 
         };
     }
 
     return {
       success: false,
-      message: error.reason || errMsg || "Unknown error occurred during claim. Please try again."
+      message: error.reason || errMsg || "Unknown error occurred during claim."
     };
   }
 };
