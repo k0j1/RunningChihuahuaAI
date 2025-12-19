@@ -27,14 +27,14 @@ export const fetchTotalClaimed = async (walletAddress: string): Promise<number> 
     } else if (window.ethereum) {
        windowProvider = window.ethereum;
     } else {
+       // Fallback: If no wallet connected, we can't read from browser provider easily
+       // unless we use a public RPC. For now, return 0 if no provider.
        return 0;
     }
 
     const provider = new ethers.BrowserProvider(windowProvider, {
         chainId: BASE_CHAIN_ID_DEC,
         name: 'base'
-    }, {
-        staticNetwork: true
     });
 
     const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, provider);
@@ -48,17 +48,22 @@ export const fetchTotalClaimed = async (walletAddress: string): Promise<number> 
 
 export const claimTokenReward = async (walletAddress: string, score: number): Promise<ClaimResult> => {
   try {
-    // 1. Request Signature from Backend (PHP API)
-    const apiUrl = './api/claim.php'; 
+    // 1. Get current total claimed to calculate new cumulative score
+    // This allows "claiming every time" by always increasing the cumulative score
+    const currentTotal = await fetchTotalClaimed(walletAddress);
+    const newCumulativeScore = currentTotal + score;
 
-    console.log(`Requesting signature for ${walletAddress} score: ${score}`);
+    console.log(`Preparing claim: Current Total=${currentTotal}, Run Score=${score}, New Cumulative=${newCumulativeScore}`);
+
+    // 2. Request Signature from Backend (PHP API)
+    const apiUrl = './api/claim.php'; 
 
     const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ walletAddress, score })
+        body: JSON.stringify({ walletAddress, score: newCumulativeScore }) // Send cumulative score
     });
 
     if (!response.ok) {
@@ -74,7 +79,7 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
 
     const { signature } = data;
 
-    // 2. Prepare Wallet Provider
+    // 3. Prepare Wallet Provider
     let windowProvider: any; 
 
     if (sdk.wallet.ethProvider) {
@@ -92,13 +97,11 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     const provider = new ethers.BrowserProvider(windowProvider, {
         chainId: BASE_CHAIN_ID_DEC,
         name: 'base'
-    }, {
-        staticNetwork: true
     });
 
-    // 3. Send Transaction
+    // 4. Send Transaction
     console.log("Sending claimScore transaction on Base...", { 
-      score, 
+      newCumulativeScore, 
       signature, 
       target: TOKEN_CONTRACT_ADDRESS 
     });
@@ -106,8 +109,8 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     const signer = await provider.getSigner(walletAddress);
     const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, signer);
 
-    // Call claimScore(uint256 score, bytes signature)
-    const tx = await contract.claimScore(score.toString(), signature);
+    // Call claimScore with the NEW CUMULATIVE SCORE
+    const tx = await contract.claimScore(newCumulativeScore.toString(), signature);
     
     console.log("Transaction successfully requested:", tx.hash);
 
@@ -119,14 +122,26 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     };
 
   } catch (error: any) {
-    console.error("Token Claim Error:", error);
-    
+    console.error("Token Claim Error Full Object:", error);
+
+    // Construct detailed error info for debugging/AI assistance
+    const errorDetails = [
+      error.message || "No error message",
+      error.code ? `Code: ${error.code}` : null,
+      error.reason ? `Reason: ${error.reason}` : null,
+      error.shortMessage ? `Short: ${error.shortMessage}` : null,
+      error.info?.error?.message ? `Info: ${error.info.error.message}` : null,
+      error.revert?.args ? `RevertArgs: ${error.revert.args}` : null,
+      `Addr: ${walletAddress}`,
+      `Score: ${score}`
+    ].filter(Boolean).join(" | ");
+
     const errMsg = error.message || "";
     
     if (error.code === 'NETWORK_ERROR') {
         return { 
           success: false, 
-          message: "Network error. Please ensure your wallet is on Base." 
+          message: `Network error. Ensure wallet is on Base. (${error.code})` 
         };
     }
 
@@ -145,13 +160,13 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     if (error.code === 'CALL_EXCEPTION') {
         return { 
           success: false, 
-          message: "Contract call failed. Check your balance and network." 
+          message: `Contract call failed (CALL_EXCEPTION). Likely revert. Details: ${errorDetails}` 
         };
     }
 
     return {
       success: false,
-      message: error.reason || errMsg || "Unknown error occurred during claim."
+      message: `Error: ${errorDetails}`
     };
   }
 };
