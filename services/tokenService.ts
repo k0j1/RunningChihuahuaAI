@@ -3,23 +3,23 @@ import { ClaimResult } from '../types';
 import { ethers } from 'ethers';
 import sdk from '@farcaster/frame-sdk';
 
-// --- 修正・確認ポイント ---
+// --- 重要: デプロイしたCHHClaimVaultのアドレスに変更してください ---
 const TOKEN_CONTRACT_ADDRESS = "0xb0525542E3D818460546332e76E511562dFf9B07"; 
 
 const BASE_CHAIN_ID_HEX = '0x2105'; // 8453 in Hex
 const BASE_CHAIN_ID_DEC = 8453;
 
-// ABI matching the provided Solidity contract
+// ABI matching the CHHClaimVault contract
 const GAME_TOKEN_ABI = [
   "function claimScore(uint256 score, bytes calldata signature) external",
-  "function decimals() view returns (uint8)",
-  "function totalClaimed(address) view returns (uint256)"
+  "function userClaims(address) view returns (uint32 lastClaimDay, uint8 dailyCount)"
 ];
 
 /**
- * Fetches the total score already claimed by the user from the contract.
+ * Fetches the daily claim count for the user.
+ * (Optional display logic, currently just returns 0 to satisfy interface if needed)
  */
-export const fetchTotalClaimed = async (walletAddress: string): Promise<number> => {
+export const fetchDailyClaimCount = async (walletAddress: string): Promise<number> => {
   try {
     let windowProvider: any; 
     if (sdk.wallet.ethProvider) {
@@ -27,8 +27,6 @@ export const fetchTotalClaimed = async (walletAddress: string): Promise<number> 
     } else if (window.ethereum) {
        windowProvider = window.ethereum;
     } else {
-       // Fallback: If no wallet connected, we can't read from browser provider easily
-       // unless we use a public RPC. For now, return 0 if no provider.
        return 0;
     }
 
@@ -38,24 +36,25 @@ export const fetchTotalClaimed = async (walletAddress: string): Promise<number> 
     });
 
     const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, provider);
-    const claimed: bigint = await contract.totalClaimed(walletAddress);
-    return Number(claimed);
+    // userClaims returns a struct/array: [lastClaimDay, dailyCount]
+    const info = await contract.userClaims(walletAddress);
+    return Number(info[1]); // Return dailyCount
   } catch (error) {
-    console.error("Error fetching totalClaimed:", error);
+    console.error("Error fetching claim count:", error);
     return 0;
   }
 };
 
 export const claimTokenReward = async (walletAddress: string, score: number): Promise<ClaimResult> => {
   try {
-    // 1. Get current total claimed to calculate new cumulative score
-    // This allows "claiming every time" by always increasing the cumulative score
-    const currentTotal = await fetchTotalClaimed(walletAddress);
-    const newCumulativeScore = currentTotal + score;
+    console.log(`Preparing claim for Score=${score}`);
 
-    console.log(`Preparing claim: Current Total=${currentTotal}, Run Score=${score}, New Cumulative=${newCumulativeScore}`);
+    // Validation based on contract constraint
+    if (score > 60000) {
+        throw new Error("Invalid score: Exceeds maximum limit of 60,000.");
+    }
 
-    // 2. Request Signature from Backend (PHP API)
+    // 1. Request Signature from Backend (PHP API)
     const apiUrl = './api/claim.php'; 
 
     const response = await fetch(apiUrl, {
@@ -63,23 +62,31 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ walletAddress, score: newCumulativeScore }) // Send cumulative score
+        body: JSON.stringify({ walletAddress, score: score }) // Send current run score
     });
 
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`API Error: ${errText}`);
+    // Safely parse response, handling potential 400 errors containing JSON messages
+    const text = await response.text();
+    let data: any;
+    try {
+        data = JSON.parse(text);
+    } catch {
+        // If not JSON, use text as error message if response is bad
+        if (!response.ok) throw new Error(text || `HTTP Error ${response.status}`);
     }
 
-    const data = await response.json();
+    if (!response.ok) {
+        // Throw the message from JSON if available, otherwise generic
+        throw new Error((data && data.message) || text || `Server error: ${response.status}`);
+    }
 
-    if (!data.success || !data.signature) {
-      throw new Error(data.message || 'Failed to generate signature from backend');
+    if (!data || !data.success || !data.signature) {
+      throw new Error((data && data.message) || 'Failed to generate signature from backend');
     }
 
     const { signature } = data;
 
-    // 3. Prepare Wallet Provider
+    // 2. Prepare Wallet Provider
     let windowProvider: any; 
 
     if (sdk.wallet.ethProvider) {
@@ -99,9 +106,9 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
         name: 'base'
     });
 
-    // 4. Send Transaction
+    // 3. Send Transaction
     console.log("Sending claimScore transaction on Base...", { 
-      newCumulativeScore, 
+      score, 
       signature, 
       target: TOKEN_CONTRACT_ADDRESS 
     });
@@ -109,8 +116,8 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     const signer = await provider.getSigner(walletAddress);
     const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, signer);
 
-    // Call claimScore with the NEW CUMULATIVE SCORE
-    const tx = await contract.claimScore(newCumulativeScore.toString(), signature);
+    // Call claimScore with the CURRENT RUN SCORE (Contract logic changed)
+    const tx = await contract.claimScore(score, signature);
     
     console.log("Transaction successfully requested:", tx.hash);
 
@@ -124,13 +131,9 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
   } catch (error: any) {
     console.error("Token Claim Error Full Object:", error);
 
-    // Construct detailed error info for debugging/AI assistance
     const errorDetails = [
       error.message || "No error message",
-      error.code ? `Code: ${error.code}` : null,
       error.reason ? `Reason: ${error.reason}` : null,
-      error.shortMessage ? `Short: ${error.shortMessage}` : null,
-      error.info?.error?.message ? `Info: ${error.info.error.message}` : null,
       error.revert?.args ? `RevertArgs: ${error.revert.args}` : null,
       `Addr: ${walletAddress}`,
       `Score: ${score}`
@@ -149,24 +152,27 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
         return { success: false, message: "Transaction rejected by user." };
     }
     
-    if (errMsg.includes('Already claimed this score')) {
-         return { success: false, message: "You have already claimed this score or higher!" };
+    // Contract specific errors
+    if (errMsg.includes('Daily claim limit reached')) {
+         return { success: false, message: "Daily claim limit reached (10 times/day)." };
     }
-
+    if (errMsg.includes('Invalid signature')) {
+         return { success: false, message: "Security check failed (Invalid Signature)." };
+    }
     if (errMsg.includes('Not enough tokens in vault')) {
-         return { success: false, message: "The prize vault is currently empty. Please wait for refill." };
+         return { success: false, message: "The prize vault is currently empty." };
     }
 
     if (error.code === 'CALL_EXCEPTION') {
         return { 
           success: false, 
-          message: `Contract call failed (CALL_EXCEPTION). Likely revert. Details: ${errorDetails}` 
+          message: `Contract call failed. Reason: ${error.reason || 'Unknown'}` 
         };
     }
 
     return {
       success: false,
-      message: `Error: ${errorDetails}`
+      message: `Error: ${error.message || errMsg}`
     };
   }
 };

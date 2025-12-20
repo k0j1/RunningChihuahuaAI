@@ -59,8 +59,8 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
 
   const isGameClear = lives > 0;
   
-  // Updated Reward Calculation: score * 0.1
-  const rewardTokens = (score * 0.1).toFixed(1); 
+  // Updated Reward Calculation: score * 0.05 (5%)
+  const rewardTokens = (score * 0.05).toFixed(1); 
 
   const top10HighScores = useMemo(() => ranking.slice(0, 10).map((entry, index) => ({
     entry,
@@ -85,11 +85,6 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   }, [totalRanking]);
 
   const isRankIn = top10HighScores.some(item => item.entry.date === lastGameDate);
-
-  const historyItems = recentHistory.map((entry, index) => ({
-    entry,
-    rank: index + 1
-  }));
 
   const activeList = useMemo(() => {
     switch (activeTab) {
@@ -159,12 +154,15 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
                       <div className="w-full bg-white/60 rounded-lg p-3 mb-4 border border-blue-100 flex flex-col gap-2">
                         <div className="flex justify-between items-center">
                           <span className="text-[10px] font-black text-gray-400 uppercase">Payout Rate:</span>
-                          <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Score × 0.1</span>
+                          <span className="text-[10px] font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">Score × 0.05</span>
                         </div>
                         <div className="flex justify-between items-center border-t border-blue-100 pt-2">
                           <span className="text-sm font-bold text-gray-700 uppercase">You will get:</span>
                           <span className="text-2xl font-black text-blue-700">{rewardTokens} <span className="text-xs">$CHH</span></span>
                         </div>
+                         <div className="text-[9px] text-red-500 font-bold bg-red-50 px-2 py-1 rounded">
+                           Max 10 claims per day. Max Score 60,000.
+                         </div>
                       </div>
 
                       <button
@@ -183,7 +181,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
                         )}
                       </button>
                       <p className="text-[9px] text-gray-400 mt-2 italic font-medium">
-                        *Claim reward for this run score regardless of past claims.
+                         Rewards are transferred immediately from the Vault.
                       </p>
                    </>
                 ) : (
