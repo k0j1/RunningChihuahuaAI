@@ -72,12 +72,7 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
       throw new Error((data && data.message) || 'Failed to generate signature from backend');
     }
 
-    // Extract signature AND the adjusted score (which is now in Wei units: score * 10^18)
-    const { signature, adjusted_score } = data;
-    
-    if (!adjusted_score) {
-        throw new Error("Backend did not return adjusted score.");
-    }
+    const { signature } = data;
 
     // 2. Prepare Wallet Provider & Switch Network Logic
     let windowProvider: any; 
@@ -140,8 +135,7 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     
     // 4. Send Transaction
     console.log("Sending claimScore transaction on Base...", { 
-      originalScore: score,
-      adjustedScore: adjusted_score, 
+      score, 
       signature, 
       target: TOKEN_CONTRACT_ADDRESS 
     });
@@ -149,9 +143,8 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     const signer = await provider.getSigner(walletAddress);
     const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, signer);
 
-    // Call claimScore with the ADJUSTED SCORE (in Wei) returned from PHP
-    // Ethers handles string inputs for large integers automatically
-    const tx = await contract.claimScore(adjusted_score, signature, {
+    // Call claimScore with manual gasLimit to prevent "Unknown" CALL_EXCEPTION during estimation
+    const tx = await contract.claimScore(score, signature, {
         gasLimit: 300000 // Set a safe upper bound for gas
     });
     
