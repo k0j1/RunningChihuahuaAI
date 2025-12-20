@@ -17,26 +17,14 @@ const GAME_TOKEN_ABI = [
 
 /**
  * Fetches the daily claim count for the user.
- * (Optional display logic, currently just returns 0 to satisfy interface if needed)
+ * Uses public RPC to avoid network mismatch errors with wallet.
  */
 export const fetchDailyClaimCount = async (walletAddress: string): Promise<number> => {
   try {
-    let windowProvider: any; 
-    if (sdk.wallet.ethProvider) {
-       windowProvider = sdk.wallet.ethProvider;
-    } else if (window.ethereum) {
-       windowProvider = window.ethereum;
-    } else {
-       return 0;
-    }
-
-    const provider = new ethers.BrowserProvider(windowProvider, {
-        chainId: BASE_CHAIN_ID_DEC,
-        name: 'base'
-    });
-
+    // Use public RPC for read-only operations
+    const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+    
     const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, provider);
-    // userClaims returns a struct/array: [lastClaimDay, dailyCount]
     const info = await contract.userClaims(walletAddress);
     return Number(info[1]); // Return dailyCount
   } catch (error) {
@@ -101,10 +89,45 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
       await sdk.actions.ready();
     }
 
-    const provider = new ethers.BrowserProvider(windowProvider, {
-        chainId: BASE_CHAIN_ID_DEC,
-        name: 'base'
-    });
+    // Initialize provider without forcing network to prevent immediate NETWORK_ERROR
+    const provider = new ethers.BrowserProvider(windowProvider);
+
+    // Check and Switch Network
+    const network = await provider.getNetwork();
+    if (Number(network.chainId) !== BASE_CHAIN_ID_DEC) {
+        try {
+            await windowProvider.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: BASE_CHAIN_ID_HEX }],
+            });
+        } catch (switchError: any) {
+            // This error code 4902 indicates that the chain has not been added to MetaMask.
+            if (switchError.code === 4902 || switchError.code === '4902' || switchError.message?.includes("Unrecognized chain")) {
+                try {
+                    await windowProvider.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [
+                            {
+                                chainId: BASE_CHAIN_ID_HEX,
+                                chainName: 'Base',
+                                rpcUrls: ['https://mainnet.base.org'],
+                                nativeCurrency: {
+                                    name: 'Ether',
+                                    symbol: 'ETH',
+                                    decimals: 18
+                                },
+                                blockExplorerUrls: ['https://basescan.org']
+                            },
+                        ],
+                    });
+                } catch (addError) {
+                    throw new Error("Failed to add Base network to wallet.");
+                }
+            } else {
+                throw new Error("Please switch your wallet network to Base.");
+            }
+        }
+    }
 
     // 3. Send Transaction
     console.log("Sending claimScore transaction on Base...", { 
@@ -144,7 +167,7 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     if (error.code === 'NETWORK_ERROR') {
         return { 
           success: false, 
-          message: `Network error. Ensure wallet is on Base. (${error.code})` 
+          message: `Network error. Please ensure your wallet is connected to Base.` 
         };
     }
 
