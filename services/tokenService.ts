@@ -74,7 +74,7 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
 
     const { signature } = data;
 
-    // 2. Prepare Wallet Provider
+    // 2. Prepare Wallet Provider & Switch Network Logic
     let windowProvider: any; 
 
     if (sdk.wallet.ethProvider) {
@@ -89,21 +89,20 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
       await sdk.actions.ready();
     }
 
-    // Initialize provider without forcing network to prevent immediate NETWORK_ERROR
-    const provider = new ethers.BrowserProvider(windowProvider);
-
-    // Check and Switch Network
-    const network = await provider.getNetwork();
-    if (Number(network.chainId) !== BASE_CHAIN_ID_DEC) {
-        try {
-            await windowProvider.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: BASE_CHAIN_ID_HEX }],
-            });
-        } catch (switchError: any) {
-            // This error code 4902 indicates that the chain has not been added to MetaMask.
-            if (switchError.code === 4902 || switchError.code === '4902' || switchError.message?.includes("Unrecognized chain")) {
-                try {
+    // --- Network Switching Logic (Perform BEFORE creating BrowserProvider) ---
+    // We use the raw request method to ensure the underlying provider is on the right chain.
+    try {
+        const currentChainId = await windowProvider.request({ method: 'eth_chainId' });
+        
+        if (currentChainId !== BASE_CHAIN_ID_HEX && Number(currentChainId) !== BASE_CHAIN_ID_DEC) {
+            try {
+                await windowProvider.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: BASE_CHAIN_ID_HEX }],
+                });
+            } catch (switchError: any) {
+                // This error code 4902 indicates that the chain has not been added to MetaMask.
+                if (switchError.code === 4902 || switchError.code === '4902' || switchError.message?.includes("Unrecognized chain")) {
                     await windowProvider.request({
                         method: 'wallet_addEthereumChain',
                         params: [
@@ -120,16 +119,21 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
                             },
                         ],
                     });
-                } catch (addError) {
-                    throw new Error("Failed to add Base network to wallet.");
+                } else {
+                    throw switchError;
                 }
-            } else {
-                throw new Error("Please switch your wallet network to Base.");
             }
         }
+    } catch (networkError: any) {
+        console.error("Network switch error:", networkError);
+        throw new Error("Failed to switch network to Base. Please switch manually.");
     }
 
-    // 3. Send Transaction
+    // 3. Initialize Provider AFTER Network Switch
+    // This ensures Ethers picks up the correct Chain ID immediately.
+    const provider = new ethers.BrowserProvider(windowProvider);
+    
+    // 4. Send Transaction
     console.log("Sending claimScore transaction on Base...", { 
       score, 
       signature, 
@@ -139,8 +143,10 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     const signer = await provider.getSigner(walletAddress);
     const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, signer);
 
-    // Call claimScore with the CURRENT RUN SCORE (Contract logic changed)
-    const tx = await contract.claimScore(score, signature);
+    // Call claimScore with manual gasLimit to prevent "Unknown" CALL_EXCEPTION during estimation
+    const tx = await contract.claimScore(score, signature, {
+        gasLimit: 300000 // Set a safe upper bound for gas
+    });
     
     console.log("Transaction successfully requested:", tx.hash);
 
@@ -153,14 +159,6 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
 
   } catch (error: any) {
     console.error("Token Claim Error Full Object:", error);
-
-    const errorDetails = [
-      error.message || "No error message",
-      error.reason ? `Reason: ${error.reason}` : null,
-      error.revert?.args ? `RevertArgs: ${error.revert.args}` : null,
-      `Addr: ${walletAddress}`,
-      `Score: ${score}`
-    ].filter(Boolean).join(" | ");
 
     const errMsg = error.message || "";
     
@@ -187,9 +185,10 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     }
 
     if (error.code === 'CALL_EXCEPTION') {
+        // Since we added gasLimit, this error might now contain data, or it might be a simulation failure.
         return { 
           success: false, 
-          message: `Contract call failed. Reason: ${error.reason || 'Unknown'}` 
+          message: `Contract call failed. Please check if you have already claimed today or if the vault is empty.` 
         };
     }
 
