@@ -4,7 +4,7 @@ import { ethers } from 'ethers';
 import sdk from '@farcaster/frame-sdk';
 
 // --- 修正・確認ポイント ---
-const TOKEN_CONTRACT_ADDRESS = "0x8f1319df35b63990053e8471C3F41B0d7067d5B7"; 
+const TOKEN_CONTRACT_ADDRESS = "0xb0525542E3D818460546332e76E511562dFf9B07"; 
 
 const BASE_CHAIN_ID_HEX = '0x2105'; // 8453 in Hex
 const BASE_CHAIN_ID_DEC = 8453;

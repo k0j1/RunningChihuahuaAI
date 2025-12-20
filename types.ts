@@ -1,3 +1,5 @@
+import 'react';
+
 export enum GameState {
   TITLE = 'TITLE',
   HISTORY = 'HISTORY',
