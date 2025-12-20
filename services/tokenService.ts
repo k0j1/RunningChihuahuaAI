@@ -4,7 +4,7 @@ import { ethers } from 'ethers';
 import sdk from '@farcaster/frame-sdk';
 
 // --- 重要: デプロイしたCHHClaimVaultのアドレスに変更してください ---
-const TOKEN_CONTRACT_ADDRESS = "0xb0525542E3D818460546332e76E511562dFf9B07"; 
+const TOKEN_CONTRACT_ADDRESS = "0xAdE397b3373eC0245e261F5a6CCd7D439DA66e1a"; 
 
 const BASE_CHAIN_ID_HEX = '0x2105'; // 8453 in Hex
 const BASE_CHAIN_ID_DEC = 8453;
