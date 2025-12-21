@@ -191,7 +191,8 @@ export const useGameLogic = () => {
               const bossZ = Math.min(16, Math.max(0, (playerSystem.lives / 3) * 16));
               const obstacleZ = -40 + (progress * 40);
               if (obstacleZ >= bossZ - 1.0) {
-                  playerSystem.heal(0.2);
+                  // Healing removed: Only active under specific conditions (currently disabled normally)
+                  // playerSystem.heal(0.2); 
                   bossSystem.registerHit();
                   if (bossSystem.bossHits + 1 >= 10) {
                       if (bossSystem.bossType === BossType.DRAGON && bossSystem.bossLevel >= 2) {

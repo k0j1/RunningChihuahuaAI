@@ -28,8 +28,8 @@ export const Gorilla: React.FC<GorillaProps> = ({ speed, isRunning, lives, isHit
   // Max distance (lives >= 3) is 16.0
   const targetZ = Math.min(16, Math.max(0, (lives / 3) * 16));
 
-  // Base Scale 1.8. Level 2 (2nd boss) becomes 1.5x size (2.7).
-  const scale = 1.8 * (level >= 2 ? 1.5 : 1.0);
+  // Base Scale 1.8. Level 2 (2nd boss) becomes 2.0x size (3.6).
+  const scale = 1.8 * (level >= 2 ? 2.0 : 1.0);
 
   useFrame((state) => {
     if (!group.current) return;

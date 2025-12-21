@@ -24,7 +24,7 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   // Matched to Boss Component logic (Level 2+ = 1.5x size for Gorilla/Dragon)
   let scale = 1.0;
   if (bossType === BossType.GORILLA) {
-     scale = 1.8 * (bossLevel >= 2 ? 1.5 : 1.0);
+     scale = 1.8 * (bossLevel >= 2 ? 2.0 : 1.0);
   } else if (bossType === BossType.CHEETAH) {
      scale = 1.5 * (bossLevel >= 2 ? 2.0 : 1.0); // Cheetah kept as is based on instruction specificity
   } else if (bossType === BossType.DRAGON) {

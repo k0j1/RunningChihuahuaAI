@@ -39,6 +39,7 @@ export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
   const { data, error } = await supabase
     .from('player_stats')
     .select('*')
+    .gt('total_score', 0) // Filter out users with 0 score
     .order('total_score', { ascending: false })
     .limit(100);
 
@@ -73,15 +74,11 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
 
   if (!userId) return;
 
-  // We want to update metadata if the user exists, or insert new if not.
-  // We should NOT overwrite score data if it exists.
-  
   try {
     // --- DUPLICATE CHECK & CLEANUP ---
     // If identifying as a Farcaster User (fc:...) AND a wallet is present,
     // check if a 'wa:...' record already exists for this wallet.
-    // If so, merge stats into the 'fc:...' record and delete the 'wa:...' record
-    // to ensure only the Farcaster Username ID remains.
+    // If so, merge stats into the 'fc:...' record and delete the 'wa:...' record.
     if (userId.startsWith('fc:') && walletAddress) {
       const ghostId = `wa:${walletAddress}`;
       const { data: ghost } = await supabase
@@ -130,6 +127,27 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
     }
     // ---------------------------------
 
+    // --- Prevent wallet address duplication on different users ---
+    let finalWalletAddress = walletAddress;
+    if (finalWalletAddress) {
+       const { data: conflict } = await supabase
+         .from('player_stats')
+         .select('user_id')
+         .eq('wallet_address', finalWalletAddress)
+         .neq('user_id', userId) // Check if owned by someone else
+         .maybeSingle();
+       
+       if (conflict) {
+         console.warn(`Wallet ${finalWalletAddress} is already registered to ${conflict.user_id}. Preventing duplicate.`);
+         if (userId.startsWith('wa:')) {
+           // If we are trying to register as a wallet-only user, but the wallet is taken, abort.
+           return; 
+         }
+         // If Farcaster user, we allow profile update but DO NOT link the duplicate wallet.
+         finalWalletAddress = null;
+       }
+    }
+
     // 1. Check if user exists (after potential migration above)
     const { data: existing, error: fetchError } = await supabase
       .from('player_stats')
@@ -144,7 +162,7 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
       username: farcasterUser?.username || null,
       display_name: farcasterUser?.displayName || null,
       pfp_url: farcasterUser?.pfpUrl || null,
-      wallet_address: walletAddress || null,
+      wallet_address: finalWalletAddress || null,
       last_active: new Date().toISOString()
     };
 
@@ -156,8 +174,6 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
         .eq('user_id', userId);
     } else {
       // Insert new record with initialized stats
-      // Note: If we did a migration insert above, 'existing' would be found (or concurrent insert would fail safely)
-      // This handles the case where it's a completely new user.
       const { error: insertError } = await supabase
         .from('player_stats')
         .insert({
@@ -168,7 +184,6 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
         });
         
       if (insertError) {
-         // Ignore duplicate key error if migration just created it
          if (!insertError.message.includes('duplicate key')) {
              console.warn("Error inserting new player profile:", insertError);
          }
@@ -214,8 +229,23 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
   }
 
   // 2. Update player stats (totals)
-  // This requires RLS policies to be set to allow INSERT/UPDATE on 'player_stats'
   try {
+    // --- Prevent duplicate wallet address in stats ---
+    let walletForStats = entry.walletAddress || null;
+    if (walletForStats) {
+       const { data: conflict } = await supabase
+         .from('player_stats')
+         .select('user_id')
+         .eq('wallet_address', walletForStats)
+         .neq('user_id', userId)
+         .maybeSingle();
+
+       if (conflict) {
+          // Wallet belongs to someone else, don't write it to this user's stats
+          walletForStats = null;
+       }
+    }
+
     // Fetch existing stats
     const { data: currentStats, error: fetchError } = await supabase
       .from('player_stats')
@@ -237,7 +267,7 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
       username: entry.farcasterUser?.username || currentStats?.username || null,
       display_name: entry.farcasterUser?.displayName || currentStats?.display_name || null,
       pfp_url: entry.farcasterUser?.pfpUrl || currentStats?.pfp_url || null,
-      wallet_address: entry.walletAddress || currentStats?.wallet_address || null,
+      wallet_address: walletForStats || currentStats?.wallet_address || null,
       
       // Accumulate: Add new entry values to previous totals
       total_score: previousTotalScore + Number(entry.score),
