@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2, Coins, AlertCircle, CheckCircle2, Loader2, Copy, RefreshCw } from 'lucide-react';
 import { ScoreEntry, PlayerStats, ClaimResult } from '../../types';
 import { WalletWidget } from './WalletWidget';
@@ -28,6 +28,7 @@ interface GameOverScreenProps {
   onDisconnectWallet: () => void;
   onShowProfile: () => void;
   onShare: () => void;
+  onSaveScore: () => Promise<void>;
 }
 
 type RankingTab = 'HIGH_SCORE' | 'TOTAL_SCORE';
@@ -54,8 +55,36 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   onDisconnectWallet,
   onShowProfile,
   onShare,
+  onSaveScore,
 }) => {
   const [activeTab, setActiveTab] = useState<RankingTab>('HIGH_SCORE');
+  const [isSaving, setIsSaving] = useState(true);
+
+  // Trigger Save on Mount
+  useEffect(() => {
+    let mounted = true;
+    
+    const performSave = async () => {
+        // Safety timeout: If save takes longer than 5s, force show screen
+        const timeoutId = setTimeout(() => {
+             console.warn("Save operation timed out, forcing UI display.");
+             if (mounted) setIsSaving(false);
+        }, 5000);
+
+        try {
+            await onSaveScore();
+        } catch (e) {
+            console.error("Save failed", e);
+        } finally {
+            clearTimeout(timeoutId);
+            if (mounted) setIsSaving(false);
+        }
+    };
+    
+    performSave();
+    
+    return () => { mounted = false; };
+  }, []); // Run once on mount
 
   const isGameClear = lives > 0;
   
@@ -93,6 +122,18 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
       default: return top10HighScores;
     }
   }, [activeTab, top10HighScores, top10TotalScores]);
+
+  // Loading State (While Saving)
+  if (isSaving) {
+      return (
+        <div className={`absolute inset-0 flex flex-col items-center justify-center z-50 p-4 ${isGameClear ? 'bg-yellow-900/95' : 'bg-red-900/95'} backdrop-blur-md`}>
+            <Loader2 className="w-16 h-16 text-white animate-spin mb-4" />
+            <h2 className="text-2xl font-black text-white uppercase tracking-widest animate-pulse">
+                Recording Score...
+            </h2>
+        </div>
+      );
+  }
 
   return (
     <div className={`absolute inset-0 flex flex-col items-center justify-start backdrop-blur-md z-50 p-4 pt-12 overflow-y-auto ${isGameClear ? 'bg-yellow-900/90' : 'bg-red-900/90'}`}>
@@ -257,6 +298,23 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
                  highlightDate={lastGameDate} 
                  showHeader={true}
                  showRank={true}
+                 rankingType="HIGH_SCORE"
+               />
+            </div>
+          )}
+          
+          {/* Recent History Section - Added Back */}
+          {recentHistory.length > 0 && (
+            <div className="bg-gray-50/80 rounded-xl p-3 border border-gray-200">
+               <div className="flex items-center gap-2 mb-2">
+                 <Clock size={16} className="text-gray-500" />
+                 <h3 className="text-xs font-bold text-gray-700 uppercase">Recent Runs</h3>
+               </div>
+               <RankingList 
+                 items={recentHistory.map((entry, i) => ({ entry, rank: i + 1 }))} 
+                 highlightDate={lastGameDate} 
+                 showHeader={true}
+                 showRank={false}
                  rankingType="HIGH_SCORE"
                />
             </div>

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import sdk from '@farcaster/frame-sdk';
 import { ScoreEntry, PlayerStats } from '../types';
 import { fetchGlobalRanking, fetchTotalRanking, saveScoreToSupabase } from '../services/supabase';
 
@@ -55,12 +54,10 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
     distanceRef.current = newDist;
 
     // Only update React State (triggering render) when integer part changes
-    // This prevents WebGL context loss from too many re-renders
     if (Math.floor(newDist) > Math.floor(oldDist)) {
         setDistance(Math.floor(newDist));
         
-        // Add 10 points per meter to mimic the fast-paced scoring of the original version,
-        // but using integers to ensure stability and database compatibility.
+        // Add 10 points per meter
         setScore(prev => prev + 10);
         
         // Speed check based on Ref logic
@@ -79,28 +76,10 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
 
     const currentScore = finalScoreOverride !== undefined ? finalScoreOverride : score;
 
-    // Check for zero values to prevent saving empty runs. 
-    // Relaxed condition: Only check score. Distance might theoretically be 0 in edge cases but score > 0 matters.
+    // Check for zero values to prevent saving empty runs.
     if (currentScore <= 0) {
       console.log("Score is zero. Skipping save.");
       return;
-    }
-
-    let currentWalletAddress = walletAddress;
-
-    // Try to fetch wallet address if missing, specifically for Farcaster context
-    if (!currentWalletAddress) {
-       try {
-         const provider = sdk.wallet.ethProvider;
-         if (provider) {
-            const accounts = await provider.request({ method: 'eth_accounts' }) as string[];
-             if (Array.isArray(accounts) && accounts.length > 0) {
-                 currentWalletAddress = accounts[0];
-             }
-         }
-       } catch (e) {
-         console.warn("Could not fetch wallet address on save:", e);
-       }
     }
 
     const now = new Date();
@@ -118,7 +97,7 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
         displayName: farcasterUser.displayName || '',
         pfpUrl: farcasterUser.pfpUrl || ''
       } : undefined,
-      walletAddress: currentWalletAddress || undefined
+      walletAddress: walletAddress || undefined
     };
     
     setLastGameDate(isoDate); 
@@ -128,10 +107,22 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
     setHistory(newHistory);
     localStorage.setItem('chihuahua_history', JSON.stringify(newHistory));
 
+    // If Guest (No Wallet, No Farcaster), SKIP server save.
+    if (!farcasterUser && !walletAddress) {
+        console.log("Guest User: Skipped server save.");
+        // We still load rankings to ensure the leaderboard is fresh, but we don't wait for it strictly.
+        loadRankings(); 
+        return; 
+    }
+
     // Save to server
-    saveScoreToSupabase(newEntry).then(() => {
-       loadRankings();
-    });
+    // We await here so the UI loading spinner persists until the data is actually in the DB
+    try {
+        await saveScoreToSupabase(newEntry);
+        await loadRankings();
+    } catch (e) {
+        console.error("Failed to save score to server:", e);
+    }
   };
 
   const clearHistory = () => {

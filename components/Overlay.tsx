@@ -50,6 +50,7 @@ interface OverlayProps {
   onTogglePause: () => void;
   onDodge: (e: any) => void;
   onDuck: (e: any) => void;
+  onSaveScore: () => Promise<void>;
 }
 
 export const Overlay: React.FC<OverlayProps> = ({
@@ -90,6 +91,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   onConnectWallet,
   onDisconnectWallet,
   onShare,
+  onSaveScore,
 }) => {
   const [showUserInfo, setShowUserInfo] = useState(false);
 
@@ -225,6 +227,7 @@ export const Overlay: React.FC<OverlayProps> = ({
               onDisconnectWallet={onDisconnectWallet}
               onShowProfile={handleShowProfile}
               onShare={onShare}
+              onSaveScore={onSaveScore}
             />
           );
         }

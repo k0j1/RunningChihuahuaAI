@@ -16,6 +16,9 @@ export const useGameLogic = () => {
   
   // Use Ref to ensure the game loop always sees the correct mode immediately without waiting for re-renders
   const isDemoModeRef = useRef<boolean>(false);
+  
+  // Prevent duplicate Game Over / Game Clear triggers
+  const gameEndedRef = useRef<boolean>(false);
 
   // --- Sub-Systems ---
   const { farcasterUser, walletAddress, connectWallet, disconnectWallet } = useAuth();
@@ -41,6 +44,7 @@ export const useGameLogic = () => {
   const startGame = (demoMode: boolean = false) => {
     setIsDemoMode(demoMode);
     isDemoModeRef.current = demoMode; // Sync ref immediately
+    gameEndedRef.current = false; // Reset game ended flag
     setGameState(GameState.RUNNING);
     setDayTime(true);
     scoreSystem.resetScore();
@@ -52,9 +56,16 @@ export const useGameLogic = () => {
     obstacleDodgedRef.current = false;
   };
 
+  // Wrapper to save score with the current demo mode state
+  const saveCurrentScore = async () => {
+      await scoreSystem.saveRun(isDemoModeRef.current);
+  };
+
   const handleGameOver = () => {
-    // Use Ref to guarantee we save based on the correct mode
-    scoreSystem.saveRun(isDemoModeRef.current);
+    if (gameEndedRef.current) return; // Prevent duplicates
+    gameEndedRef.current = true;
+
+    // Score saving is now handled by the GameOverScreen component
     setGameState(GameState.CAUGHT_ANIMATION);
     setTimeout(() => {
         setGameState(GameState.GAME_OVER);
@@ -62,13 +73,17 @@ export const useGameLogic = () => {
   };
 
   const handleGameClear = async (bonus: number = 0) => {
+     if (gameEndedRef.current) return; // Prevent duplicates
+     gameEndedRef.current = true;
+
+     // Add bonus to state immediately so it's reflected when GameOverScreen mounts
+     if (bonus > 0) {
+         scoreSystem.addScore(bonus);
+     }
+
      setGameState(GameState.GAME_CLEAR);
-     // Pass the projected final score because state update is async
-     // We add the bonus to the current score state to get the final score
-     // 'await' ensures save starts before any potential unmounts (though unlikely here)
-     // Use Ref to guarantee we save based on the correct mode
-     await scoreSystem.saveRun(isDemoModeRef.current, scoreSystem.score + bonus);
      
+     // Transition to Game Over screen after celebration
      setTimeout(() => {
          setGameState(GameState.GAME_OVER);
      }, 6000); 
@@ -148,8 +163,7 @@ export const useGameLogic = () => {
        }
        
        // Player Dodge Logic
-       // Tightened hitbox: Success window starts at 0.85 (was 0.75).
-       // This forces players to wait until the object is closer, preventing "too early" safe spamming.
+       // Tightened hitbox: Success window starts at 0.85
        if (progress > 0.85 && playerSystem.isDodgeQueued && !playerSystem.isHit) {
            if (!obstacleDodgedRef.current) {
                 const bonusCombo = playerSystem.performDodge(obstacleSystem.obstacleType);
@@ -175,7 +189,7 @@ export const useGameLogic = () => {
                       if (bossSystem.bossType === BossType.DRAGON && bossSystem.bossLevel >= 2) {
                           bossSystem.defeatBoss(true); 
                           const bonus = 21000;
-                          scoreSystem.addScore(bonus);
+                          // Don't add score here for clear, handleGameClear handles it with the full clear sequence
                           playerSystem.triggerCelebration();
                           handleGameClear(bonus);
                       } else {
@@ -221,8 +235,7 @@ export const useGameLogic = () => {
         }
         
         // Player Duck Logic
-        // Tightened hitbox: Success window starts at 0.90 (was 0.80).
-        // Projectiles move fast, so this requires better reaction or timing.
+        // Tightened hitbox: Success window starts at 0.90
         if (progress > 0.90 && playerSystem.isDuckQueued && !playerSystem.isDuckedRef.current && !playerSystem.isHit) {
             playerSystem.performDuck();
             scoreSystem.addScore(20);
@@ -244,7 +257,7 @@ export const useGameLogic = () => {
   return {
     gameState, setGameState,
     dayTime, setDayTime,
-    isDemoMode, // UI still uses state for rendering
+    isDemoMode, 
     farcasterUser, walletAddress, connectWallet, disconnectWallet,
     ...scoreSystem,
     ...playerSystem,
@@ -254,6 +267,7 @@ export const useGameLogic = () => {
     ...rewardSystem,
     isThrowing: projectileSystem.isThrowingRef.current,
     startGame, handleGameOver, shareScore,
+    saveCurrentScore, // Export saving function
     handleDodge, handleDuck,
     handleDistanceUpdate, handleObstacleTick, handleProjectileTick,
   };

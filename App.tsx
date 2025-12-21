@@ -14,7 +14,7 @@ const App: React.FC = () => {
     history, globalRanking, totalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
     isClaiming, claimResult, totalClaimed, handleClaimReward, // Reward Props
     startGame, setGameState, handleDodge, handleDuck, clearHistory,
-    connectWallet, disconnectWallet, shareScore
+    connectWallet, disconnectWallet, shareScore, saveCurrentScore
   } = gameLogic;
 
   const levelMultiplier = 5 + (bossLevel - 1) * 2;
@@ -79,6 +79,7 @@ const App: React.FC = () => {
         onConnectWallet={connectWallet}
         onDisconnectWallet={disconnectWallet}
         onShare={shareScore}
+        onSaveScore={saveCurrentScore}
       />
     </div>
   );
