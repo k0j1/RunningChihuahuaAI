@@ -181,9 +181,6 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     }
     
     // Contract specific errors
-    if (errMsg.includes('Daily claim limit reached')) {
-         return { success: false, message: "Daily claim limit reached (10 times/day)." };
-    }
     if (errMsg.includes('Invalid signature')) {
          return { success: false, message: "Security check failed (Invalid Signature)." };
     }
