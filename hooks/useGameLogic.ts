@@ -13,6 +13,9 @@ export const useGameLogic = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
   const [dayTime, setDayTime] = useState<boolean>(true);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  
+  // Use Ref to ensure the game loop always sees the correct mode immediately without waiting for re-renders
+  const isDemoModeRef = useRef<boolean>(false);
 
   // --- Sub-Systems ---
   const { farcasterUser, walletAddress, connectWallet, disconnectWallet } = useAuth();
@@ -37,6 +40,7 @@ export const useGameLogic = () => {
 
   const startGame = (demoMode: boolean = false) => {
     setIsDemoMode(demoMode);
+    isDemoModeRef.current = demoMode; // Sync ref immediately
     setGameState(GameState.RUNNING);
     setDayTime(true);
     scoreSystem.resetScore();
@@ -49,16 +53,22 @@ export const useGameLogic = () => {
   };
 
   const handleGameOver = () => {
-    scoreSystem.saveRun(isDemoMode);
+    // Use Ref to guarantee we save based on the correct mode
+    scoreSystem.saveRun(isDemoModeRef.current);
     setGameState(GameState.CAUGHT_ANIMATION);
     setTimeout(() => {
         setGameState(GameState.GAME_OVER);
     }, 3000);
   };
 
-  const handleGameClear = () => {
+  const handleGameClear = async (bonus: number = 0) => {
      setGameState(GameState.GAME_CLEAR);
-     scoreSystem.saveRun(isDemoMode);
+     // Pass the projected final score because state update is async
+     // We add the bonus to the current score state to get the final score
+     // 'await' ensures save starts before any potential unmounts (though unlikely here)
+     // Use Ref to guarantee we save based on the correct mode
+     await scoreSystem.saveRun(isDemoModeRef.current, scoreSystem.score + bonus);
+     
      setTimeout(() => {
          setGameState(GameState.GAME_OVER);
      }, 6000); 
@@ -127,14 +137,20 @@ export const useGameLogic = () => {
     else if (obstacleSystem.hazardActiveRef.current) {
        const res = obstacleSystem.updateObstacle(delta, scoreSystem.speed);
        const progress = res.progress;
-       if (isDemoMode && progress > 0.82 && !obstacleDodgedRef.current && !playerSystem.isHit) {
+       
+       // AI Auto-Dodge (Demo Mode) - Adjusted to be tighter (0.90)
+       if (isDemoModeRef.current && progress > 0.90 && !obstacleDodgedRef.current && !playerSystem.isHit) {
            const bonusCombo = playerSystem.performDodge(obstacleSystem.obstacleType);
            const bonus = bonusCombo * 10;
            scoreSystem.addScore(10 + bonus);
            obstacleDodgedRef.current = true;
            playerSystem.triggerComicCutIn(); 
        }
-       if (progress > 0.8 && playerSystem.isDodgeQueued && !playerSystem.isHit) {
+       
+       // Player Dodge Logic
+       // Tightened hitbox: Success window starts at 0.85 (was 0.75).
+       // This forces players to wait until the object is closer, preventing "too early" safe spamming.
+       if (progress > 0.85 && playerSystem.isDodgeQueued && !playerSystem.isHit) {
            if (!obstacleDodgedRef.current) {
                 const bonusCombo = playerSystem.performDodge(obstacleSystem.obstacleType);
                 const bonus = bonusCombo * 10;
@@ -158,9 +174,10 @@ export const useGameLogic = () => {
                   if (bossSystem.bossHits + 1 >= 10) {
                       if (bossSystem.bossType === BossType.DRAGON && bossSystem.bossLevel >= 2) {
                           bossSystem.defeatBoss(true); 
-                          scoreSystem.addScore(1000 + 20000);
+                          const bonus = 21000;
+                          scoreSystem.addScore(bonus);
                           playerSystem.triggerCelebration();
-                          handleGameClear();
+                          handleGameClear(bonus);
                       } else {
                           bossSystem.defeatBoss(false);
                           scoreSystem.addScore(1000);
@@ -195,12 +212,18 @@ export const useGameLogic = () => {
     else {
         const res = projectileSystem.updateProjectile(delta, scoreSystem.speed, bossSystem.bossLevel);
         const progress = res.progress;
-        if (isDemoMode && progress > 0.88 && !playerSystem.isDuckedRef.current && !playerSystem.isHit) {
+        
+        // AI Auto-Duck (Demo Mode) - Adjusted to be tighter (0.92)
+        if (isDemoModeRef.current && progress > 0.92 && !playerSystem.isDuckedRef.current && !playerSystem.isHit) {
             playerSystem.performDuck();
             scoreSystem.addScore(20);
             playerSystem.triggerComicCutIn();
         }
-        if (progress > 0.85 && playerSystem.isDuckQueued && !playerSystem.isDuckedRef.current && !playerSystem.isHit) {
+        
+        // Player Duck Logic
+        // Tightened hitbox: Success window starts at 0.90 (was 0.80).
+        // Projectiles move fast, so this requires better reaction or timing.
+        if (progress > 0.90 && playerSystem.isDuckQueued && !playerSystem.isDuckedRef.current && !playerSystem.isHit) {
             playerSystem.performDuck();
             scoreSystem.addScore(20);
         }
@@ -221,7 +244,7 @@ export const useGameLogic = () => {
   return {
     gameState, setGameState,
     dayTime, setDayTime,
-    isDemoMode,
+    isDemoMode, // UI still uses state for rendering
     farcasterUser, walletAddress, connectWallet, disconnectWallet,
     ...scoreSystem,
     ...playerSystem,

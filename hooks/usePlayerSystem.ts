@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { DodgeType, GameState } from '../types';
 
@@ -71,10 +70,11 @@ export const usePlayerSystem = () => {
     // GameHUD checks (combo > 1), so it will display starting from 2nd hit ("x2").
     setCombo(comboRef.current); 
     
+    // Reduced invulnerability window from 500ms to 400ms to prevent easy spamming
     setTimeout(() => {
       setIsDodging(false);
       isDodgedRef.current = false; // Reset immunity after animation
-    }, 500);
+    }, 400);
 
     return comboRef.current; // Return the up-to-date combo value
   };
@@ -85,10 +85,11 @@ export const usePlayerSystem = () => {
     setIsDodging(true);
     setIsDuckQueued(false); // Consume queue immediately
     
+    // Reduced invulnerability window from 500ms to 400ms
     setTimeout(() => {
       setIsDodging(false);
       isDuckedRef.current = false; // Reset immunity after animation
-    }, 500);
+    }, 400);
   };
 
   const triggerCelebration = () => {

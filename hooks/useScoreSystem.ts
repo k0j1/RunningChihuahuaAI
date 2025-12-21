@@ -70,17 +70,19 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
     }
   };
 
-  const saveRun = async (isDemoMode: boolean = false) => {
+  const saveRun = async (isDemoMode: boolean = false, finalScoreOverride?: number) => {
     // If it's a demo run, do not save anything
     if (isDemoMode) {
       console.log("Demo Mode: Score not saved.");
       return;
     }
 
-    // Check for zero values to prevent saving empty runs
-    const currentDistance = Math.floor(distanceRef.current);
-    if (score <= 0 || currentDistance <= 0) {
-      console.log("Score or distance is zero. Skipping save.");
+    const currentScore = finalScoreOverride !== undefined ? finalScoreOverride : score;
+
+    // Check for zero values to prevent saving empty runs. 
+    // Relaxed condition: Only check score. Distance might theoretically be 0 in edge cases but score > 0 matters.
+    if (currentScore <= 0) {
+      console.log("Score is zero. Skipping save.");
       return;
     }
 
@@ -108,8 +110,8 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
     const newEntry: ScoreEntry = {
       date: isoDate,
       formattedDate: formattedDate,
-      score: score,
-      distance: currentDistance,
+      score: currentScore,
+      distance: Math.floor(distanceRef.current),
       farcasterUser: farcasterUser ? {
         fid: farcasterUser.fid, 
         username: farcasterUser.username || '',
