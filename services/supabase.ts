@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { ScoreEntry, PlayerStats } from '../types';
 
@@ -78,7 +77,60 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
   // We should NOT overwrite score data if it exists.
   
   try {
-    // 1. Check if user exists
+    // --- DUPLICATE CHECK & CLEANUP ---
+    // If identifying as a Farcaster User (fc:...) AND a wallet is present,
+    // check if a 'wa:...' record already exists for this wallet.
+    // If so, merge stats into the 'fc:...' record and delete the 'wa:...' record
+    // to ensure only the Farcaster Username ID remains.
+    if (userId.startsWith('fc:') && walletAddress) {
+      const ghostId = `wa:${walletAddress}`;
+      const { data: ghost } = await supabase
+        .from('player_stats')
+        .select('*')
+        .eq('user_id', ghostId)
+        .maybeSingle();
+
+      if (ghost) {
+        console.log(`Found duplicate wallet record (${ghostId}). Merging into ${userId}...`);
+        
+        // Check if main FC record exists
+        const { data: main } = await supabase
+          .from('player_stats')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (main) {
+          // Both exist: Merge stats to FC record
+          await supabase.from('player_stats').update({
+            total_score: (main.total_score || 0) + (ghost.total_score || 0),
+            total_distance: (main.total_distance || 0) + (ghost.total_distance || 0),
+            run_count: (main.run_count || 0) + (ghost.run_count || 0),
+            // Use the most recent activity date
+            last_active: new Date(main.last_active) > new Date(ghost.last_active) ? main.last_active : ghost.last_active
+          }).eq('user_id', userId);
+        } else {
+          // FC record doesn't exist yet: Create it using Ghost's stats
+          await supabase.from('player_stats').insert({
+            user_id: userId,
+            username: farcasterUser?.username || null,
+            display_name: farcasterUser?.displayName || null,
+            pfp_url: farcasterUser?.pfpUrl || null,
+            wallet_address: walletAddress,
+            total_score: ghost.total_score || 0,
+            total_distance: ghost.total_distance || 0,
+            run_count: ghost.run_count || 0,
+            last_active: ghost.last_active
+          });
+        }
+
+        // Delete the duplicate wallet record
+        await supabase.from('player_stats').delete().eq('user_id', ghostId);
+      }
+    }
+    // ---------------------------------
+
+    // 1. Check if user exists (after potential migration above)
     const { data: existing, error: fetchError } = await supabase
       .from('player_stats')
       .select('user_id')
@@ -104,7 +156,9 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
         .eq('user_id', userId);
     } else {
       // Insert new record with initialized stats
-      await supabase
+      // Note: If we did a migration insert above, 'existing' would be found (or concurrent insert would fail safely)
+      // This handles the case where it's a completely new user.
+      const { error: insertError } = await supabase
         .from('player_stats')
         .insert({
           ...payload,
@@ -112,6 +166,13 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
           total_distance: 0,
           run_count: 0
         });
+        
+      if (insertError) {
+         // Ignore duplicate key error if migration just created it
+         if (!insertError.message.includes('duplicate key')) {
+             console.warn("Error inserting new player profile:", insertError);
+         }
+      }
     }
   } catch (e) {
     console.error("Error updating player profile:", e);
