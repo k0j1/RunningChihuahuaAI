@@ -72,7 +72,7 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
       throw new Error((data && data.message) || 'Failed to generate signature from backend');
     }
 
-    // Extract signature AND the adjusted score (which is now in Wei units: score * 10^18)
+    // Extract signature AND the adjusted score (which is now just the raw score string)
     const { signature, adjusted_score } = data;
     
     if (!adjusted_score) {
@@ -149,7 +149,7 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     const signer = await provider.getSigner(walletAddress);
     const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, signer);
 
-    // Call claimScore with the ADJUSTED SCORE (in Wei) returned from PHP
+    // Call claimScore with the ADJUSTED SCORE (which is now raw score string) returned from PHP
     // Ethers handles string inputs for large integers automatically
     const tx = await contract.claimScore(adjusted_score, signature, {
         gasLimit: 300000 // Set a safe upper bound for gas

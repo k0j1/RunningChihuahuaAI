@@ -1,109 +1,85 @@
 <?php
 require 'vendor/autoload.php';
 
-use Elliptic\EC;
 use kornrunner\Keccak;
-use Dotenv\Dotenv;
+use Elliptic\EC;
 
-// CORSヘッダー設定
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
+// Load .env if present
+if (file_exists(__DIR__ . '/.env')) {
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
+    $dotenv->load();
+}
 
-// プリフライトリクエストの処理
+// Headers
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Headers: Content-Type');
+
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
+    exit(0);
+}
+
+// Input
+$data = json_decode(file_get_contents('php://input'), true);
+$walletAddress = $data['walletAddress'] ?? '';
+$score = $data['score'] ?? 0;
+
+if (!$walletAddress || $score === null) {
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Missing parameters']);
+    exit;
+}
+
+// Get Private Key from Environment
+$privateKeyHex = getenv('PRIVATE_KEY') ?: ($_ENV['PRIVATE_KEY'] ?? '');
+
+if (!$privateKeyHex) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Server configuration error']);
+    exit;
 }
 
 try {
-    // .env の読み込み
-    $dotenv = Dotenv::createImmutable(__DIR__);
-    // 開発環境と本番環境でパスが異なる場合のエラー抑制
-    try {
-        $dotenv->load();
-    } catch (Exception $e) {
-        // .envが見つからない場合は環境変数を直接参照（本番環境など）
-    }
-
-    $privateKey = $_ENV['PRIVATE_KEY'] ?? getenv('PRIVATE_KEY');
-
-    if (!$privateKey) {
-        throw new Exception("Server configuration error: Private Key missing.");
-    }
-
-    // 入力データの取得
-    $input = json_decode(file_get_contents('php://input'), true);
-    $walletAddress = $input['walletAddress'] ?? '';
-    $score = $input['score'] ?? 0;
-
-    if (!$walletAddress || !isset($score)) {
-        throw new Exception("Invalid input: walletAddress or score missing.");
-    }
-
-    // 1. スコアをWei単位（10^18倍）に変換
-    // 大きな数値を扱うため bcmath を使用
-    $adjustedScore = bcmul((string)$score, '1000000000000000000');
-
-    // 2. 引数のパッキング (Solidity: abi.encodePacked(address, uint256))
+    // 1. Prepare Data
+    // Clean address (remove 0x)
+    $addressClean = str_replace('0x', '', strtolower($walletAddress));
     
-    // アドレスの処理: 0xを除去してバイナリ化
-    $addressBin = hex2bin(substr(strtolower($walletAddress), 2));
-
-    // 数値(uint256)の処理: 10進数文字列を16進数に変換
-    $scoreHex = '';
-    $current = $adjustedScore;
-    if ($current == '0') {
-        $scoreHex = '00';
-    } else {
-        while (bccomp($current, '0') > 0) {
-            $mod = bcmod($current, '16');
-            $scoreHex = dechex((int)$mod) . $scoreHex;
-            $current = bcdiv($current, '16', 0);
-        }
-    }
+    // Score is used AS IS (raw integer, NO 10^18 multiplication)
+    // Convert to hex, pad to 64 chars (32 bytes)
+    $scoreHex = str_pad(dechex((int)$score), 64, '0', STR_PAD_LEFT);
     
-    // 32バイト（64文字）になるように左側を0埋め
-    $scoreHex = str_pad($scoreHex, 64, '0', STR_PAD_LEFT);
-    $scoreBin = hex2bin($scoreHex);
-
-    // バイナリ連結
-    $packed = $addressBin . $scoreBin;
-
-    // --- 3. ハッシュ化 (Keccak256) ---
-    // まず、データそのもののハッシュを作成 (Solidityのkeccak256(abi.encodePacked(...))に相当)
-    $messageHash = Keccak::hash($packed, 256);
+    // 2. Hash (Keccak256)
+    // abi.encodePacked(address, uint256) -> 20 bytes + 32 bytes
+    $messageHex = $addressClean . $scoreHex;
+    $messageBin = hex2bin($messageHex);
+    $hash = Keccak::hash($messageBin, 256);
     
-    // 次に、イーサリアムの標準プレフィックスを付けて再度ハッシュ化
-    // これが Solidity の toEthSignedMessageHash() に対応します
+    // 3. Sign (Ethereum Signed Message)
+    // hash = keccak256("\x19Ethereum Signed Message:\n32" + hash)
+    $hashBin = hex2bin($hash);
     $prefix = "\x19Ethereum Signed Message:\n32";
-    $ethSignedHash = Keccak::hash($prefix . hex2bin($messageHash), 256);
-
-    // --- 4. 署名 (Secp256k1) ---
-    $ec = new EC('secp256k1');
-    $key = $ec->keyFromPrivate($privateKey);
+    $finalMessage = $prefix . $hashBin;
+    $finalHash = Keccak::hash($finalMessage, 256);
     
-    // プレフィックス付きのハッシュに対して署名を行う
-    $signatureObj = $key->sign($ethSignedHash, ['canonical' => true]);
-
-    // r, s, v の形式に整形
-    $r = str_pad($signatureObj->r->toString(16), 64, '0', STR_PAD_LEFT);
-    $s = str_pad($signatureObj->s->toString(16), 64, '0', STR_PAD_LEFT);
-    $v = dechex($signatureObj->recoveryParam + 27);
-
-    $signature = '0x' . $r . $s . $v;
-
-    // フロントエンドに署名と調整済みスコアを返す
+    // EC Sign using secp256k1
+    $ec = new EC('secp256k1');
+    $key = $ec->keyFromPrivate($privateKeyHex);
+    $signature = $key->sign($finalHash, ['canonical' => true]);
+    
+    // Format Signature (r, s, v)
+    $r = str_pad($signature->r->toString(16), 64, '0', STR_PAD_LEFT);
+    $s = str_pad($signature->s->toString(16), 64, '0', STR_PAD_LEFT);
+    $v = dechex($signature->recoveryParam + 27);
+    
+    $fullSignature = '0x' . $r . $s . $v;
+    
     echo json_encode([
         'success' => true,
-        'message' => 'Signature generated.',
-        'signature' => $signature,
-        'adjusted_score' => $adjustedScore
+        'signature' => $fullSignature,
+        'adjusted_score' => $score // Return raw score
     ]);
 
 } catch (Exception $e) {
-    http_response_code(400);
+    http_response_code(500);
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
-?>
