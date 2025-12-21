@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group, Mesh } from 'three';
@@ -24,7 +23,8 @@ export const Dragon: React.FC<DragonProps> = ({ speed, isRunning, lives, isHit, 
   const tailRef = useRef<Group>(null);
 
   const targetZ = Math.min(16, Math.max(0, (lives / 3) * 16));
-  const scale = 2.0 * (1 + (level - 1) * 0.2); 
+  // Base Scale 2.0. Level 2 (2nd boss) becomes 1.5x size (3.0).
+  const scale = 2.0 * (level >= 2 ? 1.5 : 1.0); 
 
   useFrame((state) => {
     if (!group.current) return;

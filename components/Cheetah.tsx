@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group, Mesh } from 'three';
@@ -26,7 +25,8 @@ export const Cheetah: React.FC<CheetahProps> = ({ speed, isRunning, lives, isHit
   const tailRef = useRef<Mesh>(null);
 
   const targetZ = Math.min(16, Math.max(0, (lives / 3) * 16));
-  const scale = 1.5 * (1 + (level - 1) * 0.3); // Slightly smaller base than Gorilla but scales
+  // Base Scale 1.5. Level 2 (2nd boss) becomes 2x size (3.0).
+  const scale = 1.5 * (level >= 2 ? 2.0 : 1.0);
 
   useFrame((state) => {
     if (!group.current) return;

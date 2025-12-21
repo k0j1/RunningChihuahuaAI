@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
@@ -22,13 +21,14 @@ export const CameraController: React.FC<CameraControllerProps> = ({
   const lookAtTarget = useRef(new Vector3(0, 0, 0));
 
   // Determine Boss Scale/Height logic
+  // Matched to Boss Component logic (Level 2+ = 1.5x size for Gorilla/Dragon)
   let scale = 1.0;
   if (bossType === BossType.GORILLA) {
-     scale = 1.8 * (1 + (bossLevel - 1) * 0.5);
+     scale = 1.8 * (bossLevel >= 2 ? 1.5 : 1.0);
   } else if (bossType === BossType.CHEETAH) {
-     scale = 1.5 * (1 + (bossLevel - 1) * 0.3);
+     scale = 1.5 * (bossLevel >= 2 ? 2.0 : 1.0); // Cheetah kept as is based on instruction specificity
   } else if (bossType === BossType.DRAGON) {
-     scale = 2.0 * (1 + (bossLevel - 1) * 0.2);
+     scale = 2.0 * (bossLevel >= 2 ? 1.5 : 1.0);
   }
 
   const faceHeight = 1.4 * scale;
