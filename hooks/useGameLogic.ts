@@ -8,6 +8,7 @@ import { useBossSystem } from './useBossSystem';
 import { useObstacleSystem } from './useObstacleSystem';
 import { useProjectileSystem } from './useProjectileSystem';
 import { useRewardSystem } from './useRewardSystem';
+import { useStaminaSystem } from './useStaminaSystem';
 
 export const useGameLogic = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
@@ -29,6 +30,7 @@ export const useGameLogic = () => {
   const obstacleSystem = useObstacleSystem();
   const projectileSystem = useProjectileSystem();
   const rewardSystem = useRewardSystem(); 
+  const staminaSystem = useStaminaSystem(farcasterUser, walletAddress);
 
   const obstacleDodgedRef = useRef(false);
 
@@ -41,13 +43,26 @@ export const useGameLogic = () => {
 
   // --- Actions ---
 
-  const startGame = (demoModeInput: boolean | any = false) => {
+  const startGame = async (demoModeInput: boolean | any = false) => {
     // Sanitize input: Ensure strictly boolean. If an Event object is passed, force false.
     let demoMode = typeof demoModeInput === 'boolean' ? demoModeInput : false;
 
     // Force Normal Mode if logged in (Farcaster or Wallet) to prevent accidental demo runs
     if (farcasterUser || walletAddress) {
         demoMode = false;
+    }
+
+    // Stamina Check for Normal Mode
+    if (!demoMode) {
+      if (staminaSystem.stamina <= 0) {
+        alert("Not enough stamina! Wait for recovery.");
+        return;
+      }
+      const consumed = await staminaSystem.consumeStamina();
+      if (!consumed) {
+         alert("Error consuming stamina.");
+         return;
+      }
     }
 
     setIsDemoMode(demoMode);
@@ -274,6 +289,7 @@ export const useGameLogic = () => {
     ...obstacleSystem,
     ...projectileSystem,
     ...rewardSystem,
+    staminaSystem, // Export stamina
     isThrowing: projectileSystem.isThrowingRef.current,
     startGame, handleGameOver, shareScore,
     saveCurrentScore, // Export saving function

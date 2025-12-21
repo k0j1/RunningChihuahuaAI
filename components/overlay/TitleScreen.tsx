@@ -1,6 +1,5 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { History, Trophy, FileText, PlayCircle } from 'lucide-react';
+import { History, Trophy, FileText, PlayCircle, Zap, Clock } from 'lucide-react';
 import { TitleBackground } from '../TitleBackground';
 import { WalletWidget } from './WalletWidget';
 
@@ -12,6 +11,9 @@ interface TitleScreenProps {
   onShowRanking: () => void;
   onConnectWallet: () => void;
   onShowProfile: () => void;
+  stamina: number;
+  maxStamina: number;
+  nextRecoveryTime: number | null;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
@@ -22,8 +24,12 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onShowRanking,
   onConnectWallet,
   onShowProfile,
+  stamina,
+  maxStamina,
+  nextRecoveryTime
 }) => {
   const [isDemoReady, setIsDemoReady] = useState(false);
+  const [timeLeft, setTimeLeft] = useState("");
   const pressTimer = useRef<number | null>(null);
 
   // Check if guest (no Farcaster and no Wallet)
@@ -52,6 +58,30 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
     };
   }, []);
 
+  // Update countdown
+  useEffect(() => {
+    if (!nextRecoveryTime) {
+      setTimeLeft("");
+      return;
+    }
+    const updateTimer = () => {
+      const diff = nextRecoveryTime - Date.now();
+      if (diff <= 0) {
+        setTimeLeft("");
+      } else {
+        const h = Math.floor(diff / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
+        setTimeLeft(`${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+      }
+    };
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [nextRecoveryTime]);
+
+  const hasStamina = stamina > 0;
+
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-50 overflow-hidden">
       {/* Generative Background */}
@@ -72,6 +102,23 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </h1>
         <p className="text-xl mb-4 font-light text-gray-100">Escape the Bosses!</p>
 
+        {/* Stamina Display */}
+        <div className="flex flex-col items-center mb-6 bg-gray-800/80 rounded-xl p-3 border border-gray-600">
+           <div className="flex items-center gap-2 mb-2">
+             <Zap size={18} className="text-yellow-400 fill-yellow-400" />
+             {timeLeft && (
+               <div className="flex items-center gap-1 text-xs text-yellow-400 font-mono bg-black/50 px-2 py-0.5 rounded">
+                 <Clock size={10} /> +1 in {timeLeft}
+               </div>
+             )}
+           </div>
+           <div className="flex gap-1">
+              {[...Array(maxStamina)].map((_, i) => (
+                <div key={i} className={`w-8 h-2 rounded-full transition-all ${i < stamina ? 'bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.6)]' : 'bg-gray-600'}`} />
+              ))}
+           </div>
+        </div>
+
         <div className="flex flex-col gap-4">
           {isDemoReady ? (
             <button
@@ -88,9 +135,20 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               onMouseLeave={handlePressEnd}
               onTouchStart={handlePressStart}
               onTouchEnd={handlePressEnd}
-              className="px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full text-2xl font-bold shadow-lg hover:scale-105 hover:shadow-blue-500/50 transition-all active:scale-95 select-none"
+              disabled={!hasStamina}
+              className={`px-8 py-4 rounded-full text-2xl font-bold shadow-lg transition-all select-none flex items-center justify-center gap-2 ${
+                hasStamina 
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:scale-105 hover:shadow-blue-500/50 active:scale-95 cursor-pointer' 
+                : 'bg-gray-600 cursor-not-allowed opacity-80'
+              }`}
             >
-              START RUNNING
+               {hasStamina ? (
+                 <>
+                   START RUNNING <span className="text-sm font-normal opacity-80 flex items-center bg-black/20 px-2 rounded ml-2"><Zap size={14} fill="white"/> -1</span>
+                 </>
+               ) : (
+                 <span className="flex items-center gap-2"><Clock size={20}/> RECOVERING...</span>
+               )}
             </button>
           )}
 

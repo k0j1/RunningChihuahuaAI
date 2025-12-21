@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2, Coins, AlertCircle, CheckCircle2, Loader2, Copy, RefreshCw } from 'lucide-react';
+import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2, Coins, AlertCircle, CheckCircle2, Loader2, Copy, RefreshCw, Zap } from 'lucide-react';
 import { ScoreEntry, PlayerStats, ClaimResult } from '../../types';
 import { WalletWidget } from './WalletWidget';
 import { RankingList, RankedEntry } from './RankingList';
@@ -21,6 +21,9 @@ interface GameOverScreenProps {
   claimResult: ClaimResult | null;
   totalClaimed: number;
   handleClaimReward: (wallet: string | null, score: number) => void;
+  // Stamina Props
+  stamina: number;
+  maxStamina: number;
   // Actions
   onStartGame: (isDemo?: boolean) => void;
   onReturnToTitle: () => void;
@@ -49,6 +52,8 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   claimResult,
   totalClaimed,
   handleClaimReward,
+  stamina,
+  maxStamina,
   onStartGame,
   onReturnToTitle,
   onConnectWallet,
@@ -134,6 +139,8 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
         </div>
       );
   }
+
+  const hasStamina = stamina > 0;
 
   return (
     <div className={`absolute inset-0 flex flex-col items-center justify-start backdrop-blur-md z-50 p-4 pt-12 overflow-y-auto ${isGameClear ? 'bg-yellow-900/90' : 'bg-red-900/90'}`}>
@@ -365,9 +372,18 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
           
           <button
             onClick={() => onStartGame(false)} // Explicitly pass false to avoid Event object as True
-            className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2 transform hover:scale-105 active:scale-95 duration-200"
+            disabled={!hasStamina}
+            className={`w-full py-4 rounded-xl font-bold text-xl shadow-lg transition-colors flex items-center justify-center gap-2 transform active:scale-95 duration-200 ${
+              hasStamina 
+              ? 'bg-green-500 text-white hover:bg-green-600 hover:scale-105' 
+              : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+            }`}
           >
-            <RotateCcw /> TRY AGAIN
+            {hasStamina ? (
+              <><RotateCcw /> TRY AGAIN <span className="text-sm bg-black/20 px-2 rounded flex items-center"><Zap size={14} fill="currentColor"/> {stamina}</span></>
+            ) : (
+              <span className="flex items-center gap-2"><Clock size={20}/> RECOVERING...</span>
+            )}
           </button>
           <button
             onClick={onReturnToTitle}

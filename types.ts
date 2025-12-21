@@ -70,6 +70,8 @@ export interface PlayerStats {
   totalDistance: number;
   runCount: number;
   lastActive: string;
+  stamina?: number; // Current stamina stored in DB
+  lastStaminaUpdate?: string; // Timestamp of last stamina calculation
 }
 
 export enum RankingMode {

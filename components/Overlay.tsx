@@ -36,6 +36,10 @@ interface OverlayProps {
   claimResult: ClaimResult | null;
   totalClaimed: number;
   handleClaimReward: (wallet: string | null, score: number) => void;
+  // Stamina Props
+  stamina: number;
+  maxStamina: number;
+  nextRecoveryTime: number | null;
   // Actions
   onStartGame: (isDemo?: boolean) => void;
   onShowHistory: () => void;
@@ -79,6 +83,9 @@ export const Overlay: React.FC<OverlayProps> = ({
   claimResult,
   totalClaimed,
   handleClaimReward,
+  stamina,
+  maxStamina,
+  nextRecoveryTime,
   onStartGame,
   onShowHistory,
   onShowRanking,
@@ -191,6 +198,9 @@ export const Overlay: React.FC<OverlayProps> = ({
               onShowRanking={onShowRanking}
               onConnectWallet={onConnectWallet}
               onShowProfile={handleShowProfile}
+              stamina={stamina}
+              maxStamina={maxStamina}
+              nextRecoveryTime={nextRecoveryTime}
             />
           );
         }
@@ -221,6 +231,8 @@ export const Overlay: React.FC<OverlayProps> = ({
               claimResult={claimResult}
               totalClaimed={totalClaimed}
               handleClaimReward={handleClaimReward}
+              stamina={stamina}
+              maxStamina={maxStamina}
               onStartGame={onStartGame}
               onReturnToTitle={onReturnToTitle}
               onConnectWallet={onConnectWallet}

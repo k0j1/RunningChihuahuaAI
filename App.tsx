@@ -13,6 +13,7 @@ const App: React.FC = () => {
     isDodgeQueued, obstacleProgressRef, isDuckQueued, projectileProgressRef, projectileStartZ, bossLevel,
     history, globalRanking, totalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
     isClaiming, claimResult, totalClaimed, handleClaimReward, // Reward Props
+    staminaSystem, // Stamina Props
     startGame, setGameState, handleDodge, handleDuck, clearHistory,
     connectWallet, disconnectWallet, shareScore, saveCurrentScore
   } = gameLogic;
@@ -67,6 +68,9 @@ const App: React.FC = () => {
         claimResult={claimResult}
         totalClaimed={totalClaimed}
         handleClaimReward={handleClaimReward}
+        stamina={staminaSystem.stamina}
+        maxStamina={staminaSystem.maxStamina}
+        nextRecoveryTime={staminaSystem.nextRecoveryTime}
         onStartGame={startGame}
         onShowHistory={() => setGameState(GameState.HISTORY)}
         onShowRanking={() => setGameState(GameState.RANKING)}

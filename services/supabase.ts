@@ -63,6 +63,50 @@ export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
   }));
 };
 
+export const fetchUserStats = async (userId: string): Promise<PlayerStats | null> => {
+  const { data, error } = await supabase
+    .from('player_stats')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching user stats:', error);
+    return null;
+  }
+  if (!data) return null;
+
+  return {
+    id: data.user_id,
+    farcasterUser: data.username ? {
+      username: data.username,
+      displayName: data.display_name,
+      pfpUrl: data.pfp_url
+    } : undefined,
+    walletAddress: data.wallet_address,
+    totalScore: data.total_score || 0,
+    totalDistance: data.total_distance || 0,
+    runCount: data.run_count || 0,
+    lastActive: data.last_active,
+    stamina: data.stamina, // Assumes column exists, undefined otherwise
+    lastStaminaUpdate: data.last_stamina_update // Assumes column exists
+  };
+};
+
+export const updateUserStamina = async (userId: string, newStamina: number, lastUpdate: string) => {
+  const { error } = await supabase
+    .from('player_stats')
+    .update({
+      stamina: newStamina,
+      last_stamina_update: lastUpdate
+    })
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error updating stamina:', error);
+  }
+};
+
 // Sync user profile data (username, pfp, wallet) to player_stats without changing scores
 export const updatePlayerProfile = async (farcasterUser: any, walletAddress: string | null) => {
   let userId = null;
@@ -104,7 +148,8 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
             total_distance: (main.total_distance || 0) + (ghost.total_distance || 0),
             run_count: (main.run_count || 0) + (ghost.run_count || 0),
             // Use the most recent activity date
-            last_active: new Date(main.last_active) > new Date(ghost.last_active) ? main.last_active : ghost.last_active
+            last_active: new Date(main.last_active) > new Date(ghost.last_active) ? main.last_active : ghost.last_active,
+            // Prefer the main record stamina unless ghost has better logic, but simpler to just keep main
           }).eq('user_id', userId);
         } else {
           // FC record doesn't exist yet: Create it using Ghost's stats
@@ -117,7 +162,9 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
             total_score: ghost.total_score || 0,
             total_distance: ghost.total_distance || 0,
             run_count: ghost.run_count || 0,
-            last_active: ghost.last_active
+            last_active: ghost.last_active,
+            stamina: ghost.stamina,
+            last_stamina_update: ghost.last_stamina_update
           });
         }
 
@@ -174,13 +221,16 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
         .eq('user_id', userId);
     } else {
       // Insert new record with initialized stats
+      // Default stamina is 5
       const { error: insertError } = await supabase
         .from('player_stats')
         .insert({
           ...payload,
           total_score: 0,
           total_distance: 0,
-          run_count: 0
+          run_count: 0,
+          stamina: 5,
+          last_stamina_update: new Date().toISOString()
         });
         
       if (insertError) {
