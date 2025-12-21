@@ -3,7 +3,6 @@ import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, S
 import { ScoreEntry, PlayerStats, ClaimResult } from '../../types';
 import { WalletWidget } from './WalletWidget';
 import { RankingList, RankedEntry } from './RankingList';
-import { HoloCard } from '../HoloCard';
 
 interface GameOverScreenProps {
   score: number;
@@ -305,6 +304,75 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
         </div>
         {/* --- END REWARD SECTION --- */}
 
+        <div className="space-y-4">
+          {userBestEntry && (
+            <div className="bg-blue-50/80 rounded-xl p-3 border border-blue-200">
+               <div className="flex items-center gap-2 mb-2">
+                 <Star size={16} className="text-blue-500 fill-blue-500" />
+                 <h3 className="text-xs font-bold text-blue-700 uppercase">Your Personal Best</h3>
+               </div>
+               <RankingList 
+                 items={[userBestEntry]} 
+                 highlightDate={lastGameDate} 
+                 showHeader={true}
+                 showRank={true}
+                 rankingType="HIGH_SCORE"
+               />
+            </div>
+          )}
+          
+          {/* Recent History Section - Added Back */}
+          {recentHistory.length > 0 && (
+            <div className="bg-gray-50/80 rounded-xl p-3 border border-gray-200">
+               <div className="flex items-center gap-2 mb-2">
+                 <Clock size={16} className="text-gray-500" />
+                 <h3 className="text-xs font-bold text-gray-700 uppercase">Recent Runs</h3>
+               </div>
+               <RankingList 
+                 items={recentHistory.map((entry, i) => ({ entry, rank: i + 1 }))} 
+                 highlightDate={lastGameDate} 
+                 showHeader={true}
+                 showRank={false}
+                 rankingType="HIGH_SCORE"
+               />
+            </div>
+          )}
+
+          <div className="bg-yellow-50/80 rounded-xl p-3 border border-yellow-200">
+             <div className="flex items-center justify-between gap-2 mb-3">
+               <div className="flex items-center gap-2">
+                 <Globe size={16} className="text-yellow-600" />
+                 <h3 className="text-xs font-bold text-yellow-700 uppercase">Global Leaderboard</h3>
+               </div>
+             </div>
+
+             <div className="flex bg-yellow-200/50 p-1 rounded-lg mb-2">
+               <button
+                 onClick={() => setActiveTab('HIGH_SCORE')}
+                 className={`flex-1 py-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${activeTab === 'HIGH_SCORE' ? 'bg-white text-yellow-700 shadow-sm' : 'text-yellow-700/60 hover:text-yellow-700'}`}
+               >
+                 <Trophy size={12} /> High Score
+               </button>
+               <button
+                 onClick={() => setActiveTab('TOTAL_SCORE')}
+                 className={`flex-1 py-1.5 rounded-md text-[10px] font-bold flex items-center justify-center gap-1 transition-all ${activeTab === 'TOTAL_SCORE' ? 'bg-white text-blue-600 shadow-sm' : 'text-blue-600/60 hover:text-blue-600'}`}
+               >
+                 <BarChart3 size={12} /> Total Score
+               </button>
+             </div>
+
+             <RankingList 
+                items={activeList} 
+                highlightDate={activeTab === 'HIGH_SCORE' ? lastGameDate : null} 
+                showHeader={true}
+                rankingType={activeTab}
+                title={
+                  activeTab === 'HIGH_SCORE' ? "Top 10 Runs" : "Top 10 Cumulative Score"
+                }
+              />
+          </div>
+        </div>
+
         <div className="flex flex-col gap-3 mt-6">
           <button
             onClick={onShare}
@@ -336,62 +404,6 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
           </button>
         </div>
 
-        {/* --- LEADERBOARD SECTION --- */}
-        <div className="mt-12 text-left">
-           <h3 className="text-2xl font-black text-gray-800 uppercase italic mb-4 flex items-center gap-2">
-             <Trophy size={24} className="text-yellow-500" /> Leaderboard
-           </h3>
-           
-           <div className="flex bg-gray-100 p-1 rounded-xl mb-4">
-              <button 
-                onClick={() => setActiveTab('HIGH_SCORE')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'HIGH_SCORE' ? 'bg-white text-yellow-600 shadow-sm' : 'text-gray-500'}`}
-              >
-                High Score
-              </button>
-              <button 
-                onClick={() => setActiveTab('TOTAL_SCORE')}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${activeTab === 'TOTAL_SCORE' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500'}`}
-              >
-                Total Score
-              </button>
-           </div>
-
-           <RankingList 
-             items={activeList} 
-             rankingType={activeTab} 
-             highlightDate={lastGameDate} 
-           />
-        </div>
-
-        {/* --- RECENT HISTORY --- */}
-        <div className="mt-10 text-left">
-           <h3 className="text-2xl font-black text-gray-800 uppercase italic mb-4 flex items-center gap-2">
-             <History size={24} className="text-blue-500" /> Your History
-           </h3>
-           <div className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden">
-             {recentHistory.length > 0 ? (
-               <table className="w-full text-left">
-                 <thead className="text-[10px] uppercase text-gray-400 bg-gray-100/50">
-                    <tr>
-                      <th className="py-2 pl-4">Date</th>
-                      <th className="py-2 text-right pr-4">Score</th>
-                    </tr>
-                 </thead>
-                 <tbody className="divide-y divide-gray-100">
-                    {recentHistory.map((h, i) => (
-                      <tr key={i} className={h.date === lastGameDate ? 'bg-yellow-50' : ''}>
-                        <td className="py-3 pl-4 text-xs font-medium text-gray-500">{new Date(h.date).toLocaleDateString()}</td>
-                        <td className="py-3 text-right pr-4 font-mono font-bold text-gray-700">{h.score.toLocaleString()}</td>
-                      </tr>
-                    ))}
-                 </tbody>
-               </table>
-             ) : (
-               <div className="p-8 text-center text-gray-400 text-sm italic">No run history found.</div>
-             )}
-           </div>
-        </div>
       </div>
     </div>
   );
