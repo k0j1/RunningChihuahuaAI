@@ -22,7 +22,7 @@ interface GameOverScreenProps {
   totalClaimed: number;
   handleClaimReward: (wallet: string | null, score: number) => void;
   // Actions
-  onStartGame: () => void;
+  onStartGame: (isDemo?: boolean) => void;
   onReturnToTitle: () => void;
   onConnectWallet: () => void;
   onDisconnectWallet: () => void;
@@ -364,7 +364,7 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
           </button>
           
           <button
-            onClick={onStartGame}
+            onClick={() => onStartGame(false)} // Explicitly pass false to avoid Event object as True
             className="w-full py-4 bg-green-500 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2 transform hover:scale-105 active:scale-95 duration-200"
           >
             <RotateCcw /> TRY AGAIN

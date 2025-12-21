@@ -41,7 +41,15 @@ export const useGameLogic = () => {
 
   // --- Actions ---
 
-  const startGame = (demoMode: boolean = false) => {
+  const startGame = (demoModeInput: boolean | any = false) => {
+    // Sanitize input: Ensure strictly boolean. If an Event object is passed, force false.
+    let demoMode = typeof demoModeInput === 'boolean' ? demoModeInput : false;
+
+    // Force Normal Mode if logged in (Farcaster or Wallet) to prevent accidental demo runs
+    if (farcasterUser || walletAddress) {
+        demoMode = false;
+    }
+
     setIsDemoMode(demoMode);
     isDemoModeRef.current = demoMode; // Sync ref immediately
     gameEndedRef.current = false; // Reset game ended flag
