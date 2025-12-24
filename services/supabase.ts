@@ -7,103 +7,137 @@ const supabaseKey = process.env.VITE_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cC
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
-  const { data, error } = await supabase
-    .from('scores')
-    .select('*')
-    .order('score', { ascending: false })
-    .limit(100);
+const isNetworkError = (error: any) => {
+  return error && (
+    (error.message && error.message.includes('Failed to fetch')) ||
+    (error.details && error.details.includes('Failed to fetch'))
+  );
+};
 
-  if (error) {
-    console.error('Error fetching global ranking:', JSON.stringify(error));
+export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('scores')
+      .select('*')
+      .order('score', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      if (!isNetworkError(error)) {
+        console.error('Error fetching global ranking:', JSON.stringify(error));
+      }
+      return [];
+    }
+
+    if (!data) return [];
+
+    // Map Supabase DB rows to ScoreEntry format
+    return data.map((row: any) => ({
+      date: row.created_at,
+      formattedDate: new Date(row.created_at).toLocaleString(),
+      score: row.score,
+      distance: row.distance,
+      farcasterUser: row.username ? {
+        username: row.username,
+        displayName: row.display_name,
+        pfpUrl: row.pfp_url
+      } : undefined,
+      walletAddress: row.wallet_address
+    }));
+  } catch (e) {
+    // Silent catch for network issues
     return [];
   }
-
-  // Map Supabase DB rows to ScoreEntry format
-  return data.map((row: any) => ({
-    date: row.created_at,
-    formattedDate: new Date(row.created_at).toLocaleString(),
-    score: row.score,
-    distance: row.distance,
-    farcasterUser: row.username ? {
-      username: row.username,
-      displayName: row.display_name,
-      pfpUrl: row.pfp_url
-    } : undefined,
-    walletAddress: row.wallet_address
-  }));
 };
 
 // Fetch aggregated total stats directly from the 'player_stats' table
 export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
-  const { data, error } = await supabase
-    .from('player_stats')
-    .select('*')
-    .gt('total_score', 0) // Filter out users with 0 score
-    .order('total_score', { ascending: false })
-    .limit(100);
+  try {
+    const { data, error } = await supabase
+      .from('player_stats')
+      .select('*')
+      .gt('total_score', 0) // Filter out users with 0 score
+      .order('total_score', { ascending: false })
+      .limit(100);
 
-  if (error) {
-    console.error('Error fetching player_stats:', JSON.stringify(error));
+    if (error) {
+      if (!isNetworkError(error)) {
+        console.error('Error fetching player_stats:', JSON.stringify(error));
+      }
+      return [];
+    }
+
+    if (!data) return [];
+
+    return data.map((row: any) => ({
+      id: row.user_id,
+      farcasterUser: row.username ? {
+        username: row.username,
+        displayName: row.display_name,
+        pfpUrl: row.pfp_url
+      } : undefined,
+      walletAddress: row.wallet_address,
+      totalScore: row.total_score || 0,
+      totalDistance: row.total_distance || 0,
+      runCount: row.run_count || 0,
+      lastActive: row.last_active
+    }));
+  } catch (e) {
     return [];
   }
-
-  return data.map((row: any) => ({
-    id: row.user_id,
-    farcasterUser: row.username ? {
-      username: row.username,
-      displayName: row.display_name,
-      pfpUrl: row.pfp_url
-    } : undefined,
-    walletAddress: row.wallet_address,
-    totalScore: row.total_score || 0,
-    totalDistance: row.total_distance || 0,
-    runCount: row.run_count || 0,
-    lastActive: row.last_active
-  }));
 };
 
 export const fetchUserStats = async (userId: string): Promise<PlayerStats | null> => {
-  const { data, error } = await supabase
-    .from('player_stats')
-    .select('*')
-    .eq('user_id', userId)
-    .maybeSingle();
+  try {
+    const { data, error } = await supabase
+      .from('player_stats')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-  if (error) {
-    console.error('Error fetching user stats:', error);
+    if (error) {
+      if (!isNetworkError(error)) {
+        console.error('Error fetching user stats:', error);
+      }
+      return null;
+    }
+    if (!data) return null;
+
+    return {
+      id: data.user_id,
+      farcasterUser: data.username ? {
+        username: data.username,
+        displayName: data.display_name,
+        pfpUrl: data.pfp_url
+      } : undefined,
+      walletAddress: data.wallet_address,
+      totalScore: data.total_score || 0,
+      totalDistance: data.total_distance || 0,
+      runCount: data.run_count || 0,
+      lastActive: data.last_active,
+      stamina: data.stamina, // Assumes column exists, undefined otherwise
+      lastStaminaUpdate: data.last_stamina_update // Assumes column exists
+    };
+  } catch (e) {
     return null;
   }
-  if (!data) return null;
-
-  return {
-    id: data.user_id,
-    farcasterUser: data.username ? {
-      username: data.username,
-      displayName: data.display_name,
-      pfpUrl: data.pfp_url
-    } : undefined,
-    walletAddress: data.wallet_address,
-    totalScore: data.total_score || 0,
-    totalDistance: data.total_distance || 0,
-    runCount: data.run_count || 0,
-    lastActive: data.last_active,
-    stamina: data.stamina, // Assumes column exists, undefined otherwise
-    lastStaminaUpdate: data.last_stamina_update // Assumes column exists
-  };
 };
 
 export const updateUserStamina = async (userId: string, newStamina: number, lastUpdate: string) => {
-  const { error } = await supabase
-    .from('player_stats')
-    .update({
-      stamina: newStamina,
-      last_stamina_update: lastUpdate
-    })
-    .eq('user_id', userId);
+  try {
+    const { error } = await supabase
+      .from('player_stats')
+      .update({
+        stamina: newStamina,
+        last_stamina_update: lastUpdate
+      })
+      .eq('user_id', userId);
 
-  if (error) {
-    console.error('Error updating stamina:', error);
+    if (error && !isNetworkError(error)) {
+      console.error('Error updating stamina:', error);
+    }
+  } catch (e) {
+    // Ignore
   }
 };
 
@@ -120,89 +154,78 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
 
   try {
     // --- DUPLICATE CHECK & CLEANUP ---
-    // If identifying as a Farcaster User (fc:...) AND a wallet is present,
-    // check if a 'wa:...' record already exists for this wallet.
-    // If so, merge stats into the 'fc:...' record and delete the 'wa:...' record.
     if (userId.startsWith('fc:') && walletAddress) {
       const ghostId = `wa:${walletAddress}`;
-      const { data: ghost } = await supabase
+      const { data: ghost, error: ghostError } = await supabase
         .from('player_stats')
         .select('*')
         .eq('user_id', ghostId)
         .maybeSingle();
 
-      if (ghost) {
+      if (!ghostError && ghost) {
         console.log(`Found duplicate wallet record (${ghostId}). Merging into ${userId}...`);
         
-        // Check if main FC record exists
-        const { data: main } = await supabase
+        const { data: main, error: mainError } = await supabase
           .from('player_stats')
           .select('*')
           .eq('user_id', userId)
           .maybeSingle();
 
-        if (main) {
-          // Both exist: Merge stats to FC record
-          await supabase.from('player_stats').update({
-            total_score: (main.total_score || 0) + (ghost.total_score || 0),
-            total_distance: (main.total_distance || 0) + (ghost.total_distance || 0),
-            run_count: (main.run_count || 0) + (ghost.run_count || 0),
-            // Use the most recent activity date
-            last_active: new Date(main.last_active) > new Date(ghost.last_active) ? main.last_active : ghost.last_active,
-            // Prefer the main record stamina unless ghost has better logic, but simpler to just keep main
-          }).eq('user_id', userId);
-        } else {
-          // FC record doesn't exist yet: Create it using Ghost's stats
-          await supabase.from('player_stats').insert({
-            user_id: userId,
-            username: farcasterUser?.username || null,
-            display_name: farcasterUser?.displayName || null,
-            pfp_url: farcasterUser?.pfpUrl || null,
-            wallet_address: walletAddress,
-            total_score: ghost.total_score || 0,
-            total_distance: ghost.total_distance || 0,
-            run_count: ghost.run_count || 0,
-            last_active: ghost.last_active,
-            stamina: ghost.stamina,
-            last_stamina_update: ghost.last_stamina_update
-          });
+        if (!mainError) {
+          if (main) {
+            await supabase.from('player_stats').update({
+              total_score: (main.total_score || 0) + (ghost.total_score || 0),
+              total_distance: (main.total_distance || 0) + (ghost.total_distance || 0),
+              run_count: (main.run_count || 0) + (ghost.run_count || 0),
+              last_active: new Date(main.last_active) > new Date(ghost.last_active) ? main.last_active : ghost.last_active,
+            }).eq('user_id', userId);
+          } else {
+            await supabase.from('player_stats').insert({
+              user_id: userId,
+              username: farcasterUser?.username || null,
+              display_name: farcasterUser?.displayName || null,
+              pfp_url: farcasterUser?.pfpUrl || null,
+              wallet_address: walletAddress,
+              total_score: ghost.total_score || 0,
+              total_distance: ghost.total_distance || 0,
+              run_count: ghost.run_count || 0,
+              last_active: ghost.last_active,
+              stamina: ghost.stamina,
+              last_stamina_update: ghost.last_stamina_update
+            });
+          }
+          await supabase.from('player_stats').delete().eq('user_id', ghostId);
         }
-
-        // Delete the duplicate wallet record
-        await supabase.from('player_stats').delete().eq('user_id', ghostId);
       }
     }
-    // ---------------------------------
 
-    // --- Prevent wallet address duplication on different users ---
     let finalWalletAddress = walletAddress;
     if (finalWalletAddress) {
-       const { data: conflict } = await supabase
+       const { data: conflict, error: conflictError } = await supabase
          .from('player_stats')
          .select('user_id')
          .eq('wallet_address', finalWalletAddress)
-         .neq('user_id', userId) // Check if owned by someone else
+         .neq('user_id', userId)
          .maybeSingle();
        
-       if (conflict) {
+       if (!conflictError && conflict) {
          console.warn(`Wallet ${finalWalletAddress} is already registered to ${conflict.user_id}. Preventing duplicate.`);
          if (userId.startsWith('wa:')) {
-           // If we are trying to register as a wallet-only user, but the wallet is taken, abort.
            return; 
          }
-         // If Farcaster user, we allow profile update but DO NOT link the duplicate wallet.
          finalWalletAddress = null;
        }
     }
 
-    // 1. Check if user exists (after potential migration above)
     const { data: existing, error: fetchError } = await supabase
       .from('player_stats')
       .select('user_id')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (fetchError) console.warn("Error fetching profile stats:", fetchError);
+    if (fetchError && !isNetworkError(fetchError)) {
+       console.warn("Error fetching profile stats:", fetchError);
+    }
 
     const payload = {
       user_id: userId,
@@ -214,14 +237,11 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
     };
 
     if (existing) {
-      // Update only metadata fields
       await supabase
         .from('player_stats')
         .update(payload)
         .eq('user_id', userId);
     } else {
-      // Insert new record with initialized stats
-      // Default stamina is 5
       const { error: insertError } = await supabase
         .from('player_stats')
         .insert({
@@ -234,18 +254,17 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
         });
         
       if (insertError) {
-         if (!insertError.message.includes('duplicate key')) {
+         if (!insertError.message.includes('duplicate key') && !isNetworkError(insertError)) {
              console.warn("Error inserting new player profile:", insertError);
          }
       }
     }
   } catch (e) {
-    console.error("Error updating player profile:", e);
+    // Ignore errors
   }
 };
 
 export const saveScoreToSupabase = async (entry: ScoreEntry) => {
-  // Identify user key to see if they are logged in
   let userId = null;
   if (entry.farcasterUser?.username) {
     userId = `fc:${entry.farcasterUser.username}`;
@@ -253,13 +272,11 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
     userId = `wa:${entry.walletAddress}`;
   }
 
-  // If no user ID (Guest), do not save to database
   if (!userId) {
     console.log('Guest score not saved to Supabase (Ranking is for logged-in users only).');
     return;
   }
 
-  // 1. Insert the single run score
   const payload = {
     score: entry.score,
     distance: entry.distance,
@@ -270,17 +287,17 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
     created_at: entry.date
   };
 
-  const { error } = await supabase.from('scores').insert([payload]);
-  
-  if (error) {
-    console.error('Error saving score to Supabase:', JSON.stringify(error));
-  } else {
-    console.log('Score saved to Supabase successfully');
-  }
-
-  // 2. Update player stats (totals)
   try {
-    // --- Prevent duplicate wallet address in stats ---
+    const { error } = await supabase.from('scores').insert([payload]);
+    
+    if (error) {
+      if (!isNetworkError(error)) {
+        console.error('Error saving score to Supabase:', JSON.stringify(error));
+      }
+    } else {
+      console.log('Score saved to Supabase successfully');
+    }
+
     let walletForStats = entry.walletAddress || null;
     if (walletForStats) {
        const { data: conflict } = await supabase
@@ -291,23 +308,16 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
          .maybeSingle();
 
        if (conflict) {
-          // Wallet belongs to someone else, don't write it to this user's stats
           walletForStats = null;
        }
     }
 
-    // Fetch existing stats
-    const { data: currentStats, error: fetchError } = await supabase
+    const { data: currentStats } = await supabase
       .from('player_stats')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
       
-    if (fetchError) {
-       console.warn('Error checking existing stats:', fetchError);
-    }
-
-    // Determine new totals
     const previousTotalScore = currentStats?.total_score ? Number(currentStats.total_score) : 0;
     const previousTotalDistance = currentStats?.total_distance ? Number(currentStats.total_distance) : 0;
     const previousRunCount = currentStats?.run_count ? Number(currentStats.run_count) : 0;
@@ -319,7 +329,6 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
       pfp_url: entry.farcasterUser?.pfpUrl || currentStats?.pfp_url || null,
       wallet_address: walletForStats || currentStats?.wallet_address || null,
       
-      // Accumulate: Add new entry values to previous totals
       total_score: previousTotalScore + Number(entry.score),
       total_distance: previousTotalDistance + Number(entry.distance),
       run_count: previousRunCount + 1,
@@ -331,12 +340,10 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
       .from('player_stats')
       .upsert(newStats);
 
-    if (statsError) {
+    if (statsError && !isNetworkError(statsError)) {
        console.error('Error updating player stats:', JSON.stringify(statsError));
-    } else {
-      console.log('Player stats updated successfully');
     }
   } catch (e) {
-    console.error("Exception in saveScoreToSupabase stats update:", e);
+    // Ignore
   }
 };
