@@ -1,15 +1,13 @@
-
 import React from 'react';
-import { History, Trash2, ArrowLeft } from 'lucide-react';
+import { History, ArrowLeft } from 'lucide-react';
 import { ScoreEntry } from '../../types';
 
 interface HistoryScreenProps {
   history: ScoreEntry[];
-  onClearHistory: () => void;
   onHideHistory: () => void;
 }
 
-export const HistoryScreen: React.FC<HistoryScreenProps> = ({ history, onClearHistory, onHideHistory }) => {
+export const HistoryScreen: React.FC<HistoryScreenProps> = ({ history, onHideHistory }) => {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-md z-50 p-6">
       <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl h-3/4 flex flex-col">
@@ -18,13 +16,6 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ history, onClearHi
             <History className="text-blue-500" /> GAME HISTORY
           </h2>
           <div className="flex gap-2">
-            <button
-              onClick={onClearHistory}
-              className="p-2 hover:bg-red-100 rounded-full transition-colors group"
-              title="Clear History"
-            >
-              <Trash2 size={24} className="text-gray-400 group-hover:text-red-500" />
-            </button>
             <button onClick={onHideHistory} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
               <ArrowLeft size={24} className="text-gray-600" />
             </button>

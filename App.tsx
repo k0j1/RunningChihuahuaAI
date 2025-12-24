@@ -14,7 +14,7 @@ const App: React.FC = () => {
     history, globalRanking, totalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
     isClaiming, claimResult, totalClaimed, handleClaimReward, // Reward Props
     staminaSystem, // Stamina Props
-    startGame, setGameState, handleDodge, handleDuck, clearHistory,
+    startGame, setGameState, handleDodge, handleDuck,
     connectWallet, disconnectWallet, shareScore, saveCurrentScore
   } = gameLogic;
 
@@ -79,7 +79,6 @@ const App: React.FC = () => {
         onDodge={handleDodge}
         onDuck={handleDuck}
         onReturnToTitle={() => setGameState(GameState.TITLE)}
-        onClearHistory={clearHistory}
         onConnectWallet={connectWallet}
         onDisconnectWallet={disconnectWallet}
         onShare={shareScore}

@@ -125,16 +125,9 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
     }
   };
 
-  const clearHistory = () => {
-    if (confirm("Are you sure you want to clear all game history?")) {
-      setHistory([]);
-      localStorage.removeItem('chihuahua_history');
-    }
-  };
-
   return {
     score, distance, speed,
     history, globalRanking, totalRanking, lastGameDate,
-    resetScore, addScore, updateDistance, saveRun, clearHistory, loadRankings
+    resetScore, addScore, updateDistance, saveRun, loadRankings
   };
 };

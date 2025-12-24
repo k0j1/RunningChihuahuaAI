@@ -49,7 +49,6 @@ interface OverlayProps {
   // onShowProfile Removed as it is handled internally
   onShare: () => void;
   onReturnToTitle: () => void;
-  onClearHistory: () => void;
   onHideHistory: () => void;
   onTogglePause: () => void;
   onDodge: (e: any) => void;
@@ -94,7 +93,6 @@ export const Overlay: React.FC<OverlayProps> = ({
   onDodge,
   onDuck,
   onReturnToTitle,
-  onClearHistory,
   onConnectWallet,
   onDisconnectWallet,
   onShare,
@@ -205,7 +203,7 @@ export const Overlay: React.FC<OverlayProps> = ({
           );
         }
         if (gameState === GameState.HISTORY) {
-          return <HistoryScreen history={history} onClearHistory={onClearHistory} onHideHistory={onHideHistory} />;
+          return <HistoryScreen history={history} onHideHistory={onHideHistory} />;
         }
         if (gameState === GameState.RANKING) {
           return <RankingScreen topScores={uniqueGlobalRanking} totalStats={totalRanking} onHideHistory={onHideHistory} />;
