@@ -40,6 +40,9 @@ interface OverlayProps {
   stamina: number;
   maxStamina: number;
   nextRecoveryTime: number | null;
+  // Audio Props
+  isMuted: boolean;
+  onToggleMute: () => void;
   // Actions
   onStartGame: (isDemo?: boolean) => void;
   onShowHistory: () => void;
@@ -85,6 +88,8 @@ export const Overlay: React.FC<OverlayProps> = ({
   stamina,
   maxStamina,
   nextRecoveryTime,
+  isMuted,
+  onToggleMute,
   onStartGame,
   onShowHistory,
   onShowRanking,
@@ -199,6 +204,8 @@ export const Overlay: React.FC<OverlayProps> = ({
               stamina={stamina}
               maxStamina={maxStamina}
               nextRecoveryTime={nextRecoveryTime}
+              isMuted={isMuted}
+              onToggleMute={onToggleMute}
             />
           );
         }
@@ -257,6 +264,8 @@ export const Overlay: React.FC<OverlayProps> = ({
             onDodge={onDodge}
             showDuckButton={showDuckButton}
             onDuck={onDuck}
+            isMuted={isMuted}
+            onToggleMute={onToggleMute}
           />
         );
       })()}

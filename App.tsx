@@ -2,6 +2,7 @@ import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Overlay } from './components/Overlay';
 import { GameScene } from './components/GameScene';
+import { AudioManager } from './components/AudioManager';
 import { useGameLogic } from './hooks/useGameLogic';
 import { GameState } from './types';
 
@@ -14,6 +15,7 @@ const App: React.FC = () => {
     history, globalRanking, totalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
     isClaiming, claimResult, totalClaimed, handleClaimReward, // Reward Props
     staminaSystem, // Stamina Props
+    isMuted, toggleMute, // Audio Props
     startGame, setGameState, handleDodge, handleDuck,
     connectWallet, disconnectWallet, shareScore, saveCurrentScore
   } = gameLogic;
@@ -33,6 +35,9 @@ const App: React.FC = () => {
 
   return (
     <div className="w-full h-[100dvh] relative bg-gray-900 overflow-hidden">
+      {/* Background Music Manager */}
+      <AudioManager gameState={gameState} isMuted={isMuted} />
+
       <div className="absolute inset-0 z-0">
         <Canvas 
           shadows 
@@ -71,6 +76,8 @@ const App: React.FC = () => {
         stamina={staminaSystem.stamina}
         maxStamina={staminaSystem.maxStamina}
         nextRecoveryTime={staminaSystem.nextRecoveryTime}
+        isMuted={isMuted}
+        onToggleMute={toggleMute}
         onStartGame={startGame}
         onShowHistory={() => setGameState(GameState.HISTORY)}
         onShowRanking={() => setGameState(GameState.RANKING)}

@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Pause, Play, Heart, Zap, Gauge } from 'lucide-react';
+import { Pause, Play, Heart, Zap, Gauge, Volume2, VolumeX } from 'lucide-react';
 import { GameState } from '../../types';
 
 interface GameHUDProps {
@@ -18,6 +17,8 @@ interface GameHUDProps {
   onDodge: (e: any) => void;
   showDuckButton: boolean;
   onDuck: (e: any) => void;
+  isMuted: boolean;
+  onToggleMute: () => void;
 }
 
 export const GameHUD: React.FC<GameHUDProps> = ({
@@ -35,6 +36,8 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   onDodge,
   showDuckButton,
   onDuck,
+  isMuted,
+  onToggleMute
 }) => {
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 z-10">
@@ -78,8 +81,9 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
       {/* Top Bar */}
       <div className="flex justify-between items-start pointer-events-auto w-full relative">
-        {/* Left: Stats & Pause */}
+        {/* Left: Stats & Buttons (Swapped) */}
         <div className="flex gap-2">
+          {/* Stats Panel (Now First/Leftmost) */}
           <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-white/50 flex flex-col gap-1 min-w-[140px]">
             <div className="flex justify-between items-center border-b border-gray-200 pb-1 mb-1">
               <span className="text-xs font-bold text-gray-400 uppercase">Distance</span>
@@ -114,12 +118,21 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             </div>
           </div>
 
+          {/* Buttons Group (Now to the right of stats) */}
           {/* Pause Button */}
           <button
             onClick={onTogglePause}
             className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/90 backdrop-blur-md shadow-xl border border-white/50 text-gray-700 hover:bg-white transition-colors active:scale-95"
           >
             {gameState === GameState.RUNNING ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
+          </button>
+          
+          {/* Mute Button */}
+          <button
+            onClick={onToggleMute}
+            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/90 backdrop-blur-md shadow-xl border border-white/50 text-gray-700 hover:bg-white transition-colors active:scale-95"
+          >
+            {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
           </button>
         </div>
 

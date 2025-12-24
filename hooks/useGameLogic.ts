@@ -14,6 +14,7 @@ export const useGameLogic = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
   const [dayTime, setDayTime] = useState<boolean>(true);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(true); // Default to Muted (OFF)
   
   // Use Ref to ensure the game loop always sees the correct mode immediately without waiting for re-renders
   const isDemoModeRef = useRef<boolean>(false);
@@ -42,6 +43,10 @@ export const useGameLogic = () => {
   }, [gameState, walletAddress]);
 
   // --- Actions ---
+
+  const toggleMute = () => {
+    setIsMuted(prev => !prev);
+  };
 
   const startGame = async (demoModeInput: boolean | any = false) => {
     // Sanitize input: Ensure strictly boolean. If an Event object is passed, force false.
@@ -281,7 +286,7 @@ export const useGameLogic = () => {
   return {
     gameState, setGameState,
     dayTime, setDayTime,
-    isDemoMode, 
+    isDemoMode, isMuted, toggleMute,
     farcasterUser, walletAddress, connectWallet, disconnectWallet,
     ...scoreSystem,
     ...playerSystem,

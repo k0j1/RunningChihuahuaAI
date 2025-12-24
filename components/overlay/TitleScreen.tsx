@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { History, Trophy, FileText, PlayCircle, Zap, Clock } from 'lucide-react';
+import { History, Trophy, FileText, PlayCircle, Zap, Clock, Volume2, VolumeX } from 'lucide-react';
 import { TitleBackground } from '../TitleBackground';
 import { WalletWidget } from './WalletWidget';
 
@@ -14,6 +14,8 @@ interface TitleScreenProps {
   stamina: number;
   maxStamina: number;
   nextRecoveryTime: number | null;
+  isMuted: boolean;
+  onToggleMute: () => void;
 }
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
@@ -26,7 +28,9 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onShowProfile,
   stamina,
   maxStamina,
-  nextRecoveryTime
+  nextRecoveryTime,
+  isMuted,
+  onToggleMute
 }) => {
   const [isDemoReady, setIsDemoReady] = useState(false);
   const [timeLeft, setTimeLeft] = useState("");
@@ -94,6 +98,18 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         onConnect={onConnectWallet}
         onShowProfile={onShowProfile}
       />
+      
+      {/* Mute Widget (Top Left) */}
+      <div 
+        className="absolute top-4 left-4 z-50"
+      >
+        <button
+          onClick={onToggleMute}
+          className="bg-gray-800/80 p-3 rounded-full backdrop-blur-md shadow-lg border border-gray-600 text-white hover:bg-gray-700 transition-transform active:scale-95"
+        >
+          {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+        </button>
+      </div>
 
       {/* Content */}
       <div className="relative z-10 text-center text-white p-8 bg-black/40 backdrop-blur-md rounded-3xl border border-white/20 shadow-2xl animate-fade-in-up max-w-lg w-full mx-4">
