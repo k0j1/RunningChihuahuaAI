@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { GameState, BossType } from '../types';
@@ -23,7 +24,7 @@ export const useGameLogic = () => {
   const gameEndedRef = useRef<boolean>(false);
 
   // --- Sub-Systems ---
-  const { farcasterUser, walletAddress, connectWallet, disconnectWallet } = useAuth();
+  const { farcasterUser, walletAddress, isAdded, connectWallet, disconnectWallet, addMiniApp } = useAuth();
   
   const scoreSystem = useScoreSystem(farcasterUser, walletAddress);
   const playerSystem = usePlayerSystem();
@@ -253,6 +254,7 @@ export const useGameLogic = () => {
         }
     } 
     else {
+        // Fix: Use scoreSystem.speed and bossSystem.bossLevel as they are not defined in this scope
         const res = projectileSystem.updateProjectile(delta, scoreSystem.speed, bossSystem.bossLevel);
         const progress = res.progress;
         
@@ -287,7 +289,7 @@ export const useGameLogic = () => {
     gameState, setGameState,
     dayTime, setDayTime,
     isDemoMode, isMuted, toggleMute,
-    farcasterUser, walletAddress, connectWallet, disconnectWallet,
+    farcasterUser, walletAddress, isAdded, connectWallet, disconnectWallet, addMiniApp,
     ...scoreSystem,
     ...playerSystem,
     ...bossSystem,

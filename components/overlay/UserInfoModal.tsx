@@ -1,10 +1,11 @@
-
 import React, { useState } from 'react';
-import { X, LogOut, Wallet, User, Link, Copy, Check } from 'lucide-react';
+import { X, LogOut, Wallet, User, Link, Copy, Check, PlusCircle } from 'lucide-react';
 
 interface UserInfoModalProps {
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string; fid?: number } | null;
   walletAddress: string | null;
+  isAdded?: boolean;
+  onAddMiniApp?: () => void;
   onConnect: () => void;
   onDisconnect: () => void;
   onClose: () => void;
@@ -13,6 +14,8 @@ interface UserInfoModalProps {
 export const UserInfoModal: React.FC<UserInfoModalProps> = ({
   farcasterUser,
   walletAddress,
+  isAdded,
+  onAddMiniApp,
   onConnect,
   onDisconnect,
   onClose,
@@ -51,6 +54,16 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({
           </h4>
           <span className="text-gray-500 font-medium">@{farcasterUser?.username || "guest"}</span>
         </div>
+
+        {/* Farcaster Add to Home Action */}
+        {farcasterUser && !isAdded && onAddMiniApp && (
+          <button
+            onClick={onAddMiniApp}
+            className="w-full mb-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+          >
+            <PlusCircle size={18} /> Add to Farcaster
+          </button>
+        )}
 
         <div className="space-y-3 mb-8">
           {farcasterUser?.fid && (

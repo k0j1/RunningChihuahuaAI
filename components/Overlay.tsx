@@ -30,6 +30,8 @@ interface OverlayProps {
   dodgeCutIn: { id: number; text: string; x: number; y: number } | null;
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string; fid?: number } | null;
   walletAddress: string | null;
+  isAdded?: boolean; // New prop
+  onAddMiniApp?: () => void; // New prop
   // Reward Props
   isClaiming: boolean;
   isRefreshing?: boolean;
@@ -80,6 +82,8 @@ export const Overlay: React.FC<OverlayProps> = ({
   dodgeCutIn,
   farcasterUser,
   walletAddress,
+  isAdded,
+  onAddMiniApp,
   isClaiming,
   isRefreshing = false,
   claimResult,
@@ -184,6 +188,8 @@ export const Overlay: React.FC<OverlayProps> = ({
         <UserInfoModal 
           farcasterUser={farcasterUser}
           walletAddress={walletAddress}
+          isAdded={isAdded}
+          onAddMiniApp={onAddMiniApp}
           onConnect={onConnectWallet}
           onDisconnect={onDisconnectWallet}
           onClose={handleCloseProfile}

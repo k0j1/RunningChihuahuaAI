@@ -5,6 +5,7 @@ import { updatePlayerProfile } from '../services/supabase';
 export const useAuth = () => {
   const [farcasterUser, setFarcasterUser] = useState<{username?: string, displayName?: string, pfpUrl?: string, fid?: number} | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [isAdded, setIsAdded] = useState<boolean>(true); // Default true to avoid flash
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
 
   // Initialize Farcaster SDK
@@ -25,6 +26,9 @@ export const useAuth = () => {
             pfpUrl: user.pfpUrl,
             fid: user.fid
           });
+          
+          // Check if app is added to user's launcher/sidebar
+          setIsAdded(!!context.client?.added);
         }
       } catch (error) {
         console.warn("Farcaster SDK load warning:", error);
@@ -101,6 +105,17 @@ export const useAuth = () => {
     }
   }, []);
 
+  const addMiniApp = useCallback(async () => {
+    try {
+      const result = await sdk.actions.addContext();
+      if (result) {
+        setIsAdded(true);
+      }
+    } catch (error) {
+      console.error("Error adding mini app:", error);
+    }
+  }, []);
+
   const disconnectWallet = useCallback(() => {
     setWalletAddress(null);
   }, []);
@@ -108,7 +123,9 @@ export const useAuth = () => {
   return {
     farcasterUser,
     walletAddress,
+    isAdded,
     connectWallet,
-    disconnectWallet
+    disconnectWallet,
+    addMiniApp
   };
 };
