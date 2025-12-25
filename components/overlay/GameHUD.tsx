@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pause, Play, Heart, Zap, Gauge, Volume2, VolumeX } from 'lucide-react';
+import { Pause, Play, Heart, Zap, Gauge, Volume2, VolumeX, MapPin, Trophy } from 'lucide-react';
 import { GameState } from '../../types';
 
 interface GameHUDProps {
@@ -81,59 +81,65 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
       {/* Top Bar */}
       <div className="flex justify-between items-start pointer-events-auto w-full relative">
-        {/* Left: Stats & Buttons (Swapped) */}
-        <div className="flex gap-2">
-          {/* Stats Panel (Now First/Leftmost) */}
-          <div className="bg-white/90 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-white/50 flex flex-col gap-1 min-w-[140px]">
-            <div className="flex justify-between items-center border-b border-gray-200 pb-1 mb-1">
-              <span className="text-xs font-bold text-gray-400 uppercase">Distance</span>
-              <span className="font-mono font-bold text-gray-700">{distance.toFixed(0)}m</span>
+        {/* Left: Buttons & Stats (Vertical Layout) */}
+        <div className="flex flex-col gap-2 items-start">
+          
+          {/* Buttons Row (Now on Top) */}
+          <div className="flex gap-2">
+            {/* Pause Button */}
+            <button
+              onClick={onTogglePause}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/90 backdrop-blur-md shadow-xl border border-white/50 text-gray-700 hover:bg-white transition-colors active:scale-95"
+            >
+              {gameState === GameState.RUNNING ? <Pause fill="currentColor" size={20} /> : <Play fill="currentColor" size={20} />}
+            </button>
+            
+            {/* Mute Button */}
+            <button
+              onClick={onToggleMute}
+              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/90 backdrop-blur-md shadow-xl border border-white/50 text-gray-700 hover:bg-white transition-colors active:scale-95"
+            >
+              {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+            </button>
+          </div>
+
+          {/* Stats Panel - Compact Version (Now Below Buttons) */}
+          <div className="bg-white/90 backdrop-blur-md px-2 py-2 rounded-xl shadow-xl border border-white/50 flex flex-col gap-1 min-w-[80px]">
+            {/* Distance */}
+            <div className="flex items-center justify-between border-b border-gray-200 pb-1 mb-0.5 gap-2">
+              <MapPin size={14} className="text-gray-400 shrink-0" />
+              <span className="font-mono font-bold text-gray-700 text-sm leading-none">{distance.toFixed(0)}m</span>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-gray-400 uppercase">Score</span>
-              <span className="font-mono font-bold text-blue-600 text-lg">{score}</span>
+            
+            {/* Score */}
+            <div className="flex items-center justify-between gap-2">
+              <Trophy size={14} className="text-yellow-500 shrink-0" />
+              <span className="font-mono font-bold text-blue-600 text-sm leading-none">{score}</span>
             </div>
 
             {/* Hearts */}
-            <div className="flex gap-1 mt-2 items-center justify-center bg-gray-50 rounded-lg p-1">
+            <div className="flex gap-0.5 mt-1 items-center justify-center bg-gray-50 rounded-md p-1">
               {[0, 1, 2].map((i) => {
                 const fillPct = Math.min(Math.max((lives - i) * 100, 0), 100);
                 return (
                   <div
                     key={i}
-                    className={`relative w-5 h-5 transition-transform duration-300 ${
+                    className={`relative w-4 h-4 transition-transform duration-300 ${
                       isHit && Math.ceil(lives) === i + 1 ? 'scale-125' : ''
                     }`}
                   >
-                    <Heart size={20} className="text-gray-300 fill-gray-300 absolute top-0 left-0" />
+                    <Heart size={16} className="text-gray-300 fill-gray-300 absolute top-0 left-0" />
                     <div
                       className="absolute top-0 left-0 h-full overflow-hidden transition-all duration-300"
                       style={{ width: `${fillPct}%` }}
                     >
-                      <Heart size={20} className="text-red-500 fill-red-500 min-w-[20px]" />
+                      <Heart size={16} className="text-red-500 fill-red-500 min-w-[16px]" />
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
-
-          {/* Buttons Group (Now to the right of stats) */}
-          {/* Pause Button */}
-          <button
-            onClick={onTogglePause}
-            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/90 backdrop-blur-md shadow-xl border border-white/50 text-gray-700 hover:bg-white transition-colors active:scale-95"
-          >
-            {gameState === GameState.RUNNING ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
-          </button>
-          
-          {/* Mute Button */}
-          <button
-            onClick={onToggleMute}
-            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/90 backdrop-blur-md shadow-xl border border-white/50 text-gray-700 hover:bg-white transition-colors active:scale-95"
-          >
-            {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
-          </button>
         </div>
 
         {/* Right: Combo */}

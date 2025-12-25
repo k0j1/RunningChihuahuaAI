@@ -16,6 +16,7 @@ const App: React.FC = () => {
     isClaiming, claimResult, totalClaimed, handleClaimReward, // Reward Props
     staminaSystem, // Stamina Props
     isMuted, toggleMute, // Audio Props
+    isBossHit, isCelebrating, // Audio Events
     startGame, setGameState, handleDodge, handleDuck,
     connectWallet, disconnectWallet, shareScore, saveCurrentScore
   } = gameLogic;
@@ -35,8 +36,14 @@ const App: React.FC = () => {
 
   return (
     <div className="w-full h-[100dvh] relative bg-gray-900 overflow-hidden">
-      {/* Background Music Manager */}
-      <AudioManager gameState={gameState} isMuted={isMuted} />
+      {/* Background Music & SFX Manager */}
+      <AudioManager 
+        gameState={gameState} 
+        isMuted={isMuted} 
+        combo={combo}
+        isBossHit={isBossHit}
+        isCelebrating={isCelebrating}
+      />
 
       <div className="absolute inset-0 z-0">
         <Canvas 
