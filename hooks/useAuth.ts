@@ -107,7 +107,9 @@ export const useAuth = () => {
 
   const addMiniApp = useCallback(async () => {
     try {
-      const result = await sdk.actions.addContext();
+      // Fix: Error code 2 reported sdk.actions.addContext does not exist.
+      // The correct action name is addFrame.
+      const result = await (sdk.actions as any).addFrame();
       if (result) {
         setIsAdded(true);
       }
