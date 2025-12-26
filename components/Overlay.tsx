@@ -202,6 +202,8 @@ export const Overlay: React.FC<OverlayProps> = ({
             <TitleScreen
               farcasterUser={farcasterUser}
               walletAddress={walletAddress}
+              isAdded={isAdded}
+              onAddMiniApp={onAddMiniApp}
               onStartGame={onStartGame}
               onShowHistory={onShowHistory}
               onShowRanking={onShowRanking}
@@ -237,6 +239,8 @@ export const Overlay: React.FC<OverlayProps> = ({
               lastGameDate={lastGameDate}
               farcasterUser={farcasterUser}
               walletAddress={walletAddress}
+              isAdded={isAdded}
+              onAddMiniApp={onAddMiniApp}
               isClaiming={isClaiming}
               isRefreshing={isRefreshing}
               claimResult={claimResult}

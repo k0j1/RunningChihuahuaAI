@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { History, Trophy, FileText, PlayCircle, Zap, Clock, Volume2, VolumeX } from 'lucide-react';
+import { History, Trophy, FileText, PlayCircle, Zap, Clock, Volume2, VolumeX, PlusCircle } from 'lucide-react';
 import { TitleBackground } from '../TitleBackground';
 import { WalletWidget } from './WalletWidget';
 
 interface TitleScreenProps {
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string } | null;
   walletAddress: string | null;
+  isAdded?: boolean;
+  onAddMiniApp?: () => void;
   onStartGame: (isDemo?: boolean) => void;
   onShowHistory: () => void;
   onShowRanking: () => void;
@@ -21,6 +23,8 @@ interface TitleScreenProps {
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   farcasterUser,
   walletAddress,
+  isAdded,
+  onAddMiniApp,
   onStartGame,
   onShowHistory,
   onShowRanking,
@@ -165,6 +169,16 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                ) : (
                  <span className="flex items-center gap-2"><Clock size={20}/> RECOVERING...</span>
                )}
+            </button>
+          )}
+
+          {/* Farcaster Add Button - Title Screen */}
+          {farcasterUser && !isAdded && onAddMiniApp && (
+            <button
+              onClick={onAddMiniApp}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-full font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 animate-bounce"
+            >
+              <PlusCircle size={20} /> Add to Farcaster
             </button>
           )}
 

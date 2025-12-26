@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2, Coins, AlertCircle, CheckCircle2, Loader2, Copy, RefreshCw, Zap, History } from 'lucide-react';
+import { Skull, RotateCcw, Home, Crown, Globe, Clock, Star, BarChart3, Trophy, Share2, Coins, AlertCircle, CheckCircle2, Loader2, Copy, RefreshCw, Zap, History, PlusCircle } from 'lucide-react';
 import { ScoreEntry, PlayerStats, ClaimResult } from '../../types';
 import { WalletWidget } from './WalletWidget';
 import { RankingList, RankedEntry } from './RankingList';
@@ -15,6 +15,8 @@ interface GameOverScreenProps {
   lastGameDate: string | null;
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string } | null;
   walletAddress: string | null;
+  isAdded?: boolean;
+  onAddMiniApp?: () => void;
   // Reward Props
   isClaiming: boolean;
   isRefreshing?: boolean;
@@ -47,6 +49,8 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
   lastGameDate,
   farcasterUser,
   walletAddress,
+  isAdded,
+  onAddMiniApp,
   isClaiming,
   isRefreshing = false,
   claimResult,
@@ -381,6 +385,16 @@ export const GameOverScreen: React.FC<GameOverScreenProps> = ({
             <Share2 /> SHARE SCORE
           </button>
           
+          {/* Farcaster Add Button - Result Screen */}
+          {farcasterUser && !isAdded && onAddMiniApp && (
+            <button
+              onClick={onAddMiniApp}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+            >
+              <PlusCircle size={20} /> Add to Farcaster
+            </button>
+          )}
+
           <button
             onClick={() => onStartGame(false)} // Explicitly pass false to avoid Event object as True
             disabled={!hasStamina}
