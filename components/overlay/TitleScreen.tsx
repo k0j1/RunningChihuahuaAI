@@ -40,13 +40,13 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   const [timeLeft, setTimeLeft] = useState("");
   const pressTimer = useRef<number | null>(null);
 
-  // Check if guest (no Farcaster and no Wallet)
-  const isGuest = !farcasterUser && !walletAddress;
+  // Check if guest (no Farcaster)
+  const isGuest = !farcasterUser;
 
   const handlePressStart = () => {
     if (!isGuest) return;
     
-    // Start 15s timer
+    // Start 15s timer for guest hidden features
     pressTimer.current = window.setTimeout(() => {
       setIsDemoReady(true);
     }, 15000);
@@ -122,22 +122,24 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </h1>
         <p className="text-xl mb-4 font-light text-gray-100">Escape the Bosses!</p>
 
-        {/* Stamina Display */}
-        <div className="flex flex-col items-center mb-6 bg-gray-800/80 rounded-xl p-3 border border-gray-600">
-           <div className="flex items-center gap-2 mb-2">
-             <Zap size={18} className="text-yellow-400 fill-yellow-400" />
-             {timeLeft && (
-               <div className="flex items-center gap-1 text-xs text-yellow-400 font-mono bg-black/50 px-2 py-0.5 rounded">
-                 <Clock size={10} /> +1 in {timeLeft}
-               </div>
-             )}
-           </div>
-           <div className="flex gap-1">
-              {[...Array(maxStamina)].map((_, i) => (
-                <div key={i} className={`w-8 h-2 rounded-full transition-all ${i < stamina ? 'bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.6)]' : 'bg-gray-600'}`} />
-              ))}
-           </div>
-        </div>
+        {/* Stamina Display - ONLY shown for Farcaster Users */}
+        {farcasterUser && (
+          <div className="flex flex-col items-center mb-6 bg-gray-800/80 rounded-xl p-3 border border-gray-600">
+             <div className="flex items-center gap-2 mb-2">
+               <Zap size={18} className="text-yellow-400 fill-yellow-400" />
+               {timeLeft && (
+                 <div className="flex items-center gap-1 text-xs text-yellow-400 font-mono bg-black/50 px-2 py-0.5 rounded">
+                   <Clock size={10} /> +1 in {timeLeft}
+                 </div>
+               )}
+             </div>
+             <div className="flex gap-1">
+                {[...Array(maxStamina)].map((_, i) => (
+                  <div key={i} className={`w-8 h-2 rounded-full transition-all ${i < stamina ? 'bg-yellow-400 shadow-[0_0_10px_rgba(250,204,21,0.6)]' : 'bg-gray-600'}`} />
+                ))}
+             </div>
+          </div>
+        )}
 
         <div className="flex flex-col gap-4">
           {isDemoReady ? (
@@ -155,16 +157,16 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               onMouseLeave={handlePressEnd}
               onTouchStart={handlePressStart}
               onTouchEnd={handlePressEnd}
-              disabled={!hasStamina}
+              disabled={farcasterUser ? !hasStamina : false}
               className={`px-8 py-4 rounded-full text-2xl font-bold shadow-lg transition-all select-none flex items-center justify-center gap-2 ${
-                hasStamina 
+                (farcasterUser ? hasStamina : true)
                 ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:scale-105 hover:shadow-blue-500/50 active:scale-95 cursor-pointer' 
                 : 'bg-gray-600 cursor-not-allowed opacity-80'
               }`}
             >
-               {hasStamina ? (
+               {(farcasterUser ? hasStamina : true) ? (
                  <>
-                   START RUNNING <span className="text-sm font-normal opacity-80 flex items-center bg-black/20 px-2 rounded ml-2"><Zap size={14} fill="white"/> -1</span>
+                   START RUNNING {farcasterUser && <span className="text-sm font-normal opacity-80 flex items-center bg-black/20 px-2 rounded ml-2"><Zap size={14} fill="white"/> -1</span>}
                  </>
                ) : (
                  <span className="flex items-center gap-2"><Clock size={20}/> RECOVERING...</span>
@@ -182,7 +184,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             </button>
           )}
 
-          <div className="flex gap-4">
+          {/* History/Ranking buttons: Visible for everyone */}
+          <div className="flex gap-4 animate-in fade-in duration-500">
             <button
               onClick={onShowHistory}
               className="flex-1 px-4 py-3 bg-white/20 rounded-full text-lg font-bold shadow-lg hover:bg-white/30 transition-all flex items-center justify-center gap-2"

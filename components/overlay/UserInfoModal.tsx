@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { X, LogOut, Wallet, User, Link, Copy, Check, PlusCircle } from 'lucide-react';
+import { X, LogOut, Wallet, User, Link, Copy, Check, PlusCircle, Bell, BellOff } from 'lucide-react';
 
 interface UserInfoModalProps {
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string; fid?: number } | null;
   walletAddress: string | null;
   isAdded?: boolean;
+  notificationDetails?: { token: string; url: string } | null;
   onAddMiniApp?: () => void;
   onConnect: () => void;
   onDisconnect: () => void;
@@ -15,6 +16,7 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({
   farcasterUser,
   walletAddress,
   isAdded,
+  notificationDetails,
   onAddMiniApp,
   onConnect,
   onDisconnect,
@@ -30,6 +32,8 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({
       });
     }
   };
+
+  const notificationsEnabled = !!notificationDetails;
 
   return (
     <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -55,15 +59,26 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({
           <span className="text-gray-500 font-medium">@{farcasterUser?.username || "guest"}</span>
         </div>
 
-        {/* Farcaster Add to Home Action */}
-        {farcasterUser && !isAdded && onAddMiniApp && (
-          <button
-            onClick={onAddMiniApp}
-            className="w-full mb-4 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
-          >
-            <PlusCircle size={18} /> Add to Farcaster
-          </button>
-        )}
+        {/* Farcaster Add to Home & Notifications Actions */}
+        <div className="flex flex-col gap-2 mb-4">
+          {farcasterUser && !isAdded && onAddMiniApp && (
+            <button
+              onClick={onAddMiniApp}
+              className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+            >
+              <PlusCircle size={18} /> Add to Farcaster
+            </button>
+          )}
+
+          {farcasterUser && isAdded && !notificationsEnabled && onAddMiniApp && (
+            <button
+              onClick={onAddMiniApp}
+              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md active:scale-95"
+            >
+              <Bell size={18} /> Enable Notifications
+            </button>
+          )}
+        </div>
 
         <div className="space-y-3 mb-8">
           {farcasterUser?.fid && (
@@ -73,20 +88,32 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({
              </div>
           )}
 
+          {farcasterUser && (
+            <div className="bg-gray-50 p-3 rounded-xl flex items-center justify-between border border-gray-100">
+              <div className="flex items-center gap-2">
+                <Bell size={14} className="text-gray-400" />
+                <span className="text-xs font-bold text-gray-400 uppercase">Notifications</span>
+              </div>
+              <div className={`flex items-center gap-1 text-[10px] font-bold uppercase ${notificationsEnabled ? 'text-green-600' : 'text-gray-400'}`}>
+                {notificationsEnabled ? (
+                  <>
+                    <Check size={12} /> Enabled
+                  </>
+                ) : (
+                  <>
+                    <BellOff size={12} /> Disabled
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="bg-gray-50 p-3 rounded-xl border border-gray-100">
              <div className="flex items-center justify-between mb-1">
                <div className="flex items-center gap-2">
                  <Wallet size={14} className="text-gray-400" />
-                 <span className="text-xs font-bold text-gray-400 uppercase">Wallet Address</span>
+                 <span className="text-xs font-bold text-gray-400 uppercase">Farcaster Wallet</span>
                </div>
-               {!walletAddress && (
-                 <button 
-                   onClick={onConnect}
-                   className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold hover:bg-blue-200 transition-colors flex items-center gap-1"
-                 >
-                   <Link size={10} /> Link
-                 </button>
-               )}
                {walletAddress && (
                  <span className={`text-[10px] font-bold uppercase transition-colors ${copied ? 'text-green-500' : 'text-gray-300'}`}>
                    {copied ? 'Copied' : 'Click to copy'}
@@ -107,19 +134,16 @@ export const UserInfoModal: React.FC<UserInfoModalProps> = ({
                  </div>
                </div>
              ) : (
-               <span className="text-xs text-gray-400 italic">No wallet connected</span>
+               <span className="text-xs text-gray-400 italic">No wallet detected from Farcaster</span>
              )}
           </div>
         </div>
 
         <button
-          onClick={() => {
-            onDisconnect();
-            onClose();
-          }}
-          className="w-full py-3 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
+          onClick={onClose}
+          className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"
         >
-          <LogOut size={18} /> Disconnect
+          Close
         </button>
       </div>
     </div>

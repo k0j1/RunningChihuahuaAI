@@ -13,7 +13,7 @@ const App: React.FC = () => {
     hazardActive, hazardPosition, projectileActive, 
     isDodgeQueued, obstacleProgressRef, isDuckQueued, projectileProgressRef, projectileStartZ, bossLevel,
     history, globalRanking, totalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
-    isAdded, addMiniApp, // Farcaster app state
+    isAdded, notificationDetails, addMiniApp, // Farcaster app state
     isClaiming, claimResult, totalClaimed, handleClaimReward, // Reward Props
     staminaSystem, // Stamina Props
     isMuted, toggleMute, // Audio Props
@@ -78,6 +78,7 @@ const App: React.FC = () => {
         farcasterUser={farcasterUser}
         walletAddress={walletAddress}
         isAdded={isAdded}
+        notificationDetails={notificationDetails}
         onAddMiniApp={addMiniApp}
         isClaiming={isClaiming}
         claimResult={claimResult}

@@ -24,7 +24,8 @@ export const useGameLogic = () => {
   const gameEndedRef = useRef<boolean>(false);
 
   // --- Sub-Systems ---
-  const { farcasterUser, walletAddress, isAdded, connectWallet, disconnectWallet, addMiniApp } = useAuth();
+  // Fix: Added notificationDetails to destructuring
+  const { farcasterUser, walletAddress, isAdded, notificationDetails, connectWallet, disconnectWallet, addMiniApp } = useAuth();
   
   const scoreSystem = useScoreSystem(farcasterUser, walletAddress);
   const playerSystem = usePlayerSystem();
@@ -289,7 +290,8 @@ export const useGameLogic = () => {
     gameState, setGameState,
     dayTime, setDayTime,
     isDemoMode, isMuted, toggleMute,
-    farcasterUser, walletAddress, isAdded, connectWallet, disconnectWallet, addMiniApp,
+    // Fix: Added notificationDetails to return object
+    farcasterUser, walletAddress, isAdded, notificationDetails, connectWallet, disconnectWallet, addMiniApp,
     ...scoreSystem,
     ...playerSystem,
     ...bossSystem,

@@ -6,6 +6,7 @@ export const useAuth = () => {
   const [farcasterUser, setFarcasterUser] = useState<{username?: string, displayName?: string, pfpUrl?: string, fid?: number} | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [isAdded, setIsAdded] = useState<boolean>(true); // Default true to avoid flash
+  const [notificationDetails, setNotificationDetails] = useState<{token: string, url: string} | null>(null);
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
 
   // Initialize Farcaster SDK
@@ -29,6 +30,14 @@ export const useAuth = () => {
           
           // Check if app is added to user's launcher/sidebar
           setIsAdded(!!context.client?.added);
+          
+          // Capture notification details if available
+          if (context.client?.notificationDetails) {
+            setNotificationDetails({
+              token: context.client.notificationDetails.token,
+              url: context.client.notificationDetails.url
+            });
+          }
         }
       } catch (error) {
         console.warn("Farcaster SDK load warning:", error);
@@ -41,7 +50,7 @@ export const useAuth = () => {
     }
   }, [isSDKLoaded]);
 
-  // Check for connected wallet (Farcaster Provider)
+  // Check for connected wallet (Farcaster Provider Only)
   useEffect(() => {
     if (!isSDKLoaded) return;
 
@@ -59,19 +68,19 @@ export const useAuth = () => {
            }
         }
       } catch (e) {
-        console.warn("Error checking wallet status:", e);
+        console.warn("Error checking Farcaster wallet status:", e);
       }
     };
 
     checkWallet();
   }, [isSDKLoaded]);
 
-  // Sync profile data to Supabase when user/wallet info changes
+  // Sync profile data to Supabase when user/wallet/notification info changes
   useEffect(() => {
-    if (farcasterUser || walletAddress) {
-      updatePlayerProfile(farcasterUser, walletAddress);
+    if (farcasterUser) {
+      updatePlayerProfile(farcasterUser, walletAddress, notificationDetails);
     }
-  }, [farcasterUser, walletAddress]);
+  }, [farcasterUser, walletAddress, notificationDetails]);
 
   const connectWallet = useCallback(async () => {
     try {
@@ -90,28 +99,20 @@ export const useAuth = () => {
     } catch (e) {
       console.warn("Farcaster Wallet Provider failed:", e);
     }
-
-    if (typeof window !== 'undefined' && window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-        if (accounts && accounts.length > 0) {
-          setWalletAddress(accounts[0]);
-        }
-      } catch (error) {
-        console.error("User denied account access or error", error);
-      }
-    } else {
-      alert("No wallet provider found. Please use Warpcast or a Web3 browser.");
-    }
+    // MetaMask/window.ethereum fallback removed as requested.
   }, []);
 
   const addMiniApp = useCallback(async () => {
     try {
-      // Fix: Error code 2 reported sdk.actions.addContext does not exist.
-      // The correct action name is addFrame.
       const result = await (sdk.actions as any).addFrame();
       if (result) {
         setIsAdded(true);
+        if (result.notificationDetails) {
+          setNotificationDetails({
+            token: result.notificationDetails.token,
+            url: result.notificationDetails.url
+          });
+        }
       }
     } catch (error) {
       console.error("Error adding mini app:", error);
@@ -126,6 +127,7 @@ export const useAuth = () => {
     farcasterUser,
     walletAddress,
     isAdded,
+    notificationDetails,
     connectWallet,
     disconnectWallet,
     addMiniApp

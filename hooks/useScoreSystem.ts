@@ -14,18 +14,21 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
   // Logical trackers to throttle UI updates
   const distanceRef = useRef(0);
   
-  // Load history & rankings on mount
+  // Load history & rankings on mount (Ranking only)
   useEffect(() => {
-    const saved = localStorage.getItem('chihuahua_history');
-    if (saved) {
-      try {
-        setHistory(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse history", e);
+    // Only load local history if we have a Farcaster user context
+    if (farcasterUser) {
+      const saved = localStorage.getItem(`chihuahua_history_${farcasterUser.username}`);
+      if (saved) {
+        try {
+          setHistory(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to parse history", e);
+        }
       }
     }
     loadRankings();
-  }, []);
+  }, [farcasterUser]);
 
   const loadRankings = async () => {
     const ranking = await fetchGlobalRanking();
@@ -68,7 +71,12 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
   };
 
   const saveRun = async (isDemoMode: boolean = false, finalScoreOverride?: number) => {
-    // If it's a demo run, do not save anything
+    // Strictly require Farcaster User for any saving functionality
+    if (!farcasterUser) {
+      console.log("Non-Farcaster User: Score registration disabled.");
+      return;
+    }
+
     if (isDemoMode) {
       console.log("Demo Mode: Score not saved.");
       return;
@@ -91,32 +99,23 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
       formattedDate: formattedDate,
       score: currentScore,
       distance: Math.floor(distanceRef.current),
-      farcasterUser: farcasterUser ? {
+      farcasterUser: {
         fid: farcasterUser.fid, 
         username: farcasterUser.username || '',
         displayName: farcasterUser.displayName || '',
         pfpUrl: farcasterUser.pfpUrl || ''
-      } : undefined,
+      },
       walletAddress: walletAddress || undefined
     };
     
     setLastGameDate(isoDate); 
     
-    // Save locally
+    // Save locally (scoped to user)
     const newHistory = [newEntry, ...history].slice(0, 100); 
     setHistory(newHistory);
-    localStorage.setItem('chihuahua_history', JSON.stringify(newHistory));
-
-    // If Guest (No Wallet, No Farcaster), SKIP server save.
-    if (!farcasterUser && !walletAddress) {
-        console.log("Guest User: Skipped server save.");
-        // We still load rankings to ensure the leaderboard is fresh, but we don't wait for it strictly.
-        loadRankings(); 
-        return; 
-    }
+    localStorage.setItem(`chihuahua_history_${farcasterUser.username}`, JSON.stringify(newHistory));
 
     // Save to server
-    // We await here so the UI loading spinner persists until the data is actually in the DB
     try {
         await saveScoreToSupabase(newEntry);
         await loadRankings();
