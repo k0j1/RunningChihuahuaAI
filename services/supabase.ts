@@ -177,7 +177,8 @@ export const updateUserStamina = async (userId: string, newStamina: number, last
 };
 
 export const updatePlayerProfile = async (farcasterUser: any, walletAddress: string | null, notificationDetails: {token: string, url: string} | null = null) => {
-  // STRICT REQUIREMENT: Only allow users with a Farcaster username to sync profiles
+  // STRICT REQUIREMENT: Only allow users with a Farcaster username.
+  // No "ghost" records for anonymous wallets.
   if (!farcasterUser?.username) {
     return;
   }
@@ -185,50 +186,6 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
   const userId = `fc:${farcasterUser.username}`;
 
   try {
-    // Wallet cleanup logic: if user is logged in via FC but we find a legacy 'wa:' entry for their wallet, merge it
-    if (walletAddress) {
-      const ghostId = `wa:${walletAddress}`;
-      const { data: ghost, error: ghostError } = await supabase
-        .from('player_stats')
-        .select('*')
-        .eq('user_id', ghostId)
-        .maybeSingle();
-
-      if (!ghostError && ghost) {
-        const { data: main, error: mainError } = await supabase
-          .from('player_stats')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle();
-
-        if (!mainError) {
-          if (main) {
-            await supabase.from('player_stats').update({
-              total_score: (main.total_score || 0) + (ghost.total_score || 0),
-              total_distance: (main.total_distance || 0) + (ghost.total_distance || 0),
-              run_count: (main.run_count || 0) + (ghost.run_count || 0),
-              last_active: new Date(main.last_active) > new Date(ghost.last_active) ? main.last_active : ghost.last_active,
-            }).eq('user_id', userId);
-          } else {
-            await supabase.from('player_stats').insert({
-              user_id: userId,
-              username: farcasterUser.username,
-              display_name: farcasterUser.displayName || null,
-              pfp_url: farcasterUser.pfpUrl || null,
-              wallet_address: walletAddress,
-              total_score: ghost.total_score || 0,
-              total_distance: ghost.total_distance || 0,
-              run_count: ghost.run_count || 0,
-              last_active: ghost.last_active,
-              stamina: ghost.stamina,
-              last_stamina_update: ghost.last_stamina_update
-            });
-          }
-          await supabase.from('player_stats').delete().eq('user_id', ghostId);
-        }
-      }
-    }
-
     const { data: existing } = await supabase
       .from('player_stats')
       .select('user_id')
@@ -264,15 +221,15 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
 };
 
 export const saveScoreToSupabase = async (entry: ScoreEntry) => {
-  // STRICT REQUIREMENT: Only allow Farcaster users to save scores to ranking
+  // STRICT REQUIREMENT: Farcaster username required for saving scores and stats.
   if (!entry.farcasterUser?.username) {
-    console.log('Score not saved: Farcaster username required for global ranking.');
     return;
   }
 
   const userId = `fc:${entry.farcasterUser.username}`;
 
   try {
+    // Save to global scores table
     const payload = {
       score: entry.score,
       distance: entry.distance,
@@ -289,6 +246,7 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
       console.error('Error saving score to Supabase:', JSON.stringify(error));
     }
 
+    // Update player_stats
     const { data: currentStats } = await supabase
       .from('player_stats')
       .select('*')
