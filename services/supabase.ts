@@ -39,8 +39,46 @@ export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
       farcasterUser: row.username ? {
         username: row.username,
         displayName: row.display_name,
-        pfpUrl: row.pfp_url // Fixed: Changed from pfp_url to pfpUrl
+        pfpUrl: row.pfp_url
       } : undefined,
+      walletAddress: row.wallet_address
+    }));
+  } catch (e) {
+    return [];
+  }
+};
+
+/**
+ * Fetches the score history for a specific user from the database.
+ */
+export const fetchUserHistory = async (username: string): Promise<ScoreEntry[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('scores')
+      .select('*')
+      .eq('username', username)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) {
+      if (!isNetworkError(error)) {
+        console.error('Error fetching user history:', JSON.stringify(error));
+      }
+      return [];
+    }
+
+    if (!data) return [];
+
+    return data.map((row: any) => ({
+      date: row.created_at,
+      formattedDate: new Date(row.created_at).toLocaleString(),
+      score: row.score,
+      distance: row.distance,
+      farcasterUser: {
+        username: row.username,
+        displayName: row.display_name,
+        pfpUrl: row.pfp_url
+      },
       walletAddress: row.wallet_address
     }));
   } catch (e) {

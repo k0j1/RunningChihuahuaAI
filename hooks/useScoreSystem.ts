@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ScoreEntry, PlayerStats } from '../types';
-import { fetchGlobalRanking, fetchTotalRanking, saveScoreToSupabase } from '../services/supabase';
+import { fetchGlobalRanking, fetchTotalRanking, saveScoreToSupabase, fetchUserHistory } from '../services/supabase';
 
 export const useScoreSystem = (farcasterUser: any, walletAddress: string | null) => {
   const [score, setScore] = useState(0);
@@ -14,21 +14,36 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
   // Logical trackers to throttle UI updates
   const distanceRef = useRef(0);
   
-  // Load history & rankings on mount (Ranking only)
+  // Load history & rankings on mount
   useEffect(() => {
-    // Only load local history if we have a Farcaster user context
-    if (farcasterUser) {
+    loadUserHistory();
+    loadRankings();
+  }, [farcasterUser]);
+
+  const loadUserHistory = async () => {
+    if (!farcasterUser?.username) {
+      setHistory([]);
+      return;
+    }
+
+    // Attempt to load from DB first
+    const dbHistory = await fetchUserHistory(farcasterUser.username);
+    if (dbHistory.length > 0) {
+      setHistory(dbHistory);
+      // Sync local storage for offline reference/fallback
+      localStorage.setItem(`chihuahua_history_${farcasterUser.username}`, JSON.stringify(dbHistory));
+    } else {
+      // Fallback to local storage if DB is empty or fails
       const saved = localStorage.getItem(`chihuahua_history_${farcasterUser.username}`);
       if (saved) {
         try {
           setHistory(JSON.parse(saved));
         } catch (e) {
-          console.error("Failed to parse history", e);
+          console.error("Failed to parse local history", e);
         }
       }
     }
-    loadRankings();
-  }, [farcasterUser]);
+  };
 
   const loadRankings = async () => {
     const ranking = await fetchGlobalRanking();
@@ -119,6 +134,9 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
     try {
         await saveScoreToSupabase(newEntry);
         await loadRankings();
+        // Explicitly reload history from DB to ensure sync
+        const dbHistory = await fetchUserHistory(farcasterUser.username);
+        if (dbHistory.length > 0) setHistory(dbHistory);
     } catch (e) {
         console.error("Failed to save score to server:", e);
     }
