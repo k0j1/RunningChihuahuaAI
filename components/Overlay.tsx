@@ -128,31 +128,10 @@ export const Overlay: React.FC<OverlayProps> = ({
     ? currentRunEntry.score 
     : score;
 
-  const uniqueGlobalRanking = useMemo(() => {
-    const uniqueMap = new Map<string, ScoreEntry>();
-    const anonymousEntries: ScoreEntry[] = [];
-
-    globalRanking.forEach((entry) => {
-      let key = null;
-      if (entry.farcasterUser && entry.farcasterUser.username) {
-        key = `fc:${entry.farcasterUser.username}`;
-      } else if (entry.walletAddress) {
-        key = `wa:${entry.walletAddress}`;
-      }
-
-      if (key) {
-        const existing = uniqueMap.get(key);
-        if (!existing || entry.score > existing.score) {
-          uniqueMap.set(key, entry);
-        }
-      } else {
-        anonymousEntries.push(entry); 
-      }
-    });
-
-    const uniqueEntries = Array.from(uniqueMap.values());
-    const allEntries = [...uniqueEntries, ...anonymousEntries];
-    return allEntries.sort((a, b) => b.score - a.score);
+  // Modified to simply sort the globalRanking without deduplication.
+  // This ensures all high scores are displayed, not just the best score per user.
+  const displayGlobalRanking = useMemo(() => {
+    return [...globalRanking].sort((a, b) => b.score - a.score);
   }, [globalRanking]);
 
   const userBestInfo = useMemo((): RankedEntry | null => {
@@ -163,7 +142,7 @@ export const Overlay: React.FC<OverlayProps> = ({
       key = `wa:${walletAddress}`;
     }
     if (!key) return null;
-    const idx = uniqueGlobalRanking.findIndex(entry => {
+    const idx = displayGlobalRanking.findIndex(entry => {
       if (key?.startsWith('fc:') && entry.farcasterUser?.username) {
         return `fc:${entry.farcasterUser.username}` === key;
       }
@@ -174,12 +153,12 @@ export const Overlay: React.FC<OverlayProps> = ({
     });
     if (idx !== -1) {
       return {
-        entry: uniqueGlobalRanking[idx],
+        entry: displayGlobalRanking[idx],
         rank: idx + 1
       };
     }
     return null;
-  }, [uniqueGlobalRanking, farcasterUser, walletAddress]);
+  }, [displayGlobalRanking, farcasterUser, walletAddress]);
 
   const handleShowProfile = () => setShowUserInfo(true);
   const handleCloseProfile = () => setShowUserInfo(false);
@@ -224,7 +203,7 @@ export const Overlay: React.FC<OverlayProps> = ({
           return <HistoryScreen history={history} onHideHistory={onHideHistory} />;
         }
         if (gameState === GameState.RANKING) {
-          return <RankingScreen topScores={uniqueGlobalRanking} totalStats={totalRanking} onHideHistory={onHideHistory} />;
+          return <RankingScreen topScores={displayGlobalRanking} totalStats={totalRanking} onHideHistory={onHideHistory} />;
         }
         if (gameState === GameState.GAME_CLEAR) {
             return <GameClearScreen score={score} />;
@@ -234,7 +213,7 @@ export const Overlay: React.FC<OverlayProps> = ({
             <GameOverScreen
               score={displayScore}
               lives={lives}
-              ranking={uniqueGlobalRanking}
+              ranking={displayGlobalRanking}
               totalRanking={totalRanking}
               userBestEntry={userBestInfo}
               recentHistory={history.slice(0, 5)}

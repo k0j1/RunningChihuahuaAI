@@ -16,11 +16,14 @@ const isNetworkError = (error: any) => {
 
 export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
   try {
+    // Fetch a larger dataset to perform client-side deduplication
+    // We assume the DB returns ordered by score DESC.
+    // Query: select username, max(score) ... group by username
     const { data, error } = await supabase
       .from('scores')
       .select('*')
       .order('score', { ascending: false })
-      .limit(100);
+      .limit(1000); 
 
     if (error) {
       if (!isNetworkError(error)) {
@@ -31,18 +34,41 @@ export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
 
     if (!data) return [];
 
-    return data.map((row: any) => ({
-      date: row.created_at,
-      formattedDate: new Date(row.created_at).toLocaleString(),
-      score: row.score,
-      distance: row.distance,
-      farcasterUser: row.username ? {
-        username: row.username,
-        displayName: row.display_name,
-        pfpUrl: row.pfp_url
-      } : undefined,
-      walletAddress: row.wallet_address
-    }));
+    const uniqueScores: ScoreEntry[] = [];
+    const seenUsernames = new Set<string>();
+
+    for (const row of data) {
+      // Strictly group by username as requested.
+      // If a record has no username, it is excluded from this specific leaderboard view.
+      const username = row.username;
+
+      if (!username) {
+        continue;
+      }
+
+      if (seenUsernames.has(username)) {
+        continue; // Skip if we've already seen a higher score for this user
+      }
+      seenUsernames.add(username);
+
+      uniqueScores.push({
+        date: row.created_at,
+        formattedDate: new Date(row.created_at).toLocaleString(),
+        score: row.score,
+        distance: row.distance,
+        farcasterUser: {
+          username: row.username,
+          displayName: row.display_name,
+          pfpUrl: row.pfp_url
+        },
+        walletAddress: row.wallet_address
+      });
+
+      // Cap the displayed leaderboard to top 100 unique users
+      if (uniqueScores.length >= 100) break;
+    }
+
+    return uniqueScores;
   } catch (e) {
     return [];
   }
