@@ -74,6 +74,8 @@ export interface PlayerStats {
   lastActive: string;
   stamina?: number; // Current stamina stored in DB
   lastStaminaUpdate?: string; // Timestamp of last stamina calculation
+  notificationToken?: string;
+  notificationUrl?: string;
 }
 
 export enum RankingMode {

@@ -59,6 +59,8 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
   // Refs for animated parts
   const headRef = useRef<Mesh>(null);
   const tailRef = useRef<Mesh>(null);
+  const earLRef = useRef<Mesh>(null);
+  const earRRef = useRef<Mesh>(null);
   const legFLRef = useRef<Group>(null);
   const legFRRef = useRef<Group>(null);
   const legBLRef = useRef<Group>(null);
@@ -146,14 +148,55 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
         
         // Head bob
         if (headRef.current) headRef.current.rotation.x = Math.sin(t * 0.5) * 0.1 - 0.2;
+
+        // Reset ears during run
+        if (earLRef.current) earLRef.current.rotation.z = 0.3;
+        if (earRRef.current) earRRef.current.rotation.z = -0.3;
+
     } else {
-        // Idle
-        if (group.current) {
-            group.current.position.y = 0;
-            group.current.position.x = 0;
-            group.current.rotation.z = 0;
-            group.current.rotation.y = Math.PI;
+        // IDLE ANIMATION (Paused / Title)
+        const t = state.clock.elapsedTime;
+        
+        // Reset Position/Rotation to center/facing camera
+        group.current.position.x += (0 - group.current.position.x) * 0.1;
+        group.current.rotation.y += (Math.PI - group.current.rotation.y) * 0.1;
+        group.current.rotation.z += (0 - group.current.rotation.z) * 0.1;
+
+        // Shifting Weight / Breathing
+        // Gentle Y movement
+        group.current.position.y = Math.sin(t * 2) * 0.02;
+        // Subtle Squash/Stretch
+        group.current.scale.y = 1.2 + Math.sin(t * 2) * 0.01;
+
+        // Idle Head Movement (Looking around slowly)
+        if (headRef.current) {
+            headRef.current.rotation.y = Math.sin(t * 0.5) * 0.1; // Look left/right
+            headRef.current.rotation.x = -0.1 + Math.sin(t * 1.2) * 0.05; // Slight nod
         }
+
+        // Idle Tail Wag (Slow)
+        if (tailRef.current) {
+            tailRef.current.rotation.y = Math.sin(t * 3) * 0.2;
+        }
+
+        // Ear Twitching
+        // Occurs occasionally using overlapping sine waves or random threshold
+        if (earLRef.current) {
+           // Twitch left ear every ~3 seconds
+           const twitch = Math.sin(t * 10) > 0.9 && Math.sin(t) > 0.5 ? 0.3 : 0;
+           earLRef.current.rotation.z = 0.3 + twitch;
+        }
+        if (earRRef.current) {
+           // Twitch right ear at different interval
+           const twitch = Math.sin(t * 12) > 0.9 && Math.sin(t * 0.8) < -0.5 ? -0.3 : 0;
+           earRRef.current.rotation.z = -0.3 + twitch;
+        }
+
+        // Reset Legs
+        if (legFLRef.current) legFLRef.current.rotation.x = 0;
+        if (legFRRef.current) legFRRef.current.rotation.x = 0;
+        if (legBLRef.current) legBLRef.current.rotation.x = 0;
+        if (legBRRef.current) legBRRef.current.rotation.x = 0;
     }
   });
 
@@ -162,12 +205,7 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
   
   return (
     <group ref={group} position={[0, 0, 0]} rotation={[0, Math.PI, 0]} scale={[1.2, 1.2, 1.2]}>
-      {/* Celebration Particles 
-          NOTE: We render this ALWAYS (visible toggled) to ensure the Font/Text geometry 
-          is preloaded by React Three Fiber when the game starts. 
-          If we conditionally render {isCelebrating && ...}, Suspense might trigger on win, 
-          causing a screen blackout. 
-      */}
+      {/* Celebration Particles */}
       <group position={[0, 1.5, 0]} visible={!!isCelebrating}>
          <MusicalNote offset={0} active={!!isCelebrating} />
          <group position={[0.6, -0.2, 0]}><MusicalNote offset={0.5} active={!!isCelebrating} /></group>
@@ -202,11 +240,13 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
           <sphereGeometry args={[0.05, 16, 16]} />
           <meshStandardMaterial color={"black"} />
         </mesh>
-        <mesh position={[-0.18, 0.25, 0]} rotation={[0, 0, 0.3]}>
+        
+        {/* Ears - Now with Refs */}
+        <mesh ref={earLRef} position={[-0.18, 0.25, 0]} rotation={[0, 0, 0.3]}>
           <coneGeometry args={[0.1, 0.3, 4]} />
           <meshStandardMaterial color={tanColor} />
         </mesh>
-        <mesh position={[0.18, 0.25, 0]} rotation={[0, 0, -0.3]}>
+        <mesh ref={earRRef} position={[0.18, 0.25, 0]} rotation={[0, 0, -0.3]}>
           <coneGeometry args={[0.1, 0.3, 4]} />
           <meshStandardMaterial color={tanColor} />
         </mesh>

@@ -177,7 +177,9 @@ export const fetchUserStats = async (userId: string): Promise<PlayerStats | null
       runCount: data.run_count || 0,
       lastActive: data.last_active,
       stamina: data.stamina,
-      lastStaminaUpdate: data.last_stamina_update
+      lastStaminaUpdate: data.last_stamina_update,
+      notificationToken: data.notification_token,
+      notificationUrl: data.notification_url
     };
   } catch (e) {
     return null;
@@ -190,7 +192,8 @@ export const updateUserStamina = async (userId: string, newStamina: number, last
       .from('player_stats')
       .update({
         stamina: newStamina,
-        last_stamina_update: lastUpdate
+        last_stamina_update: lastUpdate,
+        is_notify: false
       })
       .eq('user_id', userId);
 
@@ -218,22 +221,30 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
       .eq('user_id', userId)
       .maybeSingle();
 
-    const payload = {
+    const payload: any = {
       user_id: userId,
       username: farcasterUser.username,
       display_name: farcasterUser.displayName || null,
       pfp_url: farcasterUser.pfpUrl || null,
       wallet_address: walletAddress || null,
-      last_active: new Date().toISOString(),
-      notification_token: notificationDetails?.token || null,
-      notification_url: notificationDetails?.url || null
+      last_active: new Date().toISOString()
     };
+    
+    // Only update notification fields if details are provided or explicitly being managed.
+    // This prevents accidental clearing if the context is missing, but ensures saving when present.
+    if (notificationDetails) {
+      payload.notification_token = notificationDetails.token;
+      payload.notification_url = notificationDetails.url;
+    }
 
     if (existing) {
       await supabase.from('player_stats').update(payload).eq('user_id', userId);
     } else {
+      // For new records, include default stats
       await supabase.from('player_stats').insert({
         ...payload,
+        notification_token: notificationDetails?.token || null,
+        notification_url: notificationDetails?.url || null,
         total_score: 0,
         total_distance: 0,
         run_count: 0,
