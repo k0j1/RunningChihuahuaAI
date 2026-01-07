@@ -150,16 +150,14 @@ export const Overlay: React.FC<OverlayProps> = ({
     let key = null;
     if (farcasterUser && farcasterUser.username) {
       key = `fc:${farcasterUser.username}`;
-    } else if (walletAddress) {
-      key = `wa:${walletAddress}`;
     }
+    
+    // walletAddress fallback removed per request
+
     if (!key) return null;
     const idx = displayGlobalRanking.findIndex(entry => {
       if (key?.startsWith('fc:') && entry.farcasterUser?.username) {
         return `fc:${entry.farcasterUser.username}` === key;
-      }
-      if (key?.startsWith('wa:') && entry.walletAddress) {
-        return `wa:${entry.walletAddress}` === key;
       }
       return false;
     });
@@ -170,7 +168,7 @@ export const Overlay: React.FC<OverlayProps> = ({
       };
     }
     return null;
-  }, [displayGlobalRanking, farcasterUser, walletAddress]);
+  }, [displayGlobalRanking, farcasterUser]);
 
   const handleShowProfile = () => setShowUserInfo(true);
   const handleCloseProfile = () => setShowUserInfo(false);

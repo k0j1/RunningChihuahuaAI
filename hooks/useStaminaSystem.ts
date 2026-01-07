@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { fetchUserStats, updateUserStamina } from '../services/supabase';
 
@@ -13,8 +14,6 @@ export const useStaminaSystem = (farcasterUser: any, walletAddress: string | nul
   useEffect(() => {
     if (farcasterUser?.username) {
       setUserId(`fc:${farcasterUser.username}`);
-    } else if (walletAddress) {
-      setUserId(`wa:${walletAddress}`);
     } else {
       setUserId(null);
     }

@@ -21,24 +21,22 @@ const GUEST_INVENTORY: UserInventory = {
 
 export const useInventorySystem = (farcasterUser: any, walletAddress: string | null) => {
   const [inventory, setInventory] = useState<UserInventory>(DEFAULT_INVENTORY);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [isGuest, setIsGuest] = useState(true);
 
-  // Determine User ID
+  // Determine if Guest or User
   useEffect(() => {
     if (farcasterUser?.username) {
-      setUserId(`fc:${farcasterUser.username}`);
-    } else if (walletAddress) {
-      setUserId(`wa:${walletAddress}`);
+      setIsGuest(false);
     } else {
-      setUserId(null);
+      setIsGuest(true);
     }
   }, [farcasterUser, walletAddress]);
 
   // Fetch Inventory
   const loadInventory = useCallback(async () => {
-    if (userId) {
-      // Logged in: Fetch from DB
-      const dbInventory = await fetchUserInventory(userId);
+    if (!isGuest) {
+      // Logged in: Fetch from DB using user objects
+      const dbInventory = await fetchUserInventory(farcasterUser, walletAddress);
       setInventory(dbInventory);
     } else {
       // Guest: Use LocalStorage to persist guest items
@@ -46,8 +44,6 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          // Convert stored keys back to UserInventory map if needed, 
-          // or assume structure matches UserInventory
           setInventory({
              ...DEFAULT_INVENTORY,
              ...parsed
@@ -61,7 +57,7 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
         localStorage.setItem('guest_player_items', JSON.stringify(GUEST_INVENTORY));
       }
     }
-  }, [userId]);
+  }, [farcasterUser, walletAddress, isGuest]);
 
   useEffect(() => {
     loadInventory();
@@ -74,9 +70,9 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     // Optimistic Check
     if (inventory[itemType] <= 0) return false;
 
-    if (userId) {
+    if (!isGuest) {
       // Logged In: DB Transaction
-      const success = await consumeUserItem(userId, itemType);
+      const success = await consumeUserItem(farcasterUser, walletAddress, itemType);
       if (success) {
         // Sync local state on success
         setInventory(prev => ({
@@ -106,15 +102,11 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     }
 
     // Attempt to consume all. 
-    // Note: Since we don't have a batch transaction API yet, we do sequential.
-    // If one fails mid-way, it's a partial state issue, but acceptable for this scale.
-    // Ideally update DB logic to handle batch.
-    
     let allSuccess = true;
     
-    if (userId) {
+    if (!isGuest) {
        // Parallel consumption for speed, but handle failures
-       const results = await Promise.all(items.map(item => consumeUserItem(userId, item)));
+       const results = await Promise.all(items.map(item => consumeUserItem(farcasterUser, walletAddress, item)));
        allSuccess = results.every(r => r === true);
        
        if (allSuccess) {

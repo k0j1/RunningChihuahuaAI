@@ -166,8 +166,11 @@ export const updateUserStamina = async (userId: string, newStamina: number, last
 };
 
 export const updatePlayerProfile = async (farcasterUser: any, walletAddress: string | null, notificationDetails: {token: string, url: string} | null = null) => {
-  if (!farcasterUser?.username) return;
-  const userId = `fc:${farcasterUser.username}`;
+  // Logic to determine userId identical to fetchUserInventory
+  let userId = null;
+  if (farcasterUser?.username) userId = `fc:${farcasterUser.username}`;
+  
+  if (!userId) return;
 
   try {
     const { data: existing } = await supabase
@@ -178,9 +181,10 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
 
     const payload: any = {
       user_id: userId,
-      username: farcasterUser.username,
-      display_name: farcasterUser.displayName || null,
-      pfp_url: farcasterUser.pfpUrl || null,
+      // If Farcaster user is present, use their details, otherwise fallback or null
+      username: farcasterUser?.username || null,
+      display_name: farcasterUser?.displayName || null,
+      pfp_url: farcasterUser?.pfpUrl || null,
       wallet_address: walletAddress || null,
       last_active: new Date().toISOString()
     };
@@ -262,13 +266,20 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
 
 // --- Inventory Systems ---
 
-export const fetchUserInventory = async (userId: string): Promise<UserInventory> => {
+export const fetchUserInventory = async (farcasterUser: any, walletAddress: string | null): Promise<UserInventory> => {
   const inventory: UserInventory = {
     [ItemType.MAX_HP]: 0,
     [ItemType.HEAL_ON_DODGE]: 0,
     [ItemType.SHIELD]: 0,
     [ItemType.NONE]: 0,
   };
+
+  let userId: string | null = null;
+  if (farcasterUser?.username) {
+    userId = `fc:${farcasterUser.username}`;
+  }
+
+  if (!userId) return inventory;
 
   try {
     const { data, error } = await supabase
@@ -289,8 +300,15 @@ export const fetchUserInventory = async (userId: string): Promise<UserInventory>
   }
 };
 
-export const consumeUserItem = async (userId: string, itemType: ItemType): Promise<boolean> => {
+export const consumeUserItem = async (farcasterUser: any, walletAddress: string | null, itemType: ItemType): Promise<boolean> => {
   if (itemType === ItemType.NONE) return true;
+
+  let userId: string | null = null;
+  if (farcasterUser?.username) {
+    userId = `fc:${farcasterUser.username}`;
+  }
+
+  if (!userId) return false;
 
   let columnName = '';
   if (itemType === ItemType.MAX_HP) columnName = 'max_hp';
