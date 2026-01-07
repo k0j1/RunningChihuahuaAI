@@ -13,6 +13,7 @@ interface ChihuahuaProps {
   isHit: boolean;
   isCelebrating?: boolean;
   isDefeated?: boolean;
+  shield?: number; // Added shield prop
 }
 
 const MusicalNote: React.FC<{ offset: number; active: boolean }> = ({ offset, active }) => {
@@ -53,8 +54,9 @@ const MusicalNote: React.FC<{ offset: number; active: boolean }> = ({ offset, ac
   );
 };
 
-export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodging, dodgeType, isHit, isCelebrating, isDefeated }) => {
+export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodging, dodgeType, isHit, isCelebrating, isDefeated, shield = 0 }) => {
   const group = useRef<Group>(null);
+  const barrierRef = useRef<Mesh>(null);
   
   // Refs for animated parts
   const headRef = useRef<Mesh>(null);
@@ -74,6 +76,17 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
       group.current.visible = Math.floor(state.clock.elapsedTime * 20) % 2 === 0;
     } else {
       group.current.visible = true;
+    }
+
+    // Barrier Animation
+    if (shield > 0 && barrierRef.current) {
+        const t = state.clock.elapsedTime;
+        // Pulse scale
+        const scale = 1.2 + Math.sin(t * 3) * 0.05;
+        barrierRef.current.scale.setScalar(scale);
+        // Rotate slowly
+        barrierRef.current.rotation.y += 0.01;
+        barrierRef.current.rotation.z += 0.01;
     }
 
     if (isDefeated) {
@@ -211,6 +224,22 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
          <group position={[0.6, -0.2, 0]}><MusicalNote offset={0.5} active={!!isCelebrating} /></group>
          <group position={[-0.6, -0.2, 0]}><MusicalNote offset={1.0} active={!!isCelebrating} /></group>
       </group>
+
+      {/* Shield Barrier Effect */}
+      {shield > 0 && (
+        <mesh ref={barrierRef} position={[0, 0.5, 0]}>
+          <sphereGeometry args={[0.7, 32, 32]} />
+          <meshStandardMaterial 
+            color="#00ffff" 
+            transparent 
+            opacity={0.3} 
+            roughness={0.1}
+            metalness={0.8}
+            emissive="#00ffff"
+            emissiveIntensity={0.2}
+          />
+        </mesh>
+      )}
 
       {/* Body */}
       <mesh position={[0, 0.4, 0]} castShadow receiveShadow>

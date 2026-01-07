@@ -1,5 +1,6 @@
+
 import { createClient } from '@supabase/supabase-js';
-import { ScoreEntry, PlayerStats } from '../types';
+import { ScoreEntry, PlayerStats, ItemType, UserInventory } from '../types';
 
 // Use environment variables if available, otherwise fallback to the provided hardcoded values
 const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://dgnjpvrzxmmargbkypgh.supabase.co';
@@ -16,9 +17,6 @@ const isNetworkError = (error: any) => {
 
 export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
   try {
-    // Fetch a larger dataset to perform client-side deduplication
-    // We assume the DB returns ordered by score DESC.
-    // Query: select username, max(score) ... group by username
     const { data, error } = await supabase
       .from('scores')
       .select('*')
@@ -38,17 +36,9 @@ export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
     const seenUsernames = new Set<string>();
 
     for (const row of data) {
-      // Strictly group by username as requested.
-      // If a record has no username, it is excluded from this specific leaderboard view.
       const username = row.username;
-
-      if (!username) {
-        continue;
-      }
-
-      if (seenUsernames.has(username)) {
-        continue; // Skip if we've already seen a higher score for this user
-      }
+      if (!username) continue;
+      if (seenUsernames.has(username)) continue;
       seenUsernames.add(username);
 
       uniqueScores.push({
@@ -63,20 +53,14 @@ export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
         },
         walletAddress: row.wallet_address
       });
-
-      // Cap the displayed leaderboard to top 100 unique users
       if (uniqueScores.length >= 100) break;
     }
-
     return uniqueScores;
   } catch (e) {
     return [];
   }
 };
 
-/**
- * Fetches the score history for a specific user from the database.
- */
 export const fetchUserHistory = async (username: string): Promise<ScoreEntry[]> => {
   try {
     const { data, error } = await supabase
@@ -86,13 +70,7 @@ export const fetchUserHistory = async (username: string): Promise<ScoreEntry[]> 
       .order('created_at', { ascending: false })
       .limit(50);
 
-    if (error) {
-      if (!isNetworkError(error)) {
-        console.error('Error fetching user history:', JSON.stringify(error));
-      }
-      return [];
-    }
-
+    if (error) return [];
     if (!data) return [];
 
     return data.map((row: any) => ({
@@ -121,13 +99,7 @@ export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
       .order('total_score', { ascending: false })
       .limit(100);
 
-    if (error) {
-      if (!isNetworkError(error)) {
-        console.error('Error fetching player_stats:', JSON.stringify(error));
-      }
-      return [];
-    }
-
+    if (error) return [];
     if (!data) return [];
 
     return data.map((row: any) => ({
@@ -156,13 +128,7 @@ export const fetchUserStats = async (userId: string): Promise<PlayerStats | null
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error) {
-      if (!isNetworkError(error)) {
-        console.error('Error fetching user stats:', error);
-      }
-      return null;
-    }
-    if (!data) return null;
+    if (error || !data) return null;
 
     return {
       id: data.user_id,
@@ -188,7 +154,7 @@ export const fetchUserStats = async (userId: string): Promise<PlayerStats | null
 
 export const updateUserStamina = async (userId: string, newStamina: number, lastUpdate: string) => {
   try {
-    const { error } = await supabase
+    await supabase
       .from('player_stats')
       .update({
         stamina: newStamina,
@@ -196,22 +162,11 @@ export const updateUserStamina = async (userId: string, newStamina: number, last
         is_notify: false
       })
       .eq('user_id', userId);
-
-    if (error && !isNetworkError(error)) {
-      console.error('Error updating stamina:', error);
-    }
-  } catch (e) {
-    // Ignore
-  }
+  } catch (e) { }
 };
 
 export const updatePlayerProfile = async (farcasterUser: any, walletAddress: string | null, notificationDetails: {token: string, url: string} | null = null) => {
-  // STRICT REQUIREMENT: Only allow users with a Farcaster username.
-  // No "ghost" records for anonymous wallets.
-  if (!farcasterUser?.username) {
-    return;
-  }
-
+  if (!farcasterUser?.username) return;
   const userId = `fc:${farcasterUser.username}`;
 
   try {
@@ -230,8 +185,6 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
       last_active: new Date().toISOString()
     };
     
-    // Only update notification fields if details are provided or explicitly being managed.
-    // This prevents accidental clearing if the context is missing, but ensures saving when present.
     if (notificationDetails) {
       payload.notification_token = notificationDetails.token;
       payload.notification_url = notificationDetails.url;
@@ -240,7 +193,6 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
     if (existing) {
       await supabase.from('player_stats').update(payload).eq('user_id', userId);
     } else {
-      // For new records, include default stats
       await supabase.from('player_stats').insert({
         ...payload,
         notification_token: notificationDetails?.token || null,
@@ -252,21 +204,26 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
         last_stamina_update: new Date().toISOString()
       });
     }
-  } catch (e) {
-    // Ignore errors
-  }
+
+    // Initialize player_items with 0 if not exists
+    await supabase.from('player_items').upsert(
+      { 
+        user_id: userId, 
+        max_hp: 0, 
+        heal: 0, 
+        shield: 0 
+      },
+      { onConflict: 'user_id', ignoreDuplicates: true }
+    );
+
+  } catch (e) { }
 };
 
 export const saveScoreToSupabase = async (entry: ScoreEntry) => {
-  // STRICT REQUIREMENT: Farcaster username required for saving scores and stats.
-  if (!entry.farcasterUser?.username) {
-    return;
-  }
-
+  if (!entry.farcasterUser?.username) return;
   const userId = `fc:${entry.farcasterUser.username}`;
 
   try {
-    // Save to global scores table
     const payload = {
       score: entry.score,
       distance: entry.distance,
@@ -277,13 +234,8 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
       created_at: entry.date
     };
 
-    const { error } = await supabase.from('scores').insert([payload]);
+    await supabase.from('scores').insert([payload]);
     
-    if (error && !isNetworkError(error)) {
-      console.error('Error saving score to Supabase:', JSON.stringify(error));
-    }
-
-    // Update player_stats
     const { data: currentStats } = await supabase
       .from('player_stats')
       .select('*')
@@ -294,7 +246,7 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
     const previousTotalDistance = currentStats?.total_distance ? Number(currentStats.total_distance) : 0;
     const previousRunCount = currentStats?.run_count ? Number(currentStats.run_count) : 0;
 
-    const newStats = {
+    await supabase.from('player_stats').upsert({
       user_id: userId,
       username: entry.farcasterUser.username,
       display_name: entry.farcasterUser.displayName || currentStats?.display_name || null,
@@ -304,10 +256,74 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
       total_distance: previousTotalDistance + Number(entry.distance),
       run_count: previousRunCount + 1,
       last_active: entry.date
-    };
+    });
+  } catch (e) { }
+};
 
-    await supabase.from('player_stats').upsert(newStats);
+// --- Inventory Systems ---
+
+export const fetchUserInventory = async (userId: string): Promise<UserInventory> => {
+  const inventory: UserInventory = {
+    [ItemType.MAX_HP]: 0,
+    [ItemType.HEAL_ON_DODGE]: 0,
+    [ItemType.SHIELD]: 0,
+    [ItemType.NONE]: 0,
+  };
+
+  try {
+    const { data, error } = await supabase
+      .from('player_items')
+      .select('max_hp, heal, shield')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error || !data) return inventory;
+
+    inventory[ItemType.MAX_HP] = data.max_hp || 0;
+    inventory[ItemType.HEAL_ON_DODGE] = data.heal || 0;
+    inventory[ItemType.SHIELD] = data.shield || 0;
+
+    return inventory;
   } catch (e) {
-    // Ignore
+    return inventory;
+  }
+};
+
+export const consumeUserItem = async (userId: string, itemType: ItemType): Promise<boolean> => {
+  if (itemType === ItemType.NONE) return true;
+
+  let columnName = '';
+  if (itemType === ItemType.MAX_HP) columnName = 'max_hp';
+  else if (itemType === ItemType.HEAL_ON_DODGE) columnName = 'heal';
+  else if (itemType === ItemType.SHIELD) columnName = 'shield';
+  else return false; // Invalid item type
+
+  try {
+    // 1. Fetch current quantity
+    const { data, error: fetchError } = await supabase
+      .from('player_items')
+      .select(columnName)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError || !data) return false;
+
+    // Use keyof assertions to handle dynamic column access safely
+    const currentQty = (data as any)[columnName];
+    
+    if (currentQty <= 0) {
+      return false; // Not enough items
+    }
+
+    // 2. Decrement
+    const { error: updateError } = await supabase
+      .from('player_items')
+      .update({ [columnName]: currentQty - 1 })
+      .eq('user_id', userId);
+
+    return !updateError;
+  } catch (e) {
+    console.error("Error consuming item:", e);
+    return false;
   }
 };

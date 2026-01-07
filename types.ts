@@ -41,6 +41,20 @@ export enum DodgeType {
   SPIN = 'SPIN'
 }
 
+export enum ItemType {
+  NONE = 'NONE',
+  MAX_HP = 'MAX_HP',         // 💖 Max Lives +1
+  HEAL_ON_DODGE = 'HEAL_ON_DODGE', // ❤️‍🩹 Heal 0.2 per dodge
+  SHIELD = 'SHIELD'          // 🛡️ Guard 3 times
+}
+
+export interface UserInventory {
+  [ItemType.MAX_HP]: number;
+  [ItemType.HEAL_ON_DODGE]: number;
+  [ItemType.SHIELD]: number;
+  [ItemType.NONE]: number;
+}
+
 export interface GameSettings {
   speed: number;
   dayTime: boolean;

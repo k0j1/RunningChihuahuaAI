@@ -1,7 +1,9 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import { History, Trophy, FileText, PlayCircle, Zap, Clock, Volume2, VolumeX, PlusCircle } from 'lucide-react';
+import { History, Trophy, FileText, PlayCircle, Zap, Clock, Volume2, VolumeX, Heart, Shield, ArrowUp, Sparkles, PlusCircle } from 'lucide-react';
 import { TitleBackground } from '../TitleBackground';
 import { WalletWidget } from './WalletWidget';
+import { ItemType, UserInventory } from '../../types';
 
 interface TitleScreenProps {
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string } | null;
@@ -16,6 +18,9 @@ interface TitleScreenProps {
   stamina: number;
   maxStamina: number;
   nextRecoveryTime: number | null;
+  selectedItems: ItemType[];
+  toggleItem: (item: ItemType) => void;
+  inventory: UserInventory;
   isMuted: boolean;
   onToggleMute: () => void;
 }
@@ -33,6 +38,9 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   stamina,
   maxStamina,
   nextRecoveryTime,
+  selectedItems,
+  toggleItem,
+  inventory,
   isMuted,
   onToggleMute
 }) => {
@@ -90,6 +98,39 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
   const hasStamina = stamina > 0;
 
+  const items = [
+    {
+      type: ItemType.MAX_HP,
+      // Icon: Heart with Up Arrow overlaid
+      icon: (
+        <div className="relative">
+          <Heart fill="currentColor" size={24} />
+          <ArrowUp size={14} className="absolute -top-1 -right-1 text-white bg-red-600 rounded-full p-0.5 border border-white" strokeWidth={3} />
+        </div>
+      ),
+      label: "Vitality",
+      desc: "Start with 4 Lives",
+      color: "text-red-500",
+      bgColor: "bg-red-500/20",
+      borderColor: "border-red-500"
+    },
+    {
+      type: ItemType.HEAL_ON_DODGE,
+      // Icon: Heart with Sparkles overlaid
+      icon: (
+        <div className="relative">
+          <Heart className="text-pink-500 fill-pink-500" size={24} />
+          <Sparkles size={14} className="absolute -top-1 -right-2 text-yellow-300 fill-yellow-300 animate-pulse" />
+        </div>
+      ),
+      label: "Recovery",
+      desc: "Heal +0.2 HP per Dodge",
+      color: "text-pink-500",
+      bgColor: "bg-pink-500/20",
+      borderColor: "border-pink-500"
+    }
+  ];
+
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-50 overflow-hidden">
       {/* Generative Background */}
@@ -116,11 +157,55 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       </div>
 
       {/* Content */}
-      <div className="relative z-10 text-center text-white p-8 bg-black/40 backdrop-blur-md rounded-3xl border border-white/20 shadow-2xl animate-fade-in-up max-w-lg w-full mx-4">
-        <h1 className="text-6xl font-black mb-4 tracking-tighter drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
+      <div className="relative z-10 text-center text-white p-6 bg-black/40 backdrop-blur-md rounded-3xl border border-white/20 shadow-2xl animate-fade-in-up max-w-lg w-full mx-4">
+        <h1 className="text-6xl font-black mb-1 tracking-tighter drop-shadow-lg text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">
           RUNNING<br />CHIHUAHUA
         </h1>
         <p className="text-xl mb-4 font-light text-gray-100">Escape the Bosses!</p>
+
+        {/* Item Selection */}
+        <div className="mb-6">
+           <h3 className="text-xs font-bold text-gray-400 uppercase mb-2 tracking-widest">Select Items</h3>
+           <div className="flex gap-2 justify-center">
+             {items.map((item) => {
+                const count = inventory[item.type] || 0;
+                const hasItem = count > 0;
+                const isSelected = selectedItems.includes(item.type);
+                
+                return (
+                  <button
+                    key={item.type}
+                    onClick={() => {
+                        if (hasItem) {
+                            toggleItem(item.type);
+                        }
+                    }}
+                    disabled={!hasItem}
+                    className={`relative flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all w-24 h-24 ${
+                      isSelected 
+                      ? `${item.bgColor} ${item.borderColor} scale-105 shadow-[0_0_15px_rgba(255,255,255,0.3)]` 
+                      : hasItem 
+                        ? 'bg-gray-800/60 border-gray-600 hover:bg-gray-700' 
+                        : 'bg-gray-900/40 border-gray-800 opacity-50 cursor-not-allowed grayscale'
+                    }`}
+                  >
+                     <div className={`${item.color} mb-1`}>{item.icon}</div>
+                     <span className="text-xs font-bold leading-tight">{item.label}</span>
+                     
+                     {/* Count Badge */}
+                     <div className={`absolute top-1 right-1 px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none ${hasItem ? 'bg-white text-black' : 'bg-gray-700 text-gray-400'}`}>
+                        x{count}
+                     </div>
+                     
+                     {/* Selected Indicator */}
+                     {isSelected && (
+                        <div className="absolute top-1 left-1 w-2 h-2 rounded-full bg-green-400 shadow-[0_0_5px_rgba(74,222,128,0.8)]"></div>
+                     )}
+                  </button>
+                );
+             })}
+           </div>
+        </div>
 
         {/* Stamina Display - ONLY shown for Farcaster Users */}
         {farcasterUser && (

@@ -1,7 +1,8 @@
 
+
 import { useState, useRef, useEffect } from 'react';
 import sdk from '@farcaster/frame-sdk';
-import { GameState, BossType } from '../types';
+import { GameState, BossType, ItemType } from '../types';
 import { useAuth } from './useAuth';
 import { useScoreSystem } from './useScoreSystem';
 import { usePlayerSystem } from './usePlayerSystem';
@@ -10,12 +11,15 @@ import { useObstacleSystem } from './useObstacleSystem';
 import { useProjectileSystem } from './useProjectileSystem';
 import { useRewardSystem } from './useRewardSystem';
 import { useStaminaSystem } from './useStaminaSystem';
+import { useInventorySystem } from './useInventorySystem';
 
 export const useGameLogic = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.TITLE);
   const [dayTime, setDayTime] = useState<boolean>(true);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
   const [isMuted, setIsMuted] = useState<boolean>(true); // Default to Muted (OFF)
+  const [selectedItems, setSelectedItems] = useState<ItemType[]>([]);
+  const [hasUsedShield, setHasUsedShield] = useState(false);
   
   // Use Ref to ensure the game loop always sees the correct mode immediately without waiting for re-renders
   const isDemoModeRef = useRef<boolean>(false);
@@ -24,7 +28,6 @@ export const useGameLogic = () => {
   const gameEndedRef = useRef<boolean>(false);
 
   // --- Sub-Systems ---
-  // Fix: Added notificationDetails to destructuring
   const { farcasterUser, walletAddress, isAdded, notificationDetails, connectWallet, disconnectWallet, addMiniApp } = useAuth();
   
   const scoreSystem = useScoreSystem(farcasterUser, walletAddress);
@@ -34,6 +37,7 @@ export const useGameLogic = () => {
   const projectileSystem = useProjectileSystem();
   const rewardSystem = useRewardSystem(); 
   const staminaSystem = useStaminaSystem(farcasterUser, walletAddress);
+  const inventorySystem = useInventorySystem(farcasterUser, walletAddress);
 
   const obstacleDodgedRef = useRef(false);
 
@@ -50,35 +54,92 @@ export const useGameLogic = () => {
     setIsMuted(prev => !prev);
   };
 
+  const toggleItem = (item: ItemType) => {
+    if (item === ItemType.NONE) return;
+    
+    setSelectedItems(prev => {
+      if (prev.includes(item)) {
+        return prev.filter(i => i !== item);
+      } else {
+        return [...prev, item];
+      }
+    });
+  };
+
+  const clearSelectedItems = () => {
+    setSelectedItems([]);
+  };
+
+  const handleUseShield = async () => {
+    // Only allow if running, hasn't used yet, shield not active, and has item
+    if (gameState !== GameState.RUNNING) return;
+    if (hasUsedShield) return;
+    if (playerSystem.shield > 0) return;
+    
+    const count = inventorySystem.inventory[ItemType.SHIELD] || 0;
+    if (count <= 0) return;
+
+    // Consume item
+    const success = await inventorySystem.consumeItem(ItemType.SHIELD);
+    if (success) {
+        playerSystem.activateShield();
+        setHasUsedShield(true);
+    }
+  };
+
   const startGame = async (demoModeInput: boolean | any = false) => {
-    // Sanitize input: Ensure strictly boolean. If an Event object is passed, force false.
+    // Sanitize input
     let demoMode = typeof demoModeInput === 'boolean' ? demoModeInput : false;
 
-    // Force Normal Mode if logged in (Farcaster or Wallet) to prevent accidental demo runs
+    // Force Normal Mode if logged in (Farcaster or Wallet)
     if (farcasterUser || walletAddress) {
         demoMode = false;
     }
 
-    // Stamina Check for Normal Mode
+    // Stamina & Item Check for Normal Mode
     if (!demoMode) {
+      // 1. Check Stamina
       if (staminaSystem.stamina <= 0) {
         alert("Not enough stamina! Wait for recovery.");
         return;
       }
-      const consumed = await staminaSystem.consumeStamina();
-      if (!consumed) {
+
+      // 2. Consume Items if selected
+      if (selectedItems.length > 0) {
+         // Pre-check local inventory
+         for (const item of selectedItems) {
+             if ((inventorySystem.inventory[item] || 0) <= 0) {
+                 alert(`You don't have enough of the selected items!`);
+                 return;
+             }
+         }
+
+         const consumed = await inventorySystem.consumeItems(selectedItems);
+         if (!consumed) {
+             alert("Failed to use items. Please try again.");
+             return;
+         }
+      }
+
+      // 3. Consume Stamina
+      const staminaConsumed = await staminaSystem.consumeStamina();
+      if (!staminaConsumed) {
          alert("Error consuming stamina.");
          return;
       }
     }
 
     setIsDemoMode(demoMode);
-    isDemoModeRef.current = demoMode; // Sync ref immediately
-    gameEndedRef.current = false; // Reset game ended flag
+    isDemoModeRef.current = demoMode; 
+    gameEndedRef.current = false;
     setGameState(GameState.RUNNING);
     setDayTime(true);
     scoreSystem.resetScore();
-    playerSystem.resetPlayer();
+    setHasUsedShield(false); // Reset shield usage for new run
+    
+    // Initialize player with selected items (if demo, force empty)
+    playerSystem.initializePlayer(isDemoMode ? [] : selectedItems);
+    
     bossSystem.resetBoss();
     obstacleSystem.resetObstacles();
     projectileSystem.resetProjectiles();
@@ -183,7 +244,7 @@ export const useGameLogic = () => {
        const res = obstacleSystem.updateObstacle(delta, scoreSystem.speed);
        const progress = res.progress;
        
-       // AI Auto-Dodge (Demo Mode) - Adjusted to be tighter (0.90)
+       // AI Auto-Dodge (Demo Mode)
        if (isDemoModeRef.current && progress > 0.90 && !obstacleDodgedRef.current && !playerSystem.isHit) {
            const bonusCombo = playerSystem.performDodge(obstacleSystem.obstacleType);
            const bonus = bonusCombo * 10;
@@ -193,13 +254,17 @@ export const useGameLogic = () => {
        }
        
        // Player Dodge Logic
-       // Tightened hitbox: Success window starts at 0.85
        if (progress > 0.85 && playerSystem.isDodgeQueued && !playerSystem.isHit) {
            if (!obstacleDodgedRef.current) {
                 const bonusCombo = playerSystem.performDodge(obstacleSystem.obstacleType);
                 const bonus = bonusCombo * 10;
                 scoreSystem.addScore(10 + bonus);
                 obstacleDodgedRef.current = true;
+                
+                // Item Effect: Heal on Dodge (Check if item is active)
+                if (selectedItems.includes(ItemType.HEAL_ON_DODGE)) {
+                    playerSystem.heal(0.2);
+                }
            }
        }
        if (progress >= 1.0 && progress < 1.1) {
@@ -213,14 +278,11 @@ export const useGameLogic = () => {
               const bossZ = Math.min(16, Math.max(0, (playerSystem.lives / 3) * 16));
               const obstacleZ = -40 + (progress * 40);
               if (obstacleZ >= bossZ - 1.0) {
-                  // Healing removed: Only active under specific conditions (currently disabled normally)
-                  // playerSystem.heal(0.2); 
                   bossSystem.registerHit();
                   if (bossSystem.bossHits + 1 >= 10) {
                       if (bossSystem.bossType === BossType.DRAGON && bossSystem.bossLevel >= 2) {
                           bossSystem.defeatBoss(true); 
                           const bonus = 21000;
-                          // Don't add score here for clear, handleGameClear handles it with the full clear sequence
                           playerSystem.triggerCelebration();
                           handleGameClear(bonus);
                       } else {
@@ -255,11 +317,10 @@ export const useGameLogic = () => {
         }
     } 
     else {
-        // Fix: Use scoreSystem.speed and bossSystem.bossLevel as they are not defined in this scope
         const res = projectileSystem.updateProjectile(delta, scoreSystem.speed, bossSystem.bossLevel);
         const progress = res.progress;
         
-        // AI Auto-Duck (Demo Mode) - Adjusted to be tighter (0.92)
+        // AI Auto-Duck (Demo Mode)
         if (isDemoModeRef.current && progress > 0.92 && !playerSystem.isDuckedRef.current && !playerSystem.isHit) {
             playerSystem.performDuck();
             scoreSystem.addScore(20);
@@ -267,7 +328,6 @@ export const useGameLogic = () => {
         }
         
         // Player Duck Logic
-        // Tightened hitbox: Success window starts at 0.90
         if (progress > 0.90 && playerSystem.isDuckQueued && !playerSystem.isDuckedRef.current && !playerSystem.isHit) {
             playerSystem.performDuck();
             scoreSystem.addScore(20);
@@ -290,7 +350,7 @@ export const useGameLogic = () => {
     gameState, setGameState,
     dayTime, setDayTime,
     isDemoMode, isMuted, toggleMute,
-    // Fix: Added notificationDetails to return object
+    selectedItems, toggleItem, clearSelectedItems,
     farcasterUser, walletAddress, isAdded, notificationDetails, connectWallet, disconnectWallet, addMiniApp,
     ...scoreSystem,
     ...playerSystem,
@@ -298,10 +358,12 @@ export const useGameLogic = () => {
     ...obstacleSystem,
     ...projectileSystem,
     ...rewardSystem,
-    staminaSystem, // Export stamina
+    staminaSystem, 
+    inventorySystem, 
     isThrowing: projectileSystem.isThrowingRef.current,
+    hasUsedShield, handleUseShield, // Exported
     startGame, handleGameOver, shareScore,
-    saveCurrentScore, // Export saving function
+    saveCurrentScore, 
     handleDodge, handleDuck,
     handleDistanceUpdate, handleObstacleTick, handleProjectileTick,
   };

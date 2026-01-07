@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Overlay } from './components/Overlay';
@@ -16,6 +17,10 @@ const App: React.FC = () => {
     isAdded, notificationDetails, addMiniApp, // Farcaster app state
     isClaiming, claimResult, totalClaimed, handleClaimReward, // Reward Props
     staminaSystem, // Stamina Props
+    inventorySystem, // Inventory Props
+    selectedItems, toggleItem, clearSelectedItems, // Item Props
+    shield, // Player Shield
+    hasUsedShield, handleUseShield, // Shield Action
     isMuted, toggleMute, // Audio Props
     isBossHit, isCelebrating, // Audio Events
     startGame, setGameState, handleDodge, handleDuck,
@@ -33,6 +38,11 @@ const App: React.FC = () => {
   const handleTogglePause = () => {
     if (gameState === GameState.RUNNING) setGameState(GameState.PAUSED);
     else if (gameState === GameState.PAUSED) setGameState(GameState.RUNNING);
+  };
+
+  const handleReturnToTitle = () => {
+    clearSelectedItems();
+    setGameState(GameState.TITLE);
   };
 
   return (
@@ -87,6 +97,12 @@ const App: React.FC = () => {
         stamina={staminaSystem.stamina}
         maxStamina={staminaSystem.maxStamina}
         nextRecoveryTime={staminaSystem.nextRecoveryTime}
+        selectedItems={selectedItems}
+        toggleItem={toggleItem}
+        inventory={inventorySystem.inventory}
+        shield={shield}
+        hasUsedShield={hasUsedShield}
+        onUseShield={handleUseShield}
         isMuted={isMuted}
         onToggleMute={toggleMute}
         onStartGame={startGame}
@@ -96,7 +112,7 @@ const App: React.FC = () => {
         onTogglePause={handleTogglePause}
         onDodge={handleDodge}
         onDuck={handleDuck}
-        onReturnToTitle={() => setGameState(GameState.TITLE)}
+        onReturnToTitle={handleReturnToTitle}
         onConnectWallet={connectWallet}
         onDisconnectWallet={disconnectWallet}
         onShare={shareScore}

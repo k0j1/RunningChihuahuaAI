@@ -1,11 +1,13 @@
+
 import React from 'react';
-import { Pause, Play, Heart, Zap, Gauge, Volume2, VolumeX, MapPin, Trophy } from 'lucide-react';
-import { GameState } from '../../types';
+import { Pause, Play, Heart, Zap, Gauge, Volume2, VolumeX, MapPin, Trophy, Shield } from 'lucide-react';
+import { GameState, ItemType } from '../../types';
 
 interface GameHUDProps {
   distance: number;
   score: number;
   lives: number;
+  shield: number;
   isHit: boolean;
   gameState: GameState;
   onTogglePause: () => void;
@@ -19,12 +21,17 @@ interface GameHUDProps {
   onDuck: (e: any) => void;
   isMuted: boolean;
   onToggleMute: () => void;
+  // New props for shield activation
+  hasUsedShield: boolean;
+  onUseShield: () => void;
+  shieldInventoryCount: number;
 }
 
 export const GameHUD: React.FC<GameHUDProps> = ({
   distance,
   score,
   lives,
+  shield,
   isHit,
   gameState,
   onTogglePause,
@@ -37,7 +44,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
   showDuckButton,
   onDuck,
   isMuted,
-  onToggleMute
+  onToggleMute,
+  hasUsedShield,
+  onUseShield,
+  shieldInventoryCount
 }) => {
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6 z-10">
@@ -119,7 +129,10 @@ export const GameHUD: React.FC<GameHUDProps> = ({
 
             {/* Hearts */}
             <div className="flex gap-0.5 mt-1 items-center justify-center bg-gray-50 rounded-md p-1">
-              {[0, 1, 2].map((i) => {
+              {[0, 1, 2, 3].map((i) => {
+                // Don't render the 4th heart slot unless we have 4 max lives (item)
+                if (i === 3 && lives <= 3 && Math.ceil(lives) < 4) return null;
+                
                 const fillPct = Math.min(Math.max((lives - i) * 100, 0), 100);
                 return (
                   <div
@@ -139,7 +152,33 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                 );
               })}
             </div>
+
+            {/* Shield Indicator (Only if active) */}
+            {shield > 0 && (
+               <div className="flex items-center justify-center gap-1 mt-1 bg-blue-100/80 rounded px-1 py-0.5 animate-in slide-in-from-left">
+                  <Shield size={12} className="text-blue-600 fill-blue-600" />
+                  <span className="text-[10px] font-bold text-blue-800">ACTIVE</span>
+               </div>
+            )}
           </div>
+
+          {/* Shield Activation Button */}
+          {shieldInventoryCount > 0 && !hasUsedShield && shield === 0 && (
+            <button
+                onClick={onUseShield}
+                className="mt-2 flex items-center justify-center gap-1 bg-blue-500/90 text-white rounded-xl p-2 shadow-lg border border-blue-400 backdrop-blur-md active:scale-95 transition-transform hover:bg-blue-600"
+            >
+                <Shield size={20} fill="currentColor" />
+                <div className="flex flex-col leading-none items-start">
+                    <span className="text-[9px] font-bold uppercase opacity-80">Use</span>
+                    <span className="text-xs font-black">Shield</span>
+                </div>
+                <div className="bg-white text-blue-600 text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center ml-1">
+                    {shieldInventoryCount}
+                </div>
+            </button>
+          )}
+
         </div>
 
         {/* Right: Combo */}

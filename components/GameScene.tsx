@@ -18,7 +18,7 @@ interface GameSceneProps {
 
 export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
   const {
-    gameState, speed, dayTime, lives,
+    gameState, speed, dayTime, lives, shield, // shield added
     bossType, bossLevel, isBossDefeated, isBossHit, isThrowing,
     hazardActive, obstacleType, obstacleProgressRef, 
     projectileActive, projectileType, projectileProgressRef, projectileStartZ,
@@ -77,6 +77,7 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
           isHit={isHit}
           isCelebrating={effectiveIsCelebrating}
           isDefeated={gameState === GameState.CAUGHT_ANIMATION || gameState === GameState.GAME_OVER}
+          shield={shield}
         />
 
         {bossType === BossType.GORILLA && (

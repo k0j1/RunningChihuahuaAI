@@ -1,8 +1,11 @@
+
 import { useState, useRef } from 'react';
-import { DodgeType, GameState } from '../types';
+import { DodgeType, GameState, ItemType } from '../types';
 
 export const usePlayerSystem = () => {
   const [lives, setLives] = useState(3);
+  const [maxLives, setMaxLives] = useState(3);
+  const [shield, setShield] = useState(0);
   const [combo, setCombo] = useState(0);
   const [isHit, setIsHit] = useState(false);
   const [isCelebrating, setIsCelebrating] = useState(false);
@@ -21,7 +24,10 @@ export const usePlayerSystem = () => {
   const cutInTimeoutRef = useRef<number | null>(null);
 
   const resetPlayer = () => {
+    // Default reset, actual initialization happens in initializePlayer
     setLives(3);
+    setMaxLives(3);
+    setShield(0);
     setCombo(0);
     comboRef.current = 0;
     setIsHit(false);
@@ -34,7 +40,49 @@ export const usePlayerSystem = () => {
     isDuckedRef.current = false;
   };
 
+  const initializePlayer = (items: ItemType[]) => {
+    resetPlayer();
+    
+    // Temporary variables to accumulate effects
+    let newMaxLives = 3;
+    let newShield = 0;
+
+    // Apply Item Effects
+    if (items.includes(ItemType.MAX_HP)) {
+      newMaxLives = 4;
+    }
+    
+    // Shield item is now active-use only, so we don't apply it at start
+    
+    // Set Final State
+    setMaxLives(newMaxLives);
+    setLives(newMaxLives); // Start with full health
+    setShield(newShield);
+  };
+
+  const activateShield = () => {
+      setShield(1);
+  };
+
   const takeDamage = () => {
+    // Shield Logic - Explicit Priority
+    // If shield exists, consume it AND RETURN IMMEDIATELY so lives are not touched.
+    if (shield > 0) {
+      setShield(prev => Math.max(0, prev - 1));
+      
+      // Visual feedback for shield break
+      setIsHit(true);
+      setTimeout(() => setIsHit(false), 500); // Shorter blink for shield
+
+      // Reset combo logic is kept as penalty for getting hit, 
+      // but lives are preserved.
+      setCombo(0);
+      comboRef.current = 0;
+      
+      return lives; // Return current lives without reduction
+    }
+
+    // Standard Damage Logic (Only runs if shield is 0)
     const newLives = lives - 1;
     setLives(newLives);
     setIsHit(true);
@@ -46,7 +94,7 @@ export const usePlayerSystem = () => {
   };
 
   const heal = (amount: number) => {
-    setLives(prev => Math.min(3, prev + amount));
+    setLives(prev => Math.min(maxLives, prev + amount));
   };
 
   const performDodge = (obstacleType: any) => {
@@ -65,9 +113,6 @@ export const usePlayerSystem = () => {
     comboRef.current += 1;
     
     // Use the raw streak count.
-    // 1st hit = 1.
-    // 2nd hit = 2.
-    // GameHUD checks (combo > 1), so it will display starting from 2nd hit ("x2").
     setCombo(comboRef.current); 
     
     // Reduced invulnerability window from 500ms to 400ms to prevent easy spamming
@@ -129,12 +174,10 @@ export const usePlayerSystem = () => {
 
   const queueDodge = () => {
       setIsDodgeQueued(true);
-      // Do not reset isDodgedRef here to prevent double triggering if spamming during active dodge
   }
   
   const queueDuck = () => {
       setIsDuckQueued(true);
-      // Do not reset isDuckedRef here
   }
 
   const clearQueues = () => {
@@ -143,10 +186,11 @@ export const usePlayerSystem = () => {
   }
 
   return {
-    lives, combo, isHit, isCelebrating,
+    lives, maxLives, shield, combo, isHit, isCelebrating,
     isDodging, dodgeType, isDodgeQueued, isDuckQueued,
     dodgeCutIn, isDodgedRef, isDuckedRef,
-    resetPlayer, takeDamage, heal, performDodge, performDuck, triggerCelebration,
+    initializePlayer, resetPlayer, takeDamage, heal, performDodge, performDuck, triggerCelebration,
+    activateShield, // Exported
     queueDodge, queueDuck, clearQueues, triggerComicCutIn
   };
 };

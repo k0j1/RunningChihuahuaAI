@@ -1,5 +1,6 @@
+
 import React, { useMemo, useState } from 'react';
-import { GameState, ScoreEntry, PlayerStats, ClaimResult } from '../types';
+import { GameState, ScoreEntry, PlayerStats, ClaimResult, ItemType, UserInventory } from '../types';
 import { TitleScreen } from './overlay/TitleScreen';
 import { HistoryScreen } from './overlay/HistoryScreen';
 import { RankingScreen } from './overlay/RankingScreen';
@@ -31,7 +32,7 @@ interface OverlayProps {
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string; fid?: number } | null;
   walletAddress: string | null;
   isAdded?: boolean;
-  notificationDetails?: { token: string; url: string } | null; // New prop
+  notificationDetails?: { token: string; url: string } | null; 
   onAddMiniApp?: () => void;
   // Reward Props
   isClaiming: boolean;
@@ -43,6 +44,14 @@ interface OverlayProps {
   stamina: number;
   maxStamina: number;
   nextRecoveryTime: number | null;
+  // Items & Inventory
+  selectedItems: ItemType[];
+  toggleItem: (item: ItemType) => void;
+  inventory: UserInventory;
+  // Shield
+  shield: number;
+  hasUsedShield: boolean;
+  onUseShield: () => void;
   // Audio Props
   isMuted: boolean;
   onToggleMute: () => void;
@@ -52,7 +61,6 @@ interface OverlayProps {
   onShowRanking: () => void;
   onConnectWallet: () => void;
   onDisconnectWallet: () => void;
-  // onShowProfile Removed as it is handled internally
   onShare: () => void;
   onReturnToTitle: () => void;
   onHideHistory: () => void;
@@ -94,6 +102,12 @@ export const Overlay: React.FC<OverlayProps> = ({
   stamina,
   maxStamina,
   nextRecoveryTime,
+  selectedItems,
+  toggleItem,
+  inventory,
+  shield,
+  hasUsedShield,
+  onUseShield,
   isMuted,
   onToggleMute,
   onStartGame,
@@ -128,8 +142,6 @@ export const Overlay: React.FC<OverlayProps> = ({
     ? currentRunEntry.score 
     : score;
 
-  // Modified to simply sort the globalRanking without deduplication.
-  // This ensures all high scores are displayed, not just the best score per user.
   const displayGlobalRanking = useMemo(() => {
     return [...globalRanking].sort((a, b) => b.score - a.score);
   }, [globalRanking]);
@@ -194,6 +206,9 @@ export const Overlay: React.FC<OverlayProps> = ({
               stamina={stamina}
               maxStamina={maxStamina}
               nextRecoveryTime={nextRecoveryTime}
+              selectedItems={selectedItems}
+              toggleItem={toggleItem}
+              inventory={inventory}
               isMuted={isMuted}
               onToggleMute={onToggleMute}
             />
@@ -245,6 +260,7 @@ export const Overlay: React.FC<OverlayProps> = ({
             distance={distance}
             score={score}
             lives={lives}
+            shield={shield}
             isHit={isHit}
             gameState={gameState}
             onTogglePause={onTogglePause}
@@ -258,6 +274,9 @@ export const Overlay: React.FC<OverlayProps> = ({
             onDuck={onDuck}
             isMuted={isMuted}
             onToggleMute={onToggleMute}
+            hasUsedShield={hasUsedShield}
+            onUseShield={onUseShield}
+            shieldInventoryCount={inventory[ItemType.SHIELD] || 0}
           />
         );
       })()}
