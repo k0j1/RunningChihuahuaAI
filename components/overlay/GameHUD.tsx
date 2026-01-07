@@ -162,18 +162,16 @@ export const GameHUD: React.FC<GameHUDProps> = ({
             )}
           </div>
 
-          {/* Shield Activation Button */}
+          {/* Shield Activation Button - Square Style */}
           {shieldInventoryCount > 0 && !hasUsedShield && shield === 0 && (
             <button
                 onClick={onUseShield}
-                className="mt-2 flex items-center justify-center gap-1 bg-blue-500/90 text-white rounded-xl p-2 shadow-lg border border-blue-400 backdrop-blur-md active:scale-95 transition-transform hover:bg-blue-600"
+                className="mt-2 w-16 h-16 flex flex-col items-center justify-center gap-0.5 bg-blue-500/90 text-white rounded-xl shadow-lg border border-blue-400 backdrop-blur-md active:scale-95 transition-transform hover:bg-blue-600 relative"
             >
-                <Shield size={20} fill="currentColor" />
-                <div className="flex flex-col leading-none items-start">
-                    <span className="text-[9px] font-bold uppercase opacity-80">Use</span>
-                    <span className="text-xs font-black">Shield</span>
-                </div>
-                <div className="bg-white text-blue-600 text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center ml-1">
+                <Shield size={24} fill="currentColor" />
+                <span className="text-[9px] font-black uppercase leading-none mt-0.5">SHIELD</span>
+                
+                <div className="absolute -top-1.5 -right-1.5 bg-white text-blue-600 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-blue-500 shadow-sm">
                     {shieldInventoryCount}
                 </div>
             </button>

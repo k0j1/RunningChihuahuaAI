@@ -1,3 +1,4 @@
+
 import 'react';
 
 export enum GameState {
@@ -113,39 +114,6 @@ declare global {
     ethereum?: any;
   }
   // Standard global JSX augmentation for older TS/React setups or global JSX usage
-  namespace JSX {
-    interface IntrinsicElements {
-      group: any;
-      mesh: any;
-      primitive: any;
-      ambientLight: any;
-      directionalLight: any;
-      pointLight: any;
-      spotLight: any;
-      orthographicCamera: any;
-      perspectiveCamera: any;
-      boxGeometry: any;
-      planeGeometry: any;
-      sphereGeometry: any;
-      coneGeometry: any;
-      cylinderGeometry: any;
-      dodecahedronGeometry: any;
-      capsuleGeometry: any;
-      torusGeometry: any;
-      ringGeometry: any;
-      circleGeometry: any;
-      meshStandardMaterial: any;
-      meshBasicMaterial: any;
-      meshPhongMaterial: any;
-      fog: any;
-      color: any;
-      [elemName: string]: any;
-    }
-  }
-}
-
-// Augmentation for React module to support newer React types where JSX is namespaced under React
-declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {
       group: any;

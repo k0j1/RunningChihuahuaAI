@@ -112,7 +112,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       desc: "Start with 4 Lives",
       color: "text-red-500",
       bgColor: "bg-red-500/20",
-      borderColor: "border-red-500"
+      borderColor: "border-red-500",
+      selectable: true
     },
     {
       type: ItemType.HEAL_ON_DODGE,
@@ -127,7 +128,24 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       desc: "Heal +0.2 HP per Dodge",
       color: "text-pink-500",
       bgColor: "bg-pink-500/20",
-      borderColor: "border-pink-500"
+      borderColor: "border-pink-500",
+      selectable: true
+    },
+    {
+      type: ItemType.SHIELD,
+      // Icon: Shield
+      icon: (
+        <div className="relative">
+          <Shield className="text-blue-400 fill-blue-400" size={24} />
+          <div className="absolute inset-0 bg-blue-400/20 blur-md rounded-full"></div>
+        </div>
+      ),
+      label: "Shield",
+      desc: "Active In-Game Item",
+      color: "text-blue-400",
+      bgColor: "bg-blue-500/20",
+      borderColor: "border-blue-500",
+      selectable: false
     }
   ];
 
@@ -170,22 +188,24 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
              {items.map((item) => {
                 const count = inventory[item.type] || 0;
                 const hasItem = count > 0;
-                const isSelected = selectedItems.includes(item.type);
+                const isSelected = item.selectable && selectedItems.includes(item.type);
                 
                 return (
                   <button
                     key={item.type}
                     onClick={() => {
-                        if (hasItem) {
+                        if (hasItem && item.selectable) {
                             toggleItem(item.type);
                         }
                     }}
-                    disabled={!hasItem}
+                    disabled={!hasItem || !item.selectable}
                     className={`relative flex flex-col items-center justify-center p-2 rounded-xl border-2 transition-all w-24 h-24 ${
                       isSelected 
                       ? `${item.bgColor} ${item.borderColor} scale-105 shadow-[0_0_15px_rgba(255,255,255,0.3)]` 
                       : hasItem 
-                        ? 'bg-gray-800/60 border-gray-600 hover:bg-gray-700' 
+                        ? (item.selectable 
+                            ? 'bg-gray-800/60 border-gray-600 hover:bg-gray-700' 
+                            : 'bg-gray-800/40 border-gray-700 opacity-80 cursor-default')
                         : 'bg-gray-900/40 border-gray-800 opacity-50 cursor-not-allowed grayscale'
                     }`}
                   >
@@ -200,6 +220,11 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
                      {/* Selected Indicator */}
                      {isSelected && (
                         <div className="absolute top-1 left-1 w-2 h-2 rounded-full bg-green-400 shadow-[0_0_5px_rgba(74,222,128,0.8)]"></div>
+                     )}
+
+                     {/* In-Game Tag for non-selectable items that are owned */}
+                     {!item.selectable && hasItem && (
+                        <div className="absolute bottom-1 text-[8px] text-blue-300 font-bold uppercase tracking-wider">IN-GAME</div>
                      )}
                   </button>
                 );
