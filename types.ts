@@ -1,5 +1,4 @@
-
-import 'react';
+import React from 'react';
 
 export enum GameState {
   TITLE = 'TITLE',

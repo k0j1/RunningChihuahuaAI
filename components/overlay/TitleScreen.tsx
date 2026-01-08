@@ -186,13 +186,14 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
            <h3 className="text-xs font-bold text-gray-400 uppercase mb-2 tracking-widest">Select Items</h3>
            <div className="flex gap-2 justify-center">
              {items.map((item) => {
-                const count = inventory[item.type] || 0;
+                // Defensive check for inventory presence
+                const count = (inventory && inventory[item.type]) || 0;
                 const hasItem = count > 0;
                 const isSelected = item.selectable && selectedItems.includes(item.type);
                 
                 return (
                   <button
-                    key={item.type}
+                    key={item.type || 'unknown'}
                     onClick={() => {
                         if (hasItem && item.selectable) {
                             toggleItem(item.type);

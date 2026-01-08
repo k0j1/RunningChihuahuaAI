@@ -161,22 +161,6 @@ export const GameHUD: React.FC<GameHUDProps> = ({
                </div>
             )}
           </div>
-
-          {/* Shield Activation Button - Square Style */}
-          {shieldInventoryCount > 0 && !hasUsedShield && shield === 0 && (
-            <button
-                onClick={onUseShield}
-                className="mt-2 w-16 h-16 flex flex-col items-center justify-center gap-0.5 bg-blue-500/90 text-white rounded-xl shadow-lg border border-blue-400 backdrop-blur-md active:scale-95 transition-transform hover:bg-blue-600 relative"
-            >
-                <Shield size={24} fill="currentColor" />
-                <span className="text-[9px] font-black uppercase leading-none mt-0.5">SHIELD</span>
-                
-                <div className="absolute -top-1.5 -right-1.5 bg-white text-blue-600 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-blue-500 shadow-sm">
-                    {shieldInventoryCount}
-                </div>
-            </button>
-          )}
-
         </div>
 
         {/* Right: Combo */}
@@ -198,6 +182,23 @@ export const GameHUD: React.FC<GameHUDProps> = ({
           )}
         </div>
       </div>
+
+      {/* Bottom Left: Shield Activation Button */}
+      {shieldInventoryCount > 0 && !hasUsedShield && shield === 0 && (
+        <div className="absolute left-6 bottom-6 md:bottom-8 pointer-events-auto z-30 animate-in slide-in-from-bottom duration-500">
+            <button
+                onClick={onUseShield}
+                className="w-16 h-16 flex flex-col items-center justify-center gap-0.5 bg-blue-500/90 text-white rounded-xl shadow-lg border border-blue-400 backdrop-blur-md active:scale-95 transition-transform hover:bg-blue-600 relative"
+            >
+                <Shield size={24} fill="currentColor" />
+                <span className="text-[9px] font-black uppercase leading-none mt-0.5">SHIELD</span>
+                
+                <div className="absolute -top-1.5 -right-1.5 bg-white text-blue-600 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center border-2 border-blue-500 shadow-sm">
+                    {shieldInventoryCount}
+                </div>
+            </button>
+        </div>
+      )}
 
       {/* Bottom Center: Speedometer */}
       <div className="absolute left-1/2 transform -translate-x-1/2 bottom-0 pb-8 md:pb-4 z-20">
