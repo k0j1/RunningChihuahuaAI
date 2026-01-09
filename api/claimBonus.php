@@ -5,7 +5,7 @@ use Dotenv\Dotenv;
 use Elliptic\EC;
 use kornrunner\Keccak;
 
-// Allow CORS
+// CORS headers
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
@@ -23,8 +23,13 @@ $dotenv->safeLoad();
 $privateKeyHex = $_ENV['PRIVATE_KEY'] ?? null;
 if (!$privateKeyHex) {
     http_response_code(500);
-    echo JSON_encode(['success' => false, 'message' => 'Server configuration error']);
+    echo json_encode(['success' => false, 'message' => 'Server configuration error: Private key missing']);
     exit;
+}
+
+// Remove '0x' prefix if present
+if (strpos($privateKeyHex, '0x') === 0) {
+    $privateKeyHex = substr($privateKeyHex, 2);
 }
 
 // Get Input
@@ -39,35 +44,45 @@ if (!$walletAddress || !$itemType) {
 }
 
 try {
-    // 1. Prepare Data
-    // Remove '0x' prefix
-    $walletAddress = str_replace('0x', '', $walletAddress);
+    // 1. Prepare Data for abi.encodePacked(address, uint256)
     
-    // Convert address to binary (20 bytes)
+    // Address: Remove 0x, ensure 40 chars hex
+    $walletAddress = str_replace('0x', '', $walletAddress);
+    if (strlen($walletAddress) !== 40 || !ctype_xdigit($walletAddress)) {
+        throw new Exception("Invalid wallet address format");
+    }
     $addressBin = hex2bin($walletAddress);
     
-    // Convert itemType to uint256 binary (32 bytes, Big Endian)
-    $itemTypeHex = str_pad(dechex((int)$itemType), 64, '0', STR_PAD_LEFT);
-    $itemTypeBin = hex2bin($itemTypeHex);
+    // ItemType: Convert to uint256 (32 bytes, Big Endian)
+    // Ensure it's treated as an integer
+    $itemTypeInt = (int)$itemType;
+    $itemTypeHex = dechex($itemTypeInt);
+    // Pad left with zeros to 64 chars (32 bytes)
+    $itemTypeHexPadded = str_pad($itemTypeHex, 64, '0', STR_PAD_LEFT);
+    $itemTypeBin = hex2bin($itemTypeHexPadded);
     
-    // 2. Construct Message Hash: keccak256(abi.encodePacked(address, uint256))
+    // 2. Construct Message: abi.encodePacked(address, uint256)
+    // 20 bytes + 32 bytes = 52 bytes
     $message = $addressBin . $itemTypeBin;
-    $messageHashBin = Keccak::hash($message, 256, true); // Raw binary output
     
-    // 3. Construct Ethereum Signed Message
-    // Prefix: "\x19Ethereum Signed Message:\n" + length of message (32 bytes)
+    // 3. Hash the message: keccak256(message)
+    $messageHashBin = Keccak::hash($message, 256, true);
+    
+    // 4. Construct Ethereum Signed Message
+    // Prefix: "\x19Ethereum Signed Message:\n32"
+    // Note: The length is 32 because we are signing the hash of the packed data
     $prefix = "\x19Ethereum Signed Message:\n32";
     $ethSignedMessage = $prefix . $messageHashBin;
     
-    // Hash again
-    $finalHash = Keccak::hash($ethSignedMessage, 256);
+    // 5. Hash again (Digest)
+    $digest = Keccak::hash($ethSignedMessage, 256);
     
-    // 4. Sign
+    // 6. Sign
     $ec = new EC('secp256k1');
     $key = $ec->keyFromPrivate($privateKeyHex);
-    $signature = $key->sign($finalHash, ['canonical' => true]);
+    $signature = $key->sign($digest, ['canonical' => true]);
     
-    // 5. Format Signature (r + s + v)
+    // 7. Format Signature (r + s + v)
     $r = str_pad($signature->r->toString(16), 64, '0', STR_PAD_LEFT);
     $s = str_pad($signature->s->toString(16), 64, '0', STR_PAD_LEFT);
     $v = dechex($signature->recoveryParam + 27);
@@ -77,7 +92,8 @@ try {
     echo json_encode([
         'success' => true,
         'signature' => $fullSignature,
-        'itemType' => $itemType
+        'itemType' => $itemTypeInt,
+        'debug_address' => '0x' . $walletAddress 
     ]);
 
 } catch (Exception $e) {
