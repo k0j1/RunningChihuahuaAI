@@ -395,7 +395,10 @@ export const claimLoginBonus = async (userId: string): Promise<boolean> => {
   try {
     const { error } = await supabase
       .from('player_stats')
-      .update({ last_login_bonus: new Date().toISOString() })
+      .update({ 
+        last_login_bonus: new Date().toISOString(),
+        is_login_bonus: true
+      })
       .eq('user_id', userId);
 
     return !error;

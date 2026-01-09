@@ -49,7 +49,13 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onToggleMute
 }) => {
   const [isDemoReady, setIsDemoReady] = useState(false);
+  
+  // Stamina Timer
   const [timeLeft, setTimeLeft] = useState("");
+  
+  // Bonus Reset Timer
+  const [bonusResetTimeLeft, setBonusResetTimeLeft] = useState("");
+  
   const pressTimer = useRef<number | null>(null);
 
   // Check if guest (no Farcaster)
@@ -78,7 +84,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
     };
   }, []);
 
-  // Update countdown
+  // Update Stamina countdown
   useEffect(() => {
     if (!nextRecoveryTime) {
       setTimeLeft("");
@@ -99,6 +105,36 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
   }, [nextRecoveryTime]);
+
+  // Update Bonus Reset countdown (Target: Next 00:00 UTC)
+  useEffect(() => {
+    if (!loginBonusClaimed) {
+        setBonusResetTimeLeft("");
+        return;
+    }
+
+    const updateBonusTimer = () => {
+        const now = new Date();
+        const nextReset = new Date(now);
+        // Set to next 00:00:00 UTC (which handles day wrap automatically)
+        nextReset.setUTCHours(24, 0, 0, 0);
+        
+        const diff = nextReset.getTime() - now.getTime();
+        
+        if (diff <= 0) {
+            setBonusResetTimeLeft("00:00:00");
+        } else {
+            const h = Math.floor(diff / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+            setBonusResetTimeLeft(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`);
+        }
+    };
+
+    updateBonusTimer();
+    const interval = setInterval(updateBonusTimer, 1000);
+    return () => clearInterval(interval);
+  }, [loginBonusClaimed]);
 
   const hasStamina = stamina > 0;
 
@@ -268,7 +304,11 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             }`}
           >
              <Gift size={20} className={!loginBonusClaimed ? "animate-bounce" : ""} />
-             {loginBonusClaimed ? "BONUS CLAIMED" : "LOGIN BONUS"}
+             {loginBonusClaimed ? (
+               <span className="font-mono text-sm">NEXT: {bonusResetTimeLeft}</span>
+             ) : (
+               "LOGIN BONUS"
+             )}
           </button>
 
           {isDemoReady ? (
