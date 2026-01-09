@@ -56,8 +56,9 @@ jobs:
           # Create api folder in dist
           mkdir -p dist/api
           
-          # Copy PHP file and vendor folder
+          # Copy PHP files and vendor folder
           cp api/claim.php dist/api/
+          cp api/claimBonus.php dist/api/
           cp -r vendor dist/api/
           
           # Create .env file for PHP using Secrets
