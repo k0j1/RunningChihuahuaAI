@@ -11,7 +11,7 @@ const BASE_CHAIN_ID_DEC = 8453;
 // 1. Score Reward Contract (Old Implementation)
 const SCORE_CONTRACT_ADDRESS = "0x65F5661319C4d23c973C806e1e006Bb06d5557D2";
 
-// 2. Daily Bonus Contract (New Implementation)
+// 2. Daily Bonus Contract
 const BONUS_CONTRACT_ADDRESS = "0x14254C321A6d0aB1986ecD8942e8f9603153634E";
 
 // ABIs
@@ -20,8 +20,10 @@ const SCORE_CONTRACT_ABI = [
   "function userClaims(address) view returns (uint32 lastClaimDay, uint8 dailyCount)"
 ];
 
+// Updated ABI to match the provided DailyBonus.sol
 const BONUS_CONTRACT_ABI = [
-  "function claimDailyReward(uint256 itemType, bytes calldata signature) external"
+  "function claim() external",
+  "function canClaim(address user) view returns (bool)"
 ];
 
 const switchToBaseNetwork = async (windowProvider: any) => {
@@ -135,43 +137,12 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
   }
 };
 
-// --- Daily Bonus Claim Logic (Uses BONUS_CONTRACT_ADDRESS & api/claimBonus.php) ---
+// --- Daily Bonus Claim Logic (Uses BONUS_CONTRACT_ADDRESS) ---
 export const claimDailyBonus = async (walletAddress: string, itemType: ItemType): Promise<ClaimResult> => {
     try {
-        console.log(`Preparing Daily Bonus Claim for Item=${itemType} on Contract=${BONUS_CONTRACT_ADDRESS}`);
+        console.log(`Preparing Daily Bonus Claim on Contract=${BONUS_CONTRACT_ADDRESS}`);
         
-        // Map ItemType enum to integer for contract
-        // MAX_HP = 1, HEAL = 2, SHIELD = 3
-        let itemTypeId = 0;
-        if (itemType === ItemType.MAX_HP) itemTypeId = 1;
-        else if (itemType === ItemType.HEAL_ON_DODGE) itemTypeId = 2;
-        else if (itemType === ItemType.SHIELD) itemTypeId = 3;
-        
-        if (itemTypeId === 0) throw new Error("Invalid item type for claim");
-
-        // 1. Request Signature (claimBonus.php)
-        const apiUrl = './api/claimBonus.php';
-        console.log(`Fetching signature from ${apiUrl}...`);
-        
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ walletAddress, itemType: itemTypeId }) 
-        });
-
-        const text = await response.text();
-        console.log("Backend Response:", text);
-        
-        let data: any;
-        try { data = JSON.parse(text); } catch { if (!response.ok) throw new Error(text); }
-
-        if (!response.ok) throw new Error((data && data.message) || text);
-        if (!data || !data.success || !data.signature) throw new Error((data && data.message) || 'Failed to generate signature');
-
-        const { signature } = data;
-        console.log("Received Signature:", signature);
-
-        // 2. Prepare Wallet
+        // 1. Prepare Wallet
         let windowProvider: any; 
         if (sdk.wallet.ethProvider) windowProvider = sdk.wallet.ethProvider;
         else if (window.ethereum) windowProvider = window.ethereum;
@@ -179,36 +150,37 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
 
         if (sdk.actions.ready) await sdk.actions.ready();
 
-        // 3. Switch Network
+        // 2. Switch Network
         await switchToBaseNetwork(windowProvider);
 
-        // 4. Send Transaction
+        // 3. Send Transaction
         const provider = new ethers.BrowserProvider(windowProvider);
         const signer = await provider.getSigner(walletAddress);
         const contract = new ethers.Contract(BONUS_CONTRACT_ADDRESS, BONUS_CONTRACT_ABI, signer);
 
+        // Optional: Pre-flight check with canClaim
+        // Note: Contract reverts if not claimable, so staticCall below handles validation mostly.
+        
         // Debug: Static Call to check for revert reason before sending transaction
         console.log("Attempting staticCall check...");
         try {
-            // Using a slightly lower gas limit for simulation to be safe
-            await contract.claimDailyReward.staticCall(itemTypeId, signature);
+            await contract.claim.staticCall();
             console.log("staticCall successful.");
         } catch (callError: any) {
-            console.warn("staticCall failed (Check Console):", callError);
+            console.warn("staticCall failed:", callError);
             const reason = callError.reason || callError.shortMessage || callError.message || "";
             
-            // "missing revert data" is often a false negative on some RPCs or indicates the RPC couldn't parse the revert string.
-            // We allow the user to proceed to the wallet in this specific case, as the wallet simulation might be more accurate or provide a raw hex error.
+            // "missing revert data" is common on some RPCs, proceed if so.
             if (reason.toLowerCase().includes("missing revert data")) {
-                console.log("Ignoring 'missing revert data' error from staticCall, proceeding to wallet transaction...");
+                console.log("Ignoring 'missing revert data', proceeding...");
             } else {
-                // If it's a clear error like "Invalid signature" or "Already claimed", stop here.
+                // Usually "Next claim available at JST 9:00 AM"
                 throw new Error(`Contract Verification Failed: ${reason}`);
             }
         }
 
-        const tx = await contract.claimDailyReward(itemTypeId, signature, {
-            gasLimit: 300000 
+        const tx = await contract.claim({
+            gasLimit: 200000 
         });
 
         console.log("Daily Bonus Transaction Hash:", tx.hash);
@@ -226,8 +198,6 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
 }
 
 export const fetchDailyClaimCount = async (walletAddress: string): Promise<number> => {
-    // This function was used for the Score contract logic.
-    // Keeping it wired to SCORE_CONTRACT_ADDRESS for now.
     try {
         const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
         const contract = new ethers.Contract(SCORE_CONTRACT_ADDRESS, SCORE_CONTRACT_ABI, provider);
@@ -249,10 +219,8 @@ const handleError = (error: any): ClaimResult => {
     
     if (error.code === 'NETWORK_ERROR') userMsg = `Network error. Check connection.`;
     else if (error.code === 4001 || error.code === 'ACTION_REJECTED' || errMsg.includes('rejected')) userMsg = "Transaction rejected by user.";
-    else if (errMsg.includes('Invalid signature') || detail.includes('Invalid signature')) userMsg = "Contract Rejected: Invalid Signature.";
-    else if (errMsg.includes('Already claimed') || detail.includes('Already claimed')) userMsg = "Contract Rejected: Already claimed today.";
-    else if (errMsg.includes('execution reverted')) userMsg = `Transaction reverted: ${detail || "Unknown reason"}`;
-    else if (errMsg.includes('Contract Verification Failed')) userMsg = errMsg; // Pass through our custom staticCall error
+    else if (errMsg.includes('execution reverted') || detail) userMsg = `Transaction reverted: ${detail || "Already claimed today?"}`;
+    else if (errMsg.includes('Contract Verification Failed')) userMsg = errMsg;
 
     return { success: false, message: userMsg };
 }
