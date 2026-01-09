@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export enum GameState {
@@ -88,6 +89,7 @@ export interface PlayerStats {
   lastStaminaUpdate?: string; // Timestamp of last stamina calculation
   notificationToken?: string;
   notificationUrl?: string;
+  lastLoginBonusTime?: string | null; // Timestamp of last claim
 }
 
 export enum RankingMode {

@@ -1,101 +1,30 @@
+
 import { supabase } from './supabase';
-import { ClaimResult } from '../types';
+import { ClaimResult, ItemType } from '../types';
 import { ethers } from 'ethers';
 import sdk from '@farcaster/frame-sdk';
 
-// --- 重要: デプロイしたCHHClaimVaultのアドレスに変更してください ---
-const TOKEN_CONTRACT_ADDRESS = "0x65F5661319C4d23c973C806e1e006Bb06d5557D2"; 
-
+// --- Configuration ---
 const BASE_CHAIN_ID_HEX = '0x2105'; // 8453 in Hex
 const BASE_CHAIN_ID_DEC = 8453;
 
-// ABI matching the CHHClaimVault contract
-const GAME_TOKEN_ABI = [
+// 1. Score Reward Contract (Old Implementation)
+const SCORE_CONTRACT_ADDRESS = "0x65F5661319C4d23c973C806e1e006Bb06d5557D2";
+
+// 2. Daily Bonus Contract (New Implementation)
+const BONUS_CONTRACT_ADDRESS = "0x14254C321A6d0aB1986ecD8942e8f9603153634E";
+
+// ABIs
+const SCORE_CONTRACT_ABI = [
   "function claimScore(uint256 score, bytes calldata signature) external",
   "function userClaims(address) view returns (uint32 lastClaimDay, uint8 dailyCount)"
 ];
 
-/**
- * Fetches the daily claim count for the user.
- * Uses public RPC to avoid network mismatch errors with wallet.
- */
-export const fetchDailyClaimCount = async (walletAddress: string): Promise<number> => {
-  try {
-    // Use public RPC for read-only operations
-    const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
-    
-    const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, provider);
-    const info = await contract.userClaims(walletAddress);
-    return Number(info[1]); // Return dailyCount
-  } catch (error) {
-    console.error("Error fetching claim count:", error);
-    return 0;
-  }
-};
+const BONUS_CONTRACT_ABI = [
+  "function claimDailyReward(uint256 itemType, bytes calldata signature) external"
+];
 
-export const claimTokenReward = async (walletAddress: string, score: number): Promise<ClaimResult> => {
-  try {
-    console.log(`Preparing claim for Score=${score}`);
-
-    // Validation based on contract constraint
-    if (score > 60000) {
-        throw new Error("Invalid score: Exceeds maximum limit of 60,000.");
-    }
-
-    // 1. Request Signature from Backend (PHP API)
-    const apiUrl = './api/claim.php'; 
-
-    const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ walletAddress, score: score }) // Send current run score
-    });
-
-    // Safely parse response, handling potential 400 errors containing JSON messages
-    const text = await response.text();
-    let data: any;
-    try {
-        data = JSON.parse(text);
-    } catch {
-        // If not JSON, use text as error message if response is bad
-        if (!response.ok) throw new Error(text || `HTTP Error ${response.status}`);
-    }
-
-    if (!response.ok) {
-        // Throw the message from JSON if available, otherwise generic
-        throw new Error((data && data.message) || text || `Server error: ${response.status}`);
-    }
-
-    if (!data || !data.success || !data.signature) {
-      throw new Error((data && data.message) || 'Failed to generate signature from backend');
-    }
-
-    // Extract signature AND the adjusted score (which is now just the raw score string)
-    const { signature, adjusted_score } = data;
-    
-    if (!adjusted_score) {
-        throw new Error("Backend did not return adjusted score.");
-    }
-
-    // 2. Prepare Wallet Provider & Switch Network Logic
-    let windowProvider: any; 
-
-    if (sdk.wallet.ethProvider) {
-       windowProvider = sdk.wallet.ethProvider;
-    } else if (window.ethereum) {
-       windowProvider = window.ethereum;
-    } else {
-       throw new Error("No crypto wallet found. Please use a Web3 browser or Warpcast.");
-    }
-
-    if (sdk.actions.ready) {
-      await sdk.actions.ready();
-    }
-
-    // --- Network Switching Logic (Perform BEFORE creating BrowserProvider) ---
-    // We use the raw request method to ensure the underlying provider is on the right chain.
+const switchToBaseNetwork = async (windowProvider: any) => {
     try {
         const currentChainId = await windowProvider.request({ method: 'eth_chainId' });
         
@@ -106,7 +35,6 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
                     params: [{ chainId: BASE_CHAIN_ID_HEX }],
                 });
             } catch (switchError: any) {
-                // This error code 4902 indicates that the chain has not been added to MetaMask.
                 if (switchError.code === 4902 || switchError.code === '4902' || switchError.message?.includes("Unrecognized chain")) {
                     await windowProvider.request({
                         method: 'wallet_addEthereumChain',
@@ -133,26 +61,63 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
         console.error("Network switch error:", networkError);
         throw new Error("Failed to switch network to Base. Please switch manually.");
     }
+}
 
-    // 3. Initialize Provider AFTER Network Switch
-    // This ensures Ethers picks up the correct Chain ID immediately.
-    const provider = new ethers.BrowserProvider(windowProvider);
-    
-    // 4. Send Transaction
-    console.log("Sending claimScore transaction on Base...", { 
-      originalScore: score,
-      adjustedScore: adjusted_score, 
-      signature, 
-      target: TOKEN_CONTRACT_ADDRESS 
+// --- Score Claim Logic (Uses SCORE_CONTRACT_ADDRESS & api/claim.php) ---
+export const claimTokenReward = async (walletAddress: string, score: number): Promise<ClaimResult> => {
+  try {
+    console.log(`Preparing claim for Score=${score} on Contract=${SCORE_CONTRACT_ADDRESS}`);
+
+    if (score > 60000) {
+        throw new Error("Invalid score: Exceeds maximum limit of 60,000.");
+    }
+
+    // 1. Request Signature from Backend (claim.php)
+    const apiUrl = './api/claim.php'; 
+
+    const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ walletAddress, score: score, type: 'score_claim' }) 
     });
 
-    const signer = await provider.getSigner(walletAddress);
-    const contract = new ethers.Contract(TOKEN_CONTRACT_ADDRESS, GAME_TOKEN_ABI, signer);
+    const text = await response.text();
+    let data: any;
+    try {
+        data = JSON.parse(text);
+    } catch {
+        if (!response.ok) throw new Error(text || `HTTP Error ${response.status}`);
+    }
 
-    // Call claimScore with the ADJUSTED SCORE (which is now raw score string) returned from PHP
-    // Ethers handles string inputs for large integers automatically
+    if (!response.ok) {
+        throw new Error((data && data.message) || text || `Server error: ${response.status}`);
+    }
+
+    if (!data || !data.success || !data.signature) {
+      throw new Error((data && data.message) || 'Failed to generate signature from backend');
+    }
+
+    const { signature, adjusted_score } = data;
+    
+    // 2. Prepare Wallet Provider
+    let windowProvider: any; 
+    if (sdk.wallet.ethProvider) windowProvider = sdk.wallet.ethProvider;
+    else if (window.ethereum) windowProvider = window.ethereum;
+    else throw new Error("No crypto wallet found. Please use a Web3 browser or Warpcast.");
+
+    if (sdk.actions.ready) await sdk.actions.ready();
+
+    // 3. Switch Network
+    await switchToBaseNetwork(windowProvider);
+
+    // 4. Initialize Provider & Contract
+    const provider = new ethers.BrowserProvider(windowProvider);
+    const signer = await provider.getSigner(walletAddress);
+    const contract = new ethers.Contract(SCORE_CONTRACT_ADDRESS, SCORE_CONTRACT_ABI, signer);
+
+    // 5. Send Transaction
     const tx = await contract.claimScore(adjusted_score, signature, {
-        gasLimit: 300000 // Set a safe upper bound for gas
+        gasLimit: 300000 
     });
     
     console.log("Transaction successfully requested:", tx.hash);
@@ -165,40 +130,97 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
     };
 
   } catch (error: any) {
-    console.error("Token Claim Error Full Object:", error);
-
-    const errMsg = error.message || "";
-    
-    if (error.code === 'NETWORK_ERROR') {
-        return { 
-          success: false, 
-          message: `Network error. Please ensure your wallet is connected to Base.` 
-        };
-    }
-
-    if (error.code === 4001 || error.code === 'ACTION_REJECTED' || errMsg.includes('rejected')) {
-        return { success: false, message: "Transaction rejected by user." };
-    }
-    
-    // Contract specific errors
-    if (errMsg.includes('Invalid signature')) {
-         return { success: false, message: "Security check failed (Invalid Signature)." };
-    }
-    if (errMsg.includes('Not enough tokens in vault')) {
-         return { success: false, message: "The prize vault is currently empty." };
-    }
-
-    if (error.code === 'CALL_EXCEPTION') {
-        // Since we added gasLimit, this error might now contain data, or it might be a simulation failure.
-        return { 
-          success: false, 
-          message: `Contract call failed. Please check if you have already claimed today or if the vault is empty.` 
-        };
-    }
-
-    return {
-      success: false,
-      message: `Error: ${error.message || errMsg}`
-    };
+    console.error("Token Claim Error:", error);
+    return handleError(error);
   }
 };
+
+// --- Daily Bonus Claim Logic (Uses BONUS_CONTRACT_ADDRESS & api/claimBonus.php) ---
+export const claimDailyBonus = async (walletAddress: string, itemType: ItemType): Promise<ClaimResult> => {
+    try {
+        console.log(`Preparing Daily Bonus Claim for Item=${itemType} on Contract=${BONUS_CONTRACT_ADDRESS}`);
+        
+        // Map ItemType enum to integer for contract
+        // MAX_HP = 1, HEAL = 2, SHIELD = 3
+        let itemTypeId = 0;
+        if (itemType === ItemType.MAX_HP) itemTypeId = 1;
+        else if (itemType === ItemType.HEAL_ON_DODGE) itemTypeId = 2;
+        else if (itemType === ItemType.SHIELD) itemTypeId = 3;
+        
+        if (itemTypeId === 0) throw new Error("Invalid item type for claim");
+
+        // 1. Request Signature (claimBonus.php)
+        const apiUrl = './api/claimBonus.php';
+        
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ walletAddress, itemType: itemTypeId }) 
+        });
+
+        const text = await response.text();
+        let data: any;
+        try { data = JSON.parse(text); } catch { if (!response.ok) throw new Error(text); }
+
+        if (!response.ok) throw new Error((data && data.message) || text);
+        if (!data || !data.success || !data.signature) throw new Error((data && data.message) || 'Failed to generate signature');
+
+        const { signature } = data;
+
+        // 2. Prepare Wallet
+        let windowProvider: any; 
+        if (sdk.wallet.ethProvider) windowProvider = sdk.wallet.ethProvider;
+        else if (window.ethereum) windowProvider = window.ethereum;
+        else throw new Error("No crypto wallet found.");
+
+        if (sdk.actions.ready) await sdk.actions.ready();
+
+        // 3. Switch Network
+        await switchToBaseNetwork(windowProvider);
+
+        // 4. Send Transaction
+        const provider = new ethers.BrowserProvider(windowProvider);
+        const signer = await provider.getSigner(walletAddress);
+        const contract = new ethers.Contract(BONUS_CONTRACT_ADDRESS, BONUS_CONTRACT_ABI, signer);
+
+        const tx = await contract.claimDailyReward(itemTypeId, signature, {
+            gasLimit: 200000
+        });
+
+        console.log("Daily Bonus Transaction:", tx.hash);
+
+        return {
+            success: true,
+            message: "Bonus claimed on-chain!",
+            txHash: tx.hash
+        };
+
+    } catch (error: any) {
+        console.error("Daily Bonus Claim Error:", error);
+        return handleError(error);
+    }
+}
+
+export const fetchDailyClaimCount = async (walletAddress: string): Promise<number> => {
+    // This function was used for the Score contract logic.
+    // Keeping it wired to SCORE_CONTRACT_ADDRESS for now.
+    try {
+        const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+        const contract = new ethers.Contract(SCORE_CONTRACT_ADDRESS, SCORE_CONTRACT_ABI, provider);
+        const info = await contract.userClaims(walletAddress);
+        return Number(info[1]);
+    } catch (error) {
+        console.error("Error fetching claim count:", error);
+        return 0;
+    }
+};
+
+const handleError = (error: any): ClaimResult => {
+    const errMsg = error.message || "";
+    if (error.code === 'NETWORK_ERROR') return { success: false, message: `Network error. Check connection.` };
+    if (error.code === 4001 || error.code === 'ACTION_REJECTED' || errMsg.includes('rejected')) return { success: false, message: "Transaction rejected." };
+    if (errMsg.includes('Invalid signature')) return { success: false, message: "Invalid Signature." };
+    if (errMsg.includes('Already claimed')) return { success: false, message: "Already claimed today." };
+    
+    return { success: false, message: `Error: ${error.message || errMsg}` };
+}

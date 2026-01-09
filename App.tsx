@@ -19,6 +19,8 @@ const App: React.FC = () => {
     staminaSystem, // Stamina Props
     inventorySystem, // Inventory Props
     selectedItems, toggleItem, clearSelectedItems, // Item Props
+    showLoginBonus, openLoginBonus, closeLoginBonus, handleClaimLoginBonus, // Login Bonus Props
+    pendingBonusItem, setPendingBonusItem, // Pending Bonus Persistence
     shield, // Player Shield
     hasUsedShield, handleUseShield, // Shield Action
     isMuted, toggleMute, // Audio Props
@@ -100,6 +102,13 @@ const App: React.FC = () => {
         selectedItems={selectedItems}
         toggleItem={toggleItem}
         inventory={inventorySystem.inventory}
+        showLoginBonus={showLoginBonus}
+        onOpenLoginBonus={openLoginBonus}
+        onCloseLoginBonus={closeLoginBonus}
+        onClaimLoginBonus={handleClaimLoginBonus}
+        loginBonusClaimed={inventorySystem.loginBonusClaimed}
+        pendingBonusItem={pendingBonusItem}
+        setPendingBonusItem={setPendingBonusItem}
         shield={shield}
         hasUsedShield={hasUsedShield}
         onUseShield={handleUseShield}

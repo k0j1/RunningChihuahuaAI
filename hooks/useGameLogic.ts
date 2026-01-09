@@ -1,5 +1,4 @@
 
-
 import { useState, useRef, useEffect } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { GameState, BossType, ItemType } from '../types';
@@ -20,6 +19,9 @@ export const useGameLogic = () => {
   const [isMuted, setIsMuted] = useState<boolean>(true); // Default to Muted (OFF)
   const [selectedItems, setSelectedItems] = useState<ItemType[]>([]);
   const [hasUsedShield, setHasUsedShield] = useState(false);
+  
+  // UI States
+  const [showLoginBonus, setShowLoginBonus] = useState(false);
   
   // Use Ref to ensure the game loop always sees the correct mode immediately without waiting for re-renders
   const isDemoModeRef = useRef<boolean>(false);
@@ -68,6 +70,15 @@ export const useGameLogic = () => {
 
   const clearSelectedItems = () => {
     setSelectedItems([]);
+  };
+
+  // Login Bonus Actions
+  const openLoginBonus = () => setShowLoginBonus(true);
+  const closeLoginBonus = () => setShowLoginBonus(false);
+  
+  const handleClaimLoginBonus = async (item: ItemType) => {
+      // Logic moved inside hook, just pass the item and wallet
+      return await inventorySystem.claimBonus(item, walletAddress);
   };
 
   const handleUseShield = async () => {
@@ -359,7 +370,10 @@ export const useGameLogic = () => {
     ...projectileSystem,
     ...rewardSystem,
     staminaSystem, 
-    inventorySystem, 
+    inventorySystem,
+    showLoginBonus, openLoginBonus, closeLoginBonus, handleClaimLoginBonus, // Login Bonus
+    pendingBonusItem: inventorySystem.pendingBonusItem, // Expose pending item
+    setPendingBonusItem: inventorySystem.setPendingBonusItem, // Expose setter
     isThrowing: projectileSystem.isThrowingRef.current,
     hasUsedShield, handleUseShield, // Exported
     startGame, handleGameOver, shareScore,

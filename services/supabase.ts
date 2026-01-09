@@ -145,7 +145,8 @@ export const fetchUserStats = async (userId: string): Promise<PlayerStats | null
       stamina: data.stamina,
       lastStaminaUpdate: data.last_stamina_update,
       notificationToken: data.notification_token,
-      notificationUrl: data.notification_url
+      notificationUrl: data.notification_url,
+      lastLoginBonusTime: data.last_login_bonus // Updated column mapping
     };
   } catch (e) {
     return null;
@@ -205,7 +206,8 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
         total_distance: 0,
         run_count: 0,
         stamina: 5,
-        last_stamina_update: new Date().toISOString()
+        last_stamina_update: new Date().toISOString(),
+        last_login_bonus: null
       });
     }
 
@@ -300,6 +302,49 @@ export const fetchUserInventory = async (farcasterUser: any, walletAddress: stri
   }
 };
 
+export const grantUserItem = async (farcasterUser: any, walletAddress: string | null, itemType: ItemType): Promise<boolean> => {
+  if (itemType === ItemType.NONE) return false;
+  
+  let userId: string | null = null;
+  if (farcasterUser?.username) {
+    userId = `fc:${farcasterUser.username}`;
+  }
+  if (!userId) return false;
+
+  let columnName = '';
+  if (itemType === ItemType.MAX_HP) columnName = 'max_hp';
+  else if (itemType === ItemType.HEAL_ON_DODGE) columnName = 'heal';
+  else if (itemType === ItemType.SHIELD) columnName = 'shield';
+  else return false;
+
+  try {
+    // 1. Fetch current quantity
+    const { data, error: fetchError } = await supabase
+      .from('player_items')
+      .select(columnName)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (fetchError) return false;
+    
+    // Default to 0 if not exists
+    const currentQty = data ? (data as any)[columnName] : 0;
+
+    // 2. Increment (Upsert)
+    const { error: updateError } = await supabase
+      .from('player_items')
+      .upsert({ 
+        user_id: userId, 
+        [columnName]: currentQty + 1 
+      }, { onConflict: 'user_id' });
+
+    return !updateError;
+  } catch (e) {
+    console.error("Error granting item:", e);
+    return false;
+  }
+};
+
 export const consumeUserItem = async (farcasterUser: any, walletAddress: string | null, itemType: ItemType): Promise<boolean> => {
   if (itemType === ItemType.NONE) return true;
 
@@ -342,6 +387,20 @@ export const consumeUserItem = async (farcasterUser: any, walletAddress: string 
     return !updateError;
   } catch (e) {
     console.error("Error consuming item:", e);
+    return false;
+  }
+};
+
+export const claimLoginBonus = async (userId: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('player_stats')
+      .update({ last_login_bonus: new Date().toISOString() })
+      .eq('user_id', userId);
+
+    return !error;
+  } catch (e) {
+    console.error("Error claiming login bonus:", e);
     return false;
   }
 };

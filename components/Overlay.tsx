@@ -9,6 +9,7 @@ import { GameHUD } from './overlay/GameHUD';
 import { GameClearScreen } from './overlay/GameClearScreen';
 import { RankedEntry } from './overlay/RankingList';
 import { UserInfoModal } from './overlay/UserInfoModal';
+import { LoginBonusModal } from './overlay/LoginBonusModal';
 
 interface OverlayProps {
   gameState: GameState;
@@ -48,6 +49,14 @@ interface OverlayProps {
   selectedItems: ItemType[];
   toggleItem: (item: ItemType) => void;
   inventory: UserInventory;
+  // Login Bonus
+  showLoginBonus: boolean;
+  onOpenLoginBonus: () => void;
+  onCloseLoginBonus: () => void;
+  onClaimLoginBonus: (item: ItemType) => Promise<ClaimResult>;
+  loginBonusClaimed: boolean;
+  pendingBonusItem: ItemType | null;
+  setPendingBonusItem: (item: ItemType) => void;
   // Shield
   shield: number;
   hasUsedShield: boolean;
@@ -105,6 +114,13 @@ export const Overlay: React.FC<OverlayProps> = ({
   selectedItems,
   toggleItem,
   inventory,
+  showLoginBonus,
+  onOpenLoginBonus,
+  onCloseLoginBonus,
+  onClaimLoginBonus,
+  loginBonusClaimed,
+  pendingBonusItem,
+  setPendingBonusItem,
   shield,
   hasUsedShield,
   onUseShield,
@@ -188,6 +204,16 @@ export const Overlay: React.FC<OverlayProps> = ({
         />
       )}
 
+      {showLoginBonus && (
+        <LoginBonusModal 
+          onClose={onCloseLoginBonus}
+          onClaim={onClaimLoginBonus}
+          walletAddress={walletAddress}
+          pendingBonusItem={pendingBonusItem}
+          onRegisterPending={setPendingBonusItem}
+        />
+      )}
+
       {(() => {
         if (gameState === GameState.TITLE) {
           return (
@@ -207,6 +233,8 @@ export const Overlay: React.FC<OverlayProps> = ({
               selectedItems={selectedItems}
               toggleItem={toggleItem}
               inventory={inventory}
+              onOpenLoginBonus={onOpenLoginBonus}
+              loginBonusClaimed={loginBonusClaimed}
               isMuted={isMuted}
               onToggleMute={onToggleMute}
             />

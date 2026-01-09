@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { History, Trophy, FileText, PlayCircle, Zap, Clock, Volume2, VolumeX, Heart, Shield, ArrowUp, Sparkles, PlusCircle } from 'lucide-react';
+import { History, Trophy, FileText, PlayCircle, Zap, Clock, Volume2, VolumeX, Heart, Shield, ArrowUp, Sparkles, PlusCircle, Gift } from 'lucide-react';
 import { TitleBackground } from '../TitleBackground';
 import { WalletWidget } from './WalletWidget';
-import { ItemType, UserInventory } from '../../types';
+import { ItemType, UserInventory, ClaimResult } from '../../types';
 
 interface TitleScreenProps {
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string } | null;
@@ -21,6 +21,8 @@ interface TitleScreenProps {
   selectedItems: ItemType[];
   toggleItem: (item: ItemType) => void;
   inventory: UserInventory;
+  onOpenLoginBonus: () => void;
+  loginBonusClaimed: boolean;
   isMuted: boolean;
   onToggleMute: () => void;
 }
@@ -41,6 +43,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   selectedItems,
   toggleItem,
   inventory,
+  onOpenLoginBonus,
+  loginBonusClaimed,
   isMuted,
   onToggleMute
 }) => {
@@ -253,6 +257,20 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         )}
 
         <div className="flex flex-col gap-4">
+          {/* Login Bonus Button */}
+          <button
+            onClick={onOpenLoginBonus}
+            disabled={loginBonusClaimed}
+            className={`w-full py-3 rounded-full font-bold flex items-center justify-center gap-2 transition-all shadow-md transform ${
+              loginBonusClaimed
+              ? 'bg-gray-800/50 text-gray-500 cursor-not-allowed border border-gray-700'
+              : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:scale-105 active:scale-95 animate-pulse-slow border border-yellow-400/50'
+            }`}
+          >
+             <Gift size={20} className={!loginBonusClaimed ? "animate-bounce" : ""} />
+             {loginBonusClaimed ? "BONUS CLAIMED" : "LOGIN BONUS"}
+          </button>
+
           {isDemoReady ? (
             <button
               onClick={() => onStartGame(true)}
