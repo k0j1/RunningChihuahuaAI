@@ -184,7 +184,7 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
         const contract = new ethers.Contract(BONUS_CONTRACT_ADDRESS, BONUS_CONTRACT_ABI, signer);
 
         const tx = await contract.claimDailyReward(itemTypeId, signature, {
-            gasLimit: 200000
+            gasLimit: 250000
         });
 
         console.log("Daily Bonus Transaction:", tx.hash);
@@ -221,6 +221,7 @@ const handleError = (error: any): ClaimResult => {
     if (error.code === 4001 || error.code === 'ACTION_REJECTED' || errMsg.includes('rejected')) return { success: false, message: "Transaction rejected." };
     if (errMsg.includes('Invalid signature')) return { success: false, message: "Invalid Signature." };
     if (errMsg.includes('Already claimed')) return { success: false, message: "Already claimed today." };
+    if (errMsg.includes('execution reverted')) return { success: false, message: "Transaction failed. Please try again." };
     
     return { success: false, message: `Error: ${error.message || errMsg}` };
 }

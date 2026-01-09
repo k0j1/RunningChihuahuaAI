@@ -1,84 +1,87 @@
 <?php
-// api/claimBonus.php
+require 'vendor/autoload.php';
 
-// CORS Headers
+use Dotenv\Dotenv;
+use Elliptic\EC;
+use kornrunner\Keccak;
+
+// Allow CORS
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Headers: Content-Type');
 header('Content-Type: application/json');
 
-// Handle Preflight
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
 }
 
-require_once __DIR__ . '/vendor/autoload.php';
-
-use Dotenv\Dotenv;
-use kornrunner\Keccak;
-use Elliptic\EC;
-
-// Load Environment Variables
+// Load environment variables
 $dotenv = Dotenv::createImmutable(__DIR__);
 $dotenv->safeLoad();
 
-$privateKey = $_ENV['PRIVATE_KEY'] ?? getenv('PRIVATE_KEY');
-
-if (!$privateKey) {
-    echo json_encode(['success' => false, 'message' => 'Server configuration error']);
+// Get Private Key
+$privateKeyHex = $_ENV['PRIVATE_KEY'] ?? null;
+if (!$privateKeyHex) {
+    http_response_code(500);
+    echo JSON_encode(['success' => false, 'message' => 'Server configuration error']);
     exit;
 }
 
-// Get Request Body
+// Get Input
 $input = json_decode(file_get_contents('php://input'), true);
-$walletAddress = $input['walletAddress'] ?? '';
-$itemType = $input['itemType'] ?? 0;
+$walletAddress = $input['walletAddress'] ?? null;
+$itemType = $input['itemType'] ?? null;
 
 if (!$walletAddress || !$itemType) {
-    echo json_encode(['success' => false, 'message' => 'Missing parameters']);
+    http_response_code(400);
+    echo json_encode(['success' => false, 'message' => 'Missing walletAddress or itemType']);
     exit;
 }
 
 try {
-    // 1. Prepare Data for Hashing
-    // Solidity: keccak256(abi.encodePacked(msg.sender, itemType))
-    // Note: itemType is uint256
+    // 1. Prepare Data
+    // Remove '0x' prefix
+    $walletAddress = str_replace('0x', '', $walletAddress);
     
-    // Address: Remove '0x', ensure lowercase (20 bytes)
-    $addressClean = str_replace('0x', '', strtolower($walletAddress));
+    // Convert address to binary (20 bytes)
+    $addressBin = hex2bin($walletAddress);
     
-    // ItemType: uint256 is 32 bytes. Convert int to hex and pad left with zeros.
-    $itemTypeHex = str_pad(dechex($itemType), 64, '0', STR_PAD_LEFT);
+    // Convert itemType to uint256 binary (32 bytes, Big Endian)
+    $itemTypeHex = str_pad(dechex((int)$itemType), 64, '0', STR_PAD_LEFT);
+    $itemTypeBin = hex2bin($itemTypeHex);
     
-    // 2. Create Hash
-    // Pack arguments: address (20 bytes) + uint256 (32 bytes)
-    $message = hex2bin($addressClean . $itemTypeHex);
+    // 2. Construct Message Hash: keccak256(abi.encodePacked(address, uint256))
+    $message = $addressBin . $itemTypeBin;
+    $messageHashBin = Keccak::hash($message, 256, true); // Raw binary output
     
-    // Keccak256 Hash of the packed message
-    $hash = Keccak::hash($message, 256); // Returns hex string
-
-    // 3. Sign Hash
+    // 3. Construct Ethereum Signed Message
+    // Prefix: "\x19Ethereum Signed Message:\n" + length of message (32 bytes)
+    $prefix = "\x19Ethereum Signed Message:\n32";
+    $ethSignedMessage = $prefix . $messageHashBin;
+    
+    // Hash again
+    $finalHash = Keccak::hash($ethSignedMessage, 256);
+    
+    // 4. Sign
     $ec = new EC('secp256k1');
-    $key = $ec->keyFromPrivate($privateKey);
+    $key = $ec->keyFromPrivate($privateKeyHex);
+    $signature = $key->sign($finalHash, ['canonical' => true]);
     
-    // Sign the hash (must be hex string for elliptic-php)
-    $signature = $key->sign($hash, ['canonical' => true]);
-
-    // 4. Construct Ethereum Signature (r + s + v)
+    // 5. Format Signature (r + s + v)
     $r = str_pad($signature->r->toString(16), 64, '0', STR_PAD_LEFT);
     $s = str_pad($signature->s->toString(16), 64, '0', STR_PAD_LEFT);
-    $v = dechex($signature->recoveryParam + 27); // 27 or 28
-
+    $v = dechex($signature->recoveryParam + 27);
+    
     $fullSignature = '0x' . $r . $s . $v;
-
+    
     echo json_encode([
         'success' => true,
         'signature' => $fullSignature,
-        'itemType' => $itemType,
-        'hash' => '0x' . $hash // Debug info
+        'itemType' => $itemType
     ]);
 
 } catch (Exception $e) {
+    http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'Signing failed: ' . $e->getMessage()]);
 }
 ?>
