@@ -248,7 +248,7 @@ export const LoginBonusModal: React.FC<LoginBonusModalProps> = ({
                         ) : (
                             <>
                                 <Wallet size={24} />
-                                CLAIM (GAS REQUIRED)
+                                CLAIM
                             </>
                         )}
                     </button>
@@ -256,7 +256,7 @@ export const LoginBonusModal: React.FC<LoginBonusModalProps> = ({
                 
                 {rouletteState === 'RESULT' && (
                      <div className="text-[10px] text-gray-400 mt-2 text-center">
-                        Requires a small gas fee on Base network.<br/>Resets daily at 9:00 AM JST.
+                        Resets daily at 9:00 AM JST.
                      </div>
                 )}
             </>
