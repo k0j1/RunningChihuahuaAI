@@ -211,9 +211,9 @@ export const LoginBonusModal: React.FC<LoginBonusModalProps> = ({
                 
                 {/* Error Message */}
                 {claimError && (
-                    <div className="w-full bg-red-900/50 border border-red-500 rounded-lg p-3 mb-4 flex items-center gap-2 text-red-200 text-xs">
-                        <AlertCircle size={16} className="shrink-0" />
-                        <span>{claimError}</span>
+                    <div className="w-full bg-red-900/50 border border-red-500 rounded-lg p-3 mb-4 flex gap-2 text-red-200 text-xs overflow-hidden">
+                        <AlertCircle size={16} className="shrink-0 mt-0.5" />
+                        <span className="break-words max-h-24 overflow-y-auto w-full">{claimError}</span>
                     </div>
                 )}
 

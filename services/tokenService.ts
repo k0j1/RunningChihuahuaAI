@@ -151,6 +151,7 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
 
         // 1. Request Signature (claimBonus.php)
         const apiUrl = './api/claimBonus.php';
+        console.log(`Fetching signature from ${apiUrl}...`);
         
         const response = await fetch(apiUrl, {
             method: 'POST',
@@ -159,6 +160,8 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
         });
 
         const text = await response.text();
+        console.log("Backend Response:", text);
+        
         let data: any;
         try { data = JSON.parse(text); } catch { if (!response.ok) throw new Error(text); }
 
@@ -166,6 +169,7 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
         if (!data || !data.success || !data.signature) throw new Error((data && data.message) || 'Failed to generate signature');
 
         const { signature } = data;
+        console.log("Received Signature:", signature);
 
         // 2. Prepare Wallet
         let windowProvider: any; 
@@ -183,11 +187,22 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
         const signer = await provider.getSigner(walletAddress);
         const contract = new ethers.Contract(BONUS_CONTRACT_ADDRESS, BONUS_CONTRACT_ABI, signer);
 
+        // Debug: Static Call to check for revert reason before sending transaction
+        console.log("Attempting staticCall check...");
+        try {
+            await contract.claimDailyReward.staticCall(itemTypeId, signature);
+            console.log("staticCall successful.");
+        } catch (callError: any) {
+            console.error("staticCall failed:", callError);
+            const reason = callError.reason || callError.shortMessage || callError.message;
+            throw new Error(`Contract Verification Failed: ${reason}`);
+        }
+
         const tx = await contract.claimDailyReward(itemTypeId, signature, {
             gasLimit: 300000 
         });
 
-        console.log("Daily Bonus Transaction:", tx.hash);
+        console.log("Daily Bonus Transaction Hash:", tx.hash);
 
         return {
             success: true,
@@ -217,13 +232,18 @@ export const fetchDailyClaimCount = async (walletAddress: string): Promise<numbe
 
 const handleError = (error: any): ClaimResult => {
     const errMsg = error.message || "";
-    console.error("Detailed Error:", error);
+    const detail = error.data || error.reason || error.shortMessage || "";
     
-    if (error.code === 'NETWORK_ERROR') return { success: false, message: `Network error. Check connection.` };
-    if (error.code === 4001 || error.code === 'ACTION_REJECTED' || errMsg.includes('rejected')) return { success: false, message: "Transaction rejected." };
-    if (errMsg.includes('Invalid signature')) return { success: false, message: "Invalid Signature." };
-    if (errMsg.includes('Already claimed')) return { success: false, message: "Already claimed today." };
-    if (errMsg.includes('execution reverted')) return { success: false, message: "Transaction reverted. Likely invalid signature or already claimed." };
+    console.error("Detailed Error Object:", error);
     
-    return { success: false, message: `Error: ${error.message || errMsg}` };
+    let userMsg = `Error: ${errMsg}`;
+    
+    if (error.code === 'NETWORK_ERROR') userMsg = `Network error. Check connection.`;
+    else if (error.code === 4001 || error.code === 'ACTION_REJECTED' || errMsg.includes('rejected')) userMsg = "Transaction rejected by user.";
+    else if (errMsg.includes('Invalid signature') || detail.includes('Invalid signature')) userMsg = "Contract Rejected: Invalid Signature.";
+    else if (errMsg.includes('Already claimed') || detail.includes('Already claimed')) userMsg = "Contract Rejected: Already claimed today.";
+    else if (errMsg.includes('execution reverted')) userMsg = `Transaction reverted: ${detail || "Unknown reason"}`;
+    else if (errMsg.includes('Contract Verification Failed')) userMsg = errMsg; // Pass through our custom staticCall error
+
+    return { success: false, message: userMsg };
 }
