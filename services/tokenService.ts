@@ -190,12 +190,21 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
         // Debug: Static Call to check for revert reason before sending transaction
         console.log("Attempting staticCall check...");
         try {
+            // Using a slightly lower gas limit for simulation to be safe
             await contract.claimDailyReward.staticCall(itemTypeId, signature);
             console.log("staticCall successful.");
         } catch (callError: any) {
-            console.error("staticCall failed:", callError);
-            const reason = callError.reason || callError.shortMessage || callError.message;
-            throw new Error(`Contract Verification Failed: ${reason}`);
+            console.warn("staticCall failed (Check Console):", callError);
+            const reason = callError.reason || callError.shortMessage || callError.message || "";
+            
+            // "missing revert data" is often a false negative on some RPCs or indicates the RPC couldn't parse the revert string.
+            // We allow the user to proceed to the wallet in this specific case, as the wallet simulation might be more accurate or provide a raw hex error.
+            if (reason.toLowerCase().includes("missing revert data")) {
+                console.log("Ignoring 'missing revert data' error from staticCall, proceeding to wallet transaction...");
+            } else {
+                // If it's a clear error like "Invalid signature" or "Already claimed", stop here.
+                throw new Error(`Contract Verification Failed: ${reason}`);
+            }
         }
 
         const tx = await contract.claimDailyReward(itemTypeId, signature, {

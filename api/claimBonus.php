@@ -1,103 +1,106 @@
 <?php
-require 'vendor/autoload.php';
+// 必要なライブラリ: kornrunner/keccak, simplito/elliptic-php, vlucas/phpdotenv
+// composer require kornrunner/keccak simplito/elliptic-php vlucas/phpdotenv
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    exit(0);
+}
+
+require_once __DIR__ . '/vendor/autoload.php';
 
 use Dotenv\Dotenv;
 use Elliptic\EC;
 use kornrunner\Keccak;
 
-// CORS headers
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Headers: Content-Type');
-header('Content-Type: application/json');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
+// .envの読み込み（サーバー環境変数で設定されている場合はスキップ可）
+$dotenv = Dotenv::createImmutable(__DIR__);
+try {
+    $dotenv->load();
+} catch (Exception $e) {
+    // .envが見つからない場合は環境変数を直接参照
 }
 
-// Load environment variables
-$dotenv = Dotenv::createImmutable(__DIR__);
-$dotenv->safeLoad();
+$privateKeyHex = $_ENV['PRIVATE_KEY'] ?? getenv('PRIVATE_KEY');
 
-// Get Private Key
-$privateKeyHex = $_ENV['PRIVATE_KEY'] ?? null;
 if (!$privateKeyHex) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Server configuration error: Private key missing']);
+    echo json_encode(['success' => false, 'message' => 'Server configuration error: Private Key missing']);
     exit;
 }
 
-// Remove '0x' prefix if present
-if (strpos($privateKeyHex, '0x') === 0) {
-    $privateKeyHex = substr($privateKeyHex, 2);
+// ヘルパー関数: 0xプレフィックスの除去
+function strip0x($str) {
+    return (strpos($str, '0x') === 0) ? substr($str, 2) : $str;
 }
 
-// Get Input
+// 1. 入力データの取得
 $input = json_decode(file_get_contents('php://input'), true);
-$walletAddress = $input['walletAddress'] ?? null;
-$itemType = $input['itemType'] ?? null;
+$walletAddress = $input['walletAddress'] ?? '';
+$itemType = $input['itemType'] ?? 0;
 
 if (!$walletAddress || !$itemType) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'Missing walletAddress or itemType']);
+    echo json_encode(['success' => false, 'message' => 'Missing parameters: walletAddress or itemType']);
     exit;
 }
 
 try {
-    // 1. Prepare Data for abi.encodePacked(address, uint256)
+    // 2. データのパッキング (Solidityの abi.encodePacked と同じ形式)
     
-    // Address: Remove 0x, ensure 40 chars hex
-    $walletAddress = str_replace('0x', '', $walletAddress);
-    if (strlen($walletAddress) !== 40 || !ctype_xdigit($walletAddress)) {
-        throw new Exception("Invalid wallet address format");
+    // Address: 20バイト (バイナリ)
+    $addressHex = strip0x($walletAddress);
+    if (strlen($addressHex) !== 40) {
+        throw new Exception("Invalid wallet address length");
     }
-    $addressBin = hex2bin($walletAddress);
-    
-    // ItemType: Convert to uint256 (32 bytes, Big Endian)
-    // Ensure it's treated as an integer
-    $itemTypeInt = (int)$itemType;
-    $itemTypeHex = dechex($itemTypeInt);
-    // Pad left with zeros to 64 chars (32 bytes)
-    $itemTypeHexPadded = str_pad($itemTypeHex, 64, '0', STR_PAD_LEFT);
-    $itemTypeBin = hex2bin($itemTypeHexPadded);
-    
-    // 2. Construct Message: abi.encodePacked(address, uint256)
-    // 20 bytes + 32 bytes = 52 bytes
-    $message = $addressBin . $itemTypeBin;
-    
-    // 3. Hash the message: keccak256(message)
-    $messageHashBin = Keccak::hash($message, 256, true);
-    
-    // 4. Construct Ethereum Signed Message
-    // Prefix: "\x19Ethereum Signed Message:\n32"
-    // Note: The length is 32 because we are signing the hash of the packed data
+    $addressBin = hex2bin($addressHex);
+
+    // Uint256: 32バイト (ビッグエンディアン, バイナリ)
+    // $itemTypeは整数のため、16進数に変換し、64文字(32バイト)になるよう左側を0埋め
+    $itemTypeHex = str_pad(dechex($itemType), 64, '0', STR_PAD_LEFT);
+    $itemTypeBin = hex2bin($itemTypeHex);
+
+    // 結合
+    $packed = $addressBin . $itemTypeBin;
+
+    // 3. データハッシュの生成 (Keccak256)
+    $dataHashHex = Keccak::hash($packed, 256);
+    $dataHashBin = hex2bin($dataHashHex);
+
+    // 4. EIP-191 プレフィックスの付与と再ハッシュ
+    // "\x19Ethereum Signed Message:\n32" + dataHash
+    // これにより、ethers.jsなどの wallet.signMessage と同じ署名が生成され、
+    // スマートコントラクトの ECDSA.recover で復元可能になります。
     $prefix = "\x19Ethereum Signed Message:\n32";
-    $ethSignedMessage = $prefix . $messageHashBin;
+    $finalHashHex = Keccak::hash($prefix . $dataHashBin, 256);
     
-    // 5. Hash again (Digest)
-    $digest = Keccak::hash($ethSignedMessage, 256);
-    
-    // 6. Sign
+    // 5. 署名の生成
     $ec = new EC('secp256k1');
-    $key = $ec->keyFromPrivate($privateKeyHex);
-    $signature = $key->sign($digest, ['canonical' => true]);
-    
-    // 7. Format Signature (r + s + v)
+    $key = $ec->keyFromPrivate(strip0x($privateKeyHex));
+    $signature = $key->sign($finalHashHex, ['canonical' => true]);
+
+    // 6. 署名文字列の構築 (r + s + v)
     $r = str_pad($signature->r->toString(16), 64, '0', STR_PAD_LEFT);
     $s = str_pad($signature->s->toString(16), 64, '0', STR_PAD_LEFT);
-    $v = dechex($signature->recoveryParam + 27);
-    
+    $v = dechex($signature->recoveryParam + 27); // Ethereumの標準的なv値 (27 or 28)
+
     $fullSignature = '0x' . $r . $s . $v;
-    
+
     echo json_encode([
         'success' => true,
         'signature' => $fullSignature,
-        'itemType' => $itemTypeInt,
-        'debug_address' => '0x' . $walletAddress 
+        'debug' => [
+            'itemType' => $itemType,
+            'wallet' => $walletAddress
+        ]
     ]);
 
 } catch (Exception $e) {
     http_response_code(500);
-    echo json_encode(['success' => false, 'message' => 'Signing failed: ' . $e->getMessage()]);
+    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
 ?>
