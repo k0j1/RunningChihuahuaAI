@@ -82,7 +82,10 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
       const userId = `fc:${farcasterUser.username}`;
       const stats = await fetchUserStats(userId);
       if (stats) {
-          const claimed = !isBonusAvailable(stats.lastLoginBonusTime || null);
+          // Check bonus availability based on last_login_bonus timestamp
+          const available = isBonusAvailable(stats.lastLoginBonusTime || null);
+          const claimed = !available;
+
           setLoginBonusClaimed(claimed);
           // Safety: If claimed is true, ensure pending is cleared (edge case correction)
           if (claimed) {

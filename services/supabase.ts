@@ -146,7 +146,7 @@ export const fetchUserStats = async (userId: string): Promise<PlayerStats | null
       lastStaminaUpdate: data.last_stamina_update,
       notificationToken: data.notification_token,
       notificationUrl: data.notification_url,
-      lastLoginBonusTime: data.last_login_bonus // Updated column mapping
+      lastLoginBonusTime: data.last_login_bonus
     };
   } catch (e) {
     return null;
@@ -396,8 +396,7 @@ export const claimLoginBonus = async (userId: string): Promise<boolean> => {
     const { error } = await supabase
       .from('player_stats')
       .update({ 
-        last_login_bonus: new Date().toISOString(),
-        is_login_bonus: true
+        last_login_bonus: new Date().toISOString()
       })
       .eq('user_id', userId);
 
