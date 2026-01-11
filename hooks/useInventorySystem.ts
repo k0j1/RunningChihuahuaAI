@@ -39,8 +39,8 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     }
   }, [farcasterUser, walletAddress]);
 
-  // Check if bonus is available based on 9 AM JST Reset
-  // 9:00 AM JST is 00:00 UTC. So we can just compare UTC Date strings.
+  // Check if bonus is available based on 00:00 UTC Reset
+  // We compare UTC Date strings.
   const isBonusAvailable = (lastClaimIso: string | null): boolean => {
       if (!lastClaimIso) return true;
       
@@ -48,7 +48,7 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
       const now = new Date();
       
       // Compare UTC dates (YYYY-MM-DD)
-      // Since 9AM JST = 00:00 UTC, a new UTC day means a new JST reward cycle.
+      // A new UTC day means a new reward cycle.
       const lastDateStr = lastClaimDate.toISOString().split('T')[0];
       const nowDateStr = now.toISOString().split('T')[0];
       

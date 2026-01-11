@@ -174,7 +174,7 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
             if (reason.toLowerCase().includes("missing revert data")) {
                 console.log("Ignoring 'missing revert data', proceeding...");
             } else {
-                // Usually "Next claim available at JST 9:00 AM"
+                // Usually "Next claim available at 00:00 UTC"
                 throw new Error(`Contract Verification Failed: ${reason}`);
             }
         }
