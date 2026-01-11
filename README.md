@@ -1,77 +1,54 @@
-# Running Chihuahua AI
+# 🐕 Running Chihuahua AI
 
-**Running Chihuahua AI** is a 3D infinite runner game where you play as a brave Chihuahua running for its life! Escape from giant bosses, dodge obstacles, and compete for the highest score on the global leaderboard.
+**Running Chihuahua AI** は、勇敢なチワワとなって背後から迫りくる巨大なボスから逃げ続ける、3D無限ランナーゲームです。Farcaster Mini App (Frame v2) として構築されており、Baseネットワーク上での暗号資産報酬システムを搭載しています。
 
-![Running Chihuahua](ttps://runningchihuahuaai.k0j1.v2002.coreserver.jp/images/image.png)
+![Running Chihuahua](https://runningchihuahuaai.k0j1.v2002.coreserver.jp/images/image.png)
 
-## 🎮 How to Play
+## 🎮 ゲーム概要
+プレイヤーはチワワを操作し、前方から現れる障害物を避け、後方から攻撃してくるボスを撃退しながら、可能な限り遠くまで走り続けます。
 
-The Chihuahua runs automatically. Your goal is to survive as long as possible while avoiding hazards from both the front and behind.
+### 🕹 操作方法
+ゲームは自動で進行します。適切なタイミングで以下のボタンをタップしてください。
 
-### Controls
+*   **🔴 DODGE! (回避)**: 
+    *   前方から現れる障害物（岩、車、動物）を避けます。
+    *   **カウンター**: 回避に成功すると、障害物が後方に飛んでいき、追跡しているボスにダメージを与えます！
+*   **🔵 DUCK! (伏せる)**: 
+    *   ボスが後方から投げてくる飛び道具（樽、骨、火の玉）を避けます。
+    *   チワワが回転または伏せるアクションを行い、ダメージを防ぎます。
 
-*   **DODGE!**: Tap the red button when an obstacle (Rock, Car, Animal) appears in front of you.
-*   **DUCK!**: Tap the blue button when the Boss throws a projectile (Barrel, Bone, Fireball) from behind.
+## 👾 ボス・システム
+ボスに10回ダメージを与えると撃破となり、スコアボーナスと共に次のレベル（または次のボス）へ進化します。
 
-### Mechanics
+1.  **🦍 Gorilla (ゴリラ)**: 樽やバナナを投げてくる。
+2.  **🐆 Cheetah (チーター)**: 驚異的なスピードで走り、骨や岩を投げる。
+3.  **🐉 Dragon (ドラゴン)**: 空を飛び、口から火の玉を吐き出す最終形態。
 
-1.  **Obstacles (Front)**:
-    *   Avoid rocks, cars, and farm animals.
-    *   **Counter Attack**: If you successfully **DODGE** an obstacle, it will tumble backward and hit the Boss!
+## 💎 Web3 & 報酬システム ($CHH)
+本ゲームは **Baseネットワーク** と完全に統合されています。
 
-2.  **Projectiles (Behind)**:
-    *   The Boss chasing you will throw objects or spit fire.
-    *   Use **DUCK** to spin or crouch under these attacks.
+*   **トークン報酬**: 1回のランで獲得したスコアの **5%** が報酬（$CHHトークン）として計算されます。
+*   **報酬の受け取り**: ラン終了後、Baseネットワーク上のスマートコントラクトを通じて即座にウォレットへ請求（Claim）が可能です。
+*   **ログインボーナス**: 24時間ごとに1回、ルーレットを回して強力なアイテムを獲得できます（オンチェーンでの権利確認含む）。
 
-3.  **Boss Battles**:
-    *   The Boss takes damage when you dodge obstacles successfully.
-    *   **10 Hits** defeats the Boss, granting a score bonus and advancing the level.
-    *   **Boss Evolution**:
-        1.  **Gorilla**: Throws Barrels and Bananas.
-        2.  **Cheetah**: Throws Bones and Rocks. Runs extremely fast.
-        3.  **Dragon**: Flies and spits Fireballs.
+## ⚡ スタミナ & アイテム
+*   **スタミナシステム**: 
+    *   最大5スタミナ。1回のプレイで1スタミナを消費します。
+    *   2時間ごとに1スタミナが自然回復します。
+*   **インベントリ**: 
+    *   **💖 Vitality (活力)**: 初期ライフが3から4に増加。
+    *   **❤️‍🩹 Recovery (回復)**: 障害物を回避するたびにHPが0.2回復。
+    *   **🛡️ Shield (シールド)**: プレイ中に任意のタイミングで使用でき、ダメージを1回完全に無効化します。
 
-4.  **Health & Game Over**:
-    *   You have **3 Hearts**.
-    *   Hitting an obstacle or getting hit by a projectile removes 1 heart.
-    *   When hearts reach 0, the game ends.
+## 🧠 AI Integration (Gemini)
+Google Gemini 3 Flash API を使用して、チワワの状況に応じた「心の声」をリアルタイムで生成します。スコアが高い時は誇らしげに、ライフが低い時は怖がったりと、感情豊かなプレイ体験を提供します。
 
-## 🏆 Features
+## 🛠 技術スタック
+*   **Frontend**: React, Vite, Tailwind CSS
+*   **3D Rendering**: Three.js, React Three Fiber
+*   **Backend/DB**: Supabase (ランキング、統計、スタミナ管理)
+*   **Blockchain**: ethers.js, Base Network, Farcaster Frame SDK v2
+*   **AI**: Google Gemini API (@google/genai)
 
-*   **Global Ranking**: Compete with players worldwide. Scores are saved automatically to Supabase.
-*   **Farcaster Integration**: Play within a Farcaster Frame to see your profile picture and username on the leaderboard.
-*   **Wallet Connection**: Connect your Ethereum wallet to link your score to your address.
-*   **Dynamic World**: Day and night cycles change as you run.
-*   **Combo System**: Chain successful dodges to increase your score multiplier.
-
-## 🛠 Development
-
-To run this project locally:
-
-1.  **Install dependencies**:
-    ```bash
-    npm install
-    ```
-
-2.  **Set up Supabase**:
-    *   Create a project on [Supabase](https://supabase.com).
-    *   Run the SQL commands below in the Supabase SQL Editor.
-    *   Create a `.env` file in the root directory (or set environment variables):
-        ```
-        VITE_SUPABASE_URL=your_supabase_project_url
-        VITE_SUPABASE_KEY=your_supabase_anon_key
-        ```
-
-3.  **Start the development server**:
-    ```bash
-    npm run dev
-    ```
-
-4.  **Build for production**:
-    ```bash
-    npm run build
-    ```
-
-## 📜 License
-
+## 📜 ライセンス
 MIT License
