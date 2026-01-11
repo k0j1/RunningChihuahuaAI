@@ -109,12 +109,11 @@ export interface ClaimResult {
   amount?: number;
 }
 
-// Global JSX definitions for React Three Fiber elements to fix TypeScript errors across the project
+// Global JSX definitions
 declare global {
   interface Window {
     ethereum?: any;
   }
-  // Standard global JSX augmentation for older TS/React setups or global JSX usage
   namespace JSX {
     interface IntrinsicElements {
       group: any;
