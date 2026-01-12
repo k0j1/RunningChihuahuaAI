@@ -119,8 +119,8 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         const priceWei = ethers.parseUnits(amountCHH.toString(), 18);
 
         // 4. Allowanceの確認（BigIntとして確実に扱う）
-        console.log("[Shop] Checking allowance...");
         const currentAllowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
+        console.log("[Shop] Current Allowance:", ethers.formatUnits(currentAllowance, 18));
         
         if (BigInt(currentAllowance) < BigInt(priceWei)) {
             console.log("[Shop] Insufficient allowance. Requesting approval...");
