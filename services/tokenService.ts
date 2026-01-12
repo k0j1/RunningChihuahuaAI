@@ -49,8 +49,8 @@ const switchToBaseNetwork = async (windowProvider: any) => {
     try {
         const currentChainId = await windowProvider.request({ method: 'eth_chainId' });
         
-        // すでにBaseの場合は何もしない
-        if (currentChainId === BASE_CHAIN_ID_HEX || Number(currentChainId) === BASE_CHAIN_ID_DEC) {
+        // Normalize and check
+        if (Number(currentChainId) === BASE_CHAIN_ID_DEC) {
             return;
         }
 
@@ -59,6 +59,8 @@ const switchToBaseNetwork = async (windowProvider: any) => {
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: BASE_CHAIN_ID_HEX }],
             });
+            // Wait for network switch to propagate
+            await new Promise(resolve => setTimeout(resolve, 1000));
         } catch (switchError: any) {
             // チェーンが存在しない場合は追加を試みる (Error code 4902)
             if (switchError.code === 4902 || switchError.code === '4902' || switchError.message?.includes("Unrecognized chain")) {
@@ -78,6 +80,7 @@ const switchToBaseNetwork = async (windowProvider: any) => {
                         },
                     ],
                 });
+                await new Promise(resolve => setTimeout(resolve, 1000));
             } else {
                 throw switchError;
             }
@@ -104,14 +107,21 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         // 1. ネットワーク切り替え
         await switchToBaseNetwork(windowProvider);
 
-        // 2. プロバイダーの初期化 (ネットワーク切り替え後に初期化することが重要)
-        // 'any' を指定して、基礎となるトランスポートのネットワーク変更を検知できるようにする
+        // 2. プロバイダーの初期化 (ネットワーク切り替え後に初期化)
         const provider = new ethers.BrowserProvider(windowProvider, "any");
+        
+        // Delay to ensure provider sync
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // 3. チェーンIDの最終確認
         const network = await provider.getNetwork();
         if (Number(network.chainId) !== BASE_CHAIN_ID_DEC) {
-            throw new Error(`Wrong network detected (${network.chainId}). Please switch to Base Mainnet.`);
+            // Retry switch once
+            await switchToBaseNetwork(windowProvider);
+            const network2 = await provider.getNetwork();
+             if (Number(network2.chainId) !== BASE_CHAIN_ID_DEC) {
+                 throw new Error(`Wrong network detected (${network2.chainId}). Please switch to Base Mainnet.`);
+             }
         }
 
         const signer = await provider.getSigner();
@@ -122,14 +132,21 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         // 金額をWeiに変換 (18 decimals)
         const priceWei = ethers.parseUnits(amountCHH.toString(), 18);
 
-        // 4. Check Allowance (承認済み金額を確認)
+        // 4. Check Allowance with Retry
         let allowance;
-        try {
-            allowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
-        } catch (err: any) {
-            console.error("Allowance check failed:", err);
-            // CALL_EXCEPTIONはここで起きやすい
-            throw new Error("Failed to check token allowance. Ensure you are on Base network.");
+        let retries = 3;
+        while (retries > 0) {
+            try {
+                allowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
+                break; // Success
+            } catch (err: any) {
+                console.warn(`Allowance check attempt failed (${retries} retries left):`, err);
+                if (retries === 1) {
+                    throw new Error("Failed to check token allowance. Ensure you are on Base network.");
+                }
+                retries--;
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+            }
         }
         
         if (allowance < priceWei) {
@@ -140,7 +157,6 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         }
 
         // 5. Execute Buy Item (購入実行)
-        // buyItem(uint256 amount, uint256 payAmount)
         const buyTx = await shopContract.buyItem(totalItemCount, priceWei);
         console.log("[Shop] Purchase transaction sent:", buyTx.hash);
         

@@ -136,8 +136,18 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
            </div>
         </div>
 
+        {/* Bonus & Shop Buttons (Moved above Stamina) */}
+        <div className="flex gap-3 mb-6 w-full">
+            <button onClick={onOpenLoginBonus} disabled={loginBonusClaimed} className={`flex-1 py-3 rounded-full font-bold flex items-center justify-center gap-2 transition-all shadow-md ${loginBonusClaimed ? 'bg-gray-800/50 text-gray-500 border border-gray-700' : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white animate-pulse'}`}>
+               <Gift size={20} />{loginBonusClaimed ? bonusResetTimeLeft : "LOGIN BONUS"}
+            </button>
+            <button onClick={onOpenShop} className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full font-bold flex items-center justify-center gap-2 shadow-md hover:scale-105 transition-all text-white">
+               <ShoppingCart size={20} /> SHOP
+            </button>
+        </div>
+
         {farcasterUser && (
-          <div className="flex flex-col items-center mb-6 bg-gray-800/80 rounded-xl p-3 border border-gray-600">
+          <div className="flex flex-col items-center mb-6 bg-gray-800/80 rounded-xl p-3 border border-gray-600 w-full">
              <div className="flex items-center gap-2 mb-2">
                <Zap size={18} className="text-yellow-400 fill-yellow-400" />
                {timeLeft && <div className="text-xs text-yellow-400 font-mono bg-black/50 px-2 py-0.5 rounded">Recovering in {timeLeft}</div>}
@@ -148,16 +158,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           </div>
         )}
 
-        <div className="flex flex-col gap-3">
-          <div className="flex gap-3">
-            <button onClick={onOpenLoginBonus} disabled={loginBonusClaimed} className={`flex-1 py-3 rounded-full font-bold flex items-center justify-center gap-2 transition-all shadow-md ${loginBonusClaimed ? 'bg-gray-800/50 text-gray-500 border border-gray-700' : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white animate-pulse'}`}>
-               <Gift size={20} />{loginBonusClaimed ? bonusResetTimeLeft : "LOGIN BONUS"}
-            </button>
-            <button onClick={onOpenShop} className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full font-bold flex items-center justify-center gap-2 shadow-md hover:scale-105 transition-all text-white">
-               <ShoppingCart size={20} /> SHOP
-            </button>
-          </div>
-
+        <div className="flex flex-col gap-3 w-full">
           <button onClick={() => onStartGame(isDemoReady)} className={`px-8 py-4 rounded-full text-2xl font-black shadow-lg transition-all flex items-center justify-center gap-2 ${stamina > 0 || !farcasterUser ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:scale-105' : 'bg-gray-600 opacity-80'}`}>
              {isDemoReady ? 'DEMO PLAY' : 'START RUNNING'}
           </button>
