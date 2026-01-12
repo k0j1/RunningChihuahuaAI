@@ -108,90 +108,59 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         await switchToBaseNetwork(windowProvider);
 
         // 2. プロバイダーの初期化
-        const provider = new ethers.BrowserProvider(windowProvider, "any");
-        
-        // Delay to ensure provider sync
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // 3. チェーンIDの最終確認
-        const network = await provider.getNetwork();
-        if (Number(network.chainId) !== BASE_CHAIN_ID_DEC) {
-            // Retry switch once
-            await switchToBaseNetwork(windowProvider);
-            const network2 = await provider.getNetwork();
-             if (Number(network2.chainId) !== BASE_CHAIN_ID_DEC) {
-                 throw new Error(`Wrong network detected (${network2.chainId}). Please switch to Base Mainnet.`);
-             }
-        }
-
+        const provider = new ethers.BrowserProvider(windowProvider); 
         const signer = await provider.getSigner();
         
-        // Use provider for Read-Only operations (avoiding signer issues for views)
-        const tokenContractRead = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, provider);
-        // Use signer for Write operations
-        const tokenContractWrite = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, signer);
+        // 3. コントラクト初期化
+        const tokenContract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, signer);
         const shopContract = new ethers.Contract(SHOP_CONTRACT_ADDRESS, SHOP_CONTRACT_ABI, signer);
 
-        // 金額をWeiに変換 (18 decimals)
+        // 金額をWeiに変換
         const priceWei = ethers.parseUnits(amountCHH.toString(), 18);
 
-        // 4. Check Allowance with Retry
-        let allowance;
-        let retries = 3;
-        while (retries > 0) {
-            try {
-                // IMPORTANT: Use tokenContractRead (connected to provider, not signer)
-                allowance = await tokenContractRead.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
-                console.log("[Shop] Allowance check result:", ethers.formatUnits(allowance, 18));
-                break; // Success
-            } catch (err: any) {
-                console.warn(`Allowance check attempt failed (${retries} retries left):`, err);
-                if (retries === 1) {
-                    throw new Error("Failed to check token allowance. Ensure you are on Base network.");
-                }
-                retries--;
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
-            }
-        }
+        // 4. Allowanceの確認（BigIntとして確実に扱う）
+        console.log("[Shop] Checking allowance...");
+        const currentAllowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
         
-        if (allowance < priceWei) {
+        if (BigInt(currentAllowance) < BigInt(priceWei)) {
             console.log("[Shop] Insufficient allowance. Requesting approval...");
-            try {
-                const approveTx = await tokenContractWrite.approve(SHOP_CONTRACT_ADDRESS, priceWei);
-                console.log("[Shop] Approve tx sent:", approveTx.hash);
-                await approveTx.wait();
-                console.log("[Shop] Approval confirmed.");
-            } catch (approveErr: any) {
-                console.error("Approval failed:", approveErr);
-                throw new Error("Token approval failed or rejected.");
-            }
+            // 十分な量をApprove（一回一回やるのが面倒なら最大値を設定することもありますが、今回はpriceWei分）
+            const approveTx = await tokenContract.approve(SHOP_CONTRACT_ADDRESS, priceWei);
+            await approveTx.wait();
+            console.log("[Shop] Approval confirmed.");
         }
 
-        // 5. Execute Buy Item (購入実行)
-        try {
-            const buyTx = await shopContract.buyItem(totalItemCount, priceWei);
-            console.log("[Shop] Purchase transaction sent:", buyTx.hash);
-            await buyTx.wait(); 
-            
-            return {
-                success: true,
-                message: "Purchase successful! Items added to inventory.",
-                txHash: buyTx.hash
-            };
-        } catch (buyErr: any) {
-             console.error("Buy execution failed:", buyErr);
-             throw new Error("Purchase transaction failed.");
-        }
+        // 5. 購入実行
+        console.log("[Shop] Sending buyItem transaction...");
+        // ガスの見積もりで失敗することが多いため、少し余裕を持たせるか、そのまま実行
+        const buyTx = await shopContract.buyItem(totalItemCount, priceWei, {
+            // Farcaster内や特定のウォレットでガス推定が失敗する場合の対策
+            gasLimit: 150000 
+        });
+        
+        console.log("[Shop] Purchase transaction sent:", buyTx.hash);
+        const receipt = await buyTx.wait(); 
 
+        if (receipt.status === 0) throw new Error("Transaction reverted on-chain.");
+
+        return {
+            success: true,
+            message: "Purchase successful! Items added to inventory.",
+            txHash: buyTx.hash
+        };
     } catch (error: any) {
-        console.error("[Shop] Purchase error:", error);
-        return handleError(error);
+        console.error("[Shop] Purchase error詳細:", error);
+        // エラーオブジェクト自体が複雑な場合、メッセージを抽出
+        const message = error.reason || error.message || "Unknown error occurred";
+        return {
+            success: false,
+            message: `Purchase failed: ${message}`
+        };
     }
 };
 
 export const fetchCHHBalance = async (walletAddress: string): Promise<string> => {
     try {
-        // Use fallback provider for reliable balance fetching
         const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
         const contract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, provider);
         const balance = await contract.balanceOf(walletAddress);
