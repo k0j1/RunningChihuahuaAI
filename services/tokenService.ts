@@ -120,17 +120,17 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         const priceWei = ethers.parseUnits(amountCHH.toString(), 18);
 
         // 4. Allowanceの確認（BigIntとして確実に扱う）
-        //console.log("DEBUG: Owner is", walletAddress, "Spender is", SHOP_CONTRACT_ADDRESS);
-        //const currentAllowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
-        //console.log("[Shop] Current Allowance:", ethers.formatUnits(currentAllowance, 18));
+        console.log("DEBUG: Owner is", walletAddress, "Spender is", SHOP_CONTRACT_ADDRESS);
+        const currentAllowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
+        console.log("[Shop] Current Allowance:", ethers.formatUnits(currentAllowance, 18));
         
-        //if (BigInt(currentAllowance) < BigInt(priceWei)) {
+        if (BigInt(currentAllowance) < BigInt(priceWei)) {
             console.log("[Shop] Insufficient allowance. Requesting approval...");
             // 十分な量をApprove（一回一回やるのが面倒なら最大値を設定することもありますが、今回はpriceWei分）
             const approveTx = await tokenContract.approve(SHOP_CONTRACT_ADDRESS, priceWei);
             await approveTx.wait();
             console.log("[Shop] Approval confirmed.");
-        //}
+        }
 
         // 5. 購入実行
         console.log("[Shop] Sending buyItem transaction...");
