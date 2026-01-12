@@ -10,6 +10,7 @@ import { GameClearScreen } from './overlay/GameClearScreen';
 import { RankedEntry } from './overlay/RankingList';
 import { UserInfoModal } from './overlay/UserInfoModal';
 import { LoginBonusModal } from './overlay/LoginBonusModal';
+import { ShopModal } from './overlay/ShopModal';
 
 interface OverlayProps {
   gameState: GameState;
@@ -49,11 +50,12 @@ interface OverlayProps {
   selectedItems: ItemType[];
   toggleItem: (item: ItemType) => void;
   inventory: UserInventory;
-  // Login Bonus
+  // Shop & Bonus
   showLoginBonus: boolean;
   onOpenLoginBonus: () => void;
   onCloseLoginBonus: () => void;
   onClaimLoginBonus: (item: ItemType) => Promise<ClaimResult>;
+  onBuyItems: (purchases: Record<string, number>, totalCHH: number) => Promise<ClaimResult>;
   loginBonusClaimed: boolean;
   pendingBonusItem: ItemType | null;
   setPendingBonusItem: (item: ItemType) => void;
@@ -118,6 +120,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   onOpenLoginBonus,
   onCloseLoginBonus,
   onClaimLoginBonus,
+  onBuyItems,
   loginBonusClaimed,
   pendingBonusItem,
   setPendingBonusItem,
@@ -140,6 +143,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   onSaveScore,
 }) => {
   const [showUserInfo, setShowUserInfo] = useState(false);
+  const [showShop, setShowShop] = useState(false);
 
   const localTopScores = useMemo(() => {
     return [...history].sort((a, b) => b.score - a.score);
@@ -167,9 +171,6 @@ export const Overlay: React.FC<OverlayProps> = ({
     if (farcasterUser && farcasterUser.username) {
       key = `fc:${farcasterUser.username}`;
     }
-    
-    // walletAddress fallback removed per request
-
     if (!key) return null;
     const idx = displayGlobalRanking.findIndex(entry => {
       if (key?.startsWith('fc:') && entry.farcasterUser?.username) {
@@ -177,17 +178,9 @@ export const Overlay: React.FC<OverlayProps> = ({
       }
       return false;
     });
-    if (idx !== -1) {
-      return {
-        entry: displayGlobalRanking[idx],
-        rank: idx + 1
-      };
-    }
+    if (idx !== -1) return { entry: displayGlobalRanking[idx], rank: idx + 1 };
     return null;
   }, [displayGlobalRanking, farcasterUser]);
-
-  const handleShowProfile = () => setShowUserInfo(true);
-  const handleCloseProfile = () => setShowUserInfo(false);
 
   return (
     <>
@@ -200,7 +193,7 @@ export const Overlay: React.FC<OverlayProps> = ({
           onAddMiniApp={onAddMiniApp}
           onConnect={onConnectWallet}
           onDisconnect={onDisconnectWallet}
-          onClose={handleCloseProfile}
+          onClose={() => setShowUserInfo(false)}
         />
       )}
 
@@ -211,6 +204,15 @@ export const Overlay: React.FC<OverlayProps> = ({
           walletAddress={walletAddress}
           pendingBonusItem={pendingBonusItem}
           onRegisterPending={setPendingBonusItem}
+        />
+      )}
+
+      {showShop && (
+        <ShopModal 
+           onClose={() => setShowShop(false)}
+           onBuy={onBuyItems}
+           walletAddress={walletAddress}
+           inventory={inventory}
         />
       )}
 
@@ -225,8 +227,9 @@ export const Overlay: React.FC<OverlayProps> = ({
               onStartGame={onStartGame}
               onShowHistory={onShowHistory}
               onShowRanking={onShowRanking}
+              onOpenShop={() => setShowShop(true)}
               onConnectWallet={onConnectWallet}
-              onShowProfile={handleShowProfile}
+              onShowProfile={() => setShowUserInfo(true)}
               stamina={stamina}
               maxStamina={maxStamina}
               nextRecoveryTime={nextRecoveryTime}
@@ -275,7 +278,7 @@ export const Overlay: React.FC<OverlayProps> = ({
               onReturnToTitle={onReturnToTitle}
               onConnectWallet={onConnectWallet}
               onDisconnectWallet={onDisconnectWallet}
-              onShowProfile={handleShowProfile}
+              onShowProfile={() => setShowUserInfo(true)}
               onShare={onShare}
               onSaveScore={onSaveScore}
             />

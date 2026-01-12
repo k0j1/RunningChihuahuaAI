@@ -14,17 +14,14 @@ const App: React.FC = () => {
     hazardActive, hazardPosition, projectileActive, 
     isDodgeQueued, obstacleProgressRef, isDuckQueued, projectileProgressRef, projectileStartZ, bossLevel,
     history, globalRanking, totalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
-    isAdded, notificationDetails, addMiniApp, // Farcaster app state
-    isClaiming, claimResult, totalClaimed, handleClaimReward, // Reward Props
-    staminaSystem, // Stamina Props
-    inventorySystem, // Inventory Props
-    selectedItems, toggleItem, clearSelectedItems, // Item Props
-    showLoginBonus, openLoginBonus, closeLoginBonus, handleClaimLoginBonus, // Login Bonus Props
-    pendingBonusItem, setPendingBonusItem, // Pending Bonus Persistence
-    shield, // Player Shield
-    hasUsedShield, handleUseShield, // Shield Action
-    isMuted, toggleMute, // Audio Props
-    isBossHit, isCelebrating, // Audio Events
+    isAdded, notificationDetails, addMiniApp,
+    isClaiming, claimResult, totalClaimed, handleClaimReward,
+    staminaSystem, inventorySystem,
+    selectedItems, toggleItem, clearSelectedItems,
+    showLoginBonus, openLoginBonus, closeLoginBonus, handleClaimLoginBonus,
+    pendingBonusItem, setPendingBonusItem,
+    shield, hasUsedShield, handleUseShield,
+    isMuted, toggleMute, isBossHit, isCelebrating,
     startGame, setGameState, handleDodge, handleDuck,
     connectWallet, disconnectWallet, shareScore, saveCurrentScore
   } = gameLogic;
@@ -33,14 +30,8 @@ const App: React.FC = () => {
   const projectileVelocity = speed * levelMultiplier;
   const projectileTotalTime = Math.max(projectileStartZ, 1) / projectileVelocity;
   const projectileTimeRemaining = (1 - projectileProgressRef.current) * projectileTotalTime;
-  
   const showDuckButton = projectileActive && (projectileTimeRemaining <= 1.0) && !isDuckQueued && projectileProgressRef.current < 0.85;
   const showDodgeButton = hazardActive && !isDodgeQueued && obstacleProgressRef.current < 0.8;
-
-  const handleTogglePause = () => {
-    if (gameState === GameState.RUNNING) setGameState(GameState.PAUSED);
-    else if (gameState === GameState.PAUSED) setGameState(GameState.RUNNING);
-  };
 
   const handleReturnToTitle = () => {
     clearSelectedItems();
@@ -49,21 +40,9 @@ const App: React.FC = () => {
 
   return (
     <div className="w-full h-[100dvh] relative bg-gray-900 overflow-hidden">
-      {/* Background Music & SFX Manager */}
-      <AudioManager 
-        gameState={gameState} 
-        isMuted={isMuted} 
-        combo={combo}
-        isBossHit={isBossHit}
-        isCelebrating={isCelebrating}
-      />
-
+      <AudioManager gameState={gameState} isMuted={isMuted} combo={combo} isBossHit={isBossHit} isCelebrating={isCelebrating} />
       <div className="absolute inset-0 z-0">
-        <Canvas 
-          shadows 
-          camera={{ position: [3, 3, -5], fov: 60 }}
-          dpr={[1, 1.5]}
-        >
+        <Canvas shadows camera={{ position: [3, 3, -5], fov: 60 }} dpr={[1, 1.5]}>
           <GameScene gameLogic={gameLogic} />
         </Canvas>
       </div>
@@ -106,6 +85,7 @@ const App: React.FC = () => {
         onOpenLoginBonus={openLoginBonus}
         onCloseLoginBonus={closeLoginBonus}
         onClaimLoginBonus={handleClaimLoginBonus}
+        onBuyItems={inventorySystem.buyItems}
         loginBonusClaimed={inventorySystem.loginBonusClaimed}
         pendingBonusItem={pendingBonusItem}
         setPendingBonusItem={setPendingBonusItem}
@@ -118,7 +98,7 @@ const App: React.FC = () => {
         onShowHistory={() => setGameState(GameState.HISTORY)}
         onShowRanking={() => setGameState(GameState.RANKING)}
         onHideHistory={() => setGameState(GameState.TITLE)}
-        onTogglePause={handleTogglePause}
+        onTogglePause={() => setGameState(gameState === GameState.RUNNING ? GameState.PAUSED : GameState.RUNNING)}
         onDodge={handleDodge}
         onDuck={handleDuck}
         onReturnToTitle={handleReturnToTitle}

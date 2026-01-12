@@ -8,11 +8,17 @@ import sdk from '@farcaster/frame-sdk';
 const BASE_CHAIN_ID_HEX = '0x2105'; // 8453 in Hex
 const BASE_CHAIN_ID_DEC = 8453;
 
-// 1. Score Reward Contract (Old Implementation)
+// 1. Score Reward Contract
 const SCORE_CONTRACT_ADDRESS = "0x65F5661319C4d23c973C806e1e006Bb06d5557D2";
 
 // 2. Daily Bonus Contract
 const BONUS_CONTRACT_ADDRESS = "0x14254C321A6d0aB1986ecD8942e8f9603153634E";
+
+// 3. Shop Contract (New Address)
+const SHOP_CONTRACT_ADDRESS = "0x077121a40B1f3cE2D755fA17E1f34e7554A44aF0";
+
+// 4. $CHH Token Address
+const CHH_TOKEN_ADDRESS = "0xb0525542e3d818460546332e76e511562dff9b07"; 
 
 // ABIs
 const SCORE_CONTRACT_ABI = [
@@ -20,10 +26,21 @@ const SCORE_CONTRACT_ABI = [
   "function userClaims(address) view returns (uint32 lastClaimDay, uint8 dailyCount)"
 ];
 
-// Updated ABI to match the provided DailyBonus.sol
 const BONUS_CONTRACT_ABI = [
   "function claim() external",
   "function canClaim(address user) view returns (bool)"
+];
+
+const SHOP_CONTRACT_ABI = [
+  "function buyItem(uint256 amount, uint256 payAmount) external"
+];
+
+const ERC20_ABI = [
+  "function transfer(address to, uint256 amount) external returns (bool)",
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function balanceOf(address account) view returns (uint256)",
+  "function decimals() view returns (uint8)"
 ];
 
 const switchToBaseNetwork = async (windowProvider: any) => {
@@ -65,134 +82,118 @@ const switchToBaseNetwork = async (windowProvider: any) => {
     }
 }
 
-// --- Score Claim Logic (Uses SCORE_CONTRACT_ADDRESS & api/claim.php) ---
+/**
+ * $CHHトークンを支払ってアイテムを購入する
+ * 新コントラクト対応: Approve -> buyItem(amount, payAmount)
+ */
+export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCount: number, amountCHH: number): Promise<ClaimResult> => {
+    try {
+        console.log(`[Shop] Starting purchase flow: ${totalItemCount} items for ${amountCHH} $CHH`);
+        
+        let windowProvider: any; 
+        if (sdk.wallet.ethProvider) windowProvider = sdk.wallet.ethProvider;
+        else if (window.ethereum) windowProvider = window.ethereum;
+        else throw new Error("No wallet detected.");
+
+        await switchToBaseNetwork(windowProvider);
+
+        const provider = new ethers.BrowserProvider(windowProvider);
+        const signer = await provider.getSigner(walletAddress);
+        
+        const tokenContract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, signer);
+        const shopContract = new ethers.Contract(SHOP_CONTRACT_ADDRESS, SHOP_CONTRACT_ABI, signer);
+
+        // 金額をWeiに変換 (18 decimals)
+        const priceWei = ethers.parseUnits(amountCHH.toString(), 18);
+
+        // 1. Check Allowance (承認済み金額を確認)
+        const allowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
+        
+        if (allowance < priceWei) {
+            console.log("[Shop] Insufficient allowance. Requesting approval...");
+            // 不足している場合、Approveを実行
+            const approveTx = await tokenContract.approve(SHOP_CONTRACT_ADDRESS, priceWei);
+            await approveTx.wait(); // トランザクション完了を待つ
+            console.log("[Shop] Approval confirmed.");
+        }
+
+        // 2. Execute Buy Item (購入実行)
+        // buyItem(uint256 amount, uint256 payAmount)
+        // amount: アイテム総数, payAmount: 支払総額(Wei)
+        const buyTx = await shopContract.buyItem(totalItemCount, priceWei);
+        console.log("[Shop] Purchase transaction sent:", buyTx.hash);
+        
+        await buyTx.wait(); // 購入完了を待つ
+
+        return {
+            success: true,
+            message: "Purchase successful! Items added to inventory.",
+            txHash: buyTx.hash
+        };
+    } catch (error: any) {
+        console.error("[Shop] Purchase error:", error);
+        return handleError(error);
+    }
+};
+
+export const fetchCHHBalance = async (walletAddress: string): Promise<string> => {
+    try {
+        const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+        const contract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, provider);
+        const balance = await contract.balanceOf(walletAddress);
+        return ethers.formatUnits(balance, 18);
+    } catch (error) {
+        console.error("Error fetching balance:", error);
+        return "0.0";
+    }
+};
+
+// --- Score Claim Logic ---
 export const claimTokenReward = async (walletAddress: string, score: number): Promise<ClaimResult> => {
   try {
-    console.log(`Preparing claim for Score=${score} on Contract=${SCORE_CONTRACT_ADDRESS}`);
+    if (score > 60000) throw new Error("Invalid score.");
 
-    if (score > 60000) {
-        throw new Error("Invalid score: Exceeds maximum limit of 60,000.");
-    }
-
-    // 1. Request Signature from Backend (claim.php)
     const apiUrl = './api/claim.php'; 
-
     const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ walletAddress, score: score, type: 'score_claim' }) 
     });
 
-    const text = await response.text();
-    let data: any;
-    try {
-        data = JSON.parse(text);
-    } catch {
-        if (!response.ok) throw new Error(text || `HTTP Error ${response.status}`);
-    }
-
-    if (!response.ok) {
-        throw new Error((data && data.message) || text || `Server error: ${response.status}`);
-    }
-
-    if (!data || !data.success || !data.signature) {
-      throw new Error((data && data.message) || 'Failed to generate signature from backend');
-    }
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data.message || 'Signature error');
 
     const { signature, adjusted_score } = data;
     
-    // 2. Prepare Wallet Provider
-    let windowProvider: any; 
-    if (sdk.wallet.ethProvider) windowProvider = sdk.wallet.ethProvider;
-    else if (window.ethereum) windowProvider = window.ethereum;
-    else throw new Error("No crypto wallet found. Please use a Web3 browser or Warpcast.");
+    let windowProvider: any = sdk.wallet.ethProvider || window.ethereum;
+    if (!windowProvider) throw new Error("No crypto wallet found.");
 
-    if (sdk.actions.ready) await sdk.actions.ready();
-
-    // 3. Switch Network
     await switchToBaseNetwork(windowProvider);
 
-    // 4. Initialize Provider & Contract
     const provider = new ethers.BrowserProvider(windowProvider);
     const signer = await provider.getSigner(walletAddress);
     const contract = new ethers.Contract(SCORE_CONTRACT_ADDRESS, SCORE_CONTRACT_ABI, signer);
 
-    // 5. Send Transaction
-    const tx = await contract.claimScore(adjusted_score, signature, {
-        gasLimit: 300000 
-    });
-    
-    console.log("Transaction successfully requested:", tx.hash);
-
-    return {
-      success: true,
-      message: "Transaction sent! Please confirm in your wallet.",
-      txHash: tx.hash,
-      amount: score 
-    };
-
+    const tx = await contract.claimScore(adjusted_score, signature);
+    return { success: true, message: "Transaction sent!", txHash: tx.hash, amount: score };
   } catch (error: any) {
-    console.error("Token Claim Error:", error);
     return handleError(error);
   }
 };
 
-// --- Daily Bonus Claim Logic (Uses BONUS_CONTRACT_ADDRESS) ---
 export const claimDailyBonus = async (walletAddress: string, itemType: ItemType): Promise<ClaimResult> => {
     try {
-        console.log(`Preparing Daily Bonus Claim on Contract=${BONUS_CONTRACT_ADDRESS}`);
-        
-        // 1. Prepare Wallet
-        let windowProvider: any; 
-        if (sdk.wallet.ethProvider) windowProvider = sdk.wallet.ethProvider;
-        else if (window.ethereum) windowProvider = window.ethereum;
-        else throw new Error("No crypto wallet found.");
-
-        if (sdk.actions.ready) await sdk.actions.ready();
-
-        // 2. Switch Network
+        let windowProvider: any = sdk.wallet.ethProvider || window.ethereum;
+        if (!windowProvider) throw new Error("No crypto wallet found.");
         await switchToBaseNetwork(windowProvider);
 
-        // 3. Send Transaction
         const provider = new ethers.BrowserProvider(windowProvider);
         const signer = await provider.getSigner(walletAddress);
         const contract = new ethers.Contract(BONUS_CONTRACT_ADDRESS, BONUS_CONTRACT_ABI, signer);
 
-        // Optional: Pre-flight check with canClaim
-        // Note: Contract reverts if not claimable, so staticCall below handles validation mostly.
-        
-        // Debug: Static Call to check for revert reason before sending transaction
-        console.log("Attempting staticCall check...");
-        try {
-            await contract.claim.staticCall();
-            console.log("staticCall successful.");
-        } catch (callError: any) {
-            console.warn("staticCall failed:", callError);
-            const reason = callError.reason || callError.shortMessage || callError.message || "";
-            
-            // "missing revert data" is common on some RPCs, proceed if so.
-            if (reason.toLowerCase().includes("missing revert data")) {
-                console.log("Ignoring 'missing revert data', proceeding...");
-            } else {
-                // Usually "Next claim available at 00:00 UTC"
-                throw new Error(`Contract Verification Failed: ${reason}`);
-            }
-        }
-
-        const tx = await contract.claim({
-            gasLimit: 200000 
-        });
-
-        console.log("Daily Bonus Transaction Hash:", tx.hash);
-
-        return {
-            success: true,
-            message: "Bonus claimed on-chain!",
-            txHash: tx.hash
-        };
-
+        const tx = await contract.claim({ gasLimit: 200000 });
+        return { success: true, message: "Bonus claimed on-chain!", txHash: tx.hash };
     } catch (error: any) {
-        console.error("Daily Bonus Claim Error:", error);
         return handleError(error);
     }
 }
@@ -204,7 +205,6 @@ export const fetchDailyClaimCount = async (walletAddress: string): Promise<numbe
         const info = await contract.userClaims(walletAddress);
         return Number(info[1]);
     } catch (error) {
-        console.error("Error fetching claim count:", error);
         return 0;
     }
 };
@@ -212,15 +212,8 @@ export const fetchDailyClaimCount = async (walletAddress: string): Promise<numbe
 const handleError = (error: any): ClaimResult => {
     const errMsg = error.message || "";
     const detail = error.data || error.reason || error.shortMessage || "";
-    
-    console.error("Detailed Error Object:", error);
-    
     let userMsg = `Error: ${errMsg}`;
-    
-    if (error.code === 'NETWORK_ERROR') userMsg = `Network error. Check connection.`;
-    else if (error.code === 4001 || error.code === 'ACTION_REJECTED' || errMsg.includes('rejected')) userMsg = "Transaction rejected by user.";
-    else if (errMsg.includes('execution reverted') || detail) userMsg = `Transaction reverted: ${detail || "Already claimed today?"}`;
-    else if (errMsg.includes('Contract Verification Failed')) userMsg = errMsg;
-
+    if (error.code === 4001 || error.code === 'ACTION_REJECTED') userMsg = "Transaction rejected.";
+    else if (detail) userMsg = `Transaction reverted: ${detail}`;
     return { success: false, message: userMsg };
 }

@@ -2,9 +2,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ItemType, UserInventory, ClaimResult } from '../types';
 import { fetchUserInventory, consumeUserItem, grantUserItem, fetchUserStats, claimLoginBonus as dbClaimLoginBonus } from '../services/supabase';
-import { claimDailyBonus as chainClaimDailyBonus } from '../services/tokenService';
+import { claimDailyBonus as chainClaimDailyBonus, purchaseItemsWithTokens } from '../services/tokenService';
 
-// Global theme constants
 const THEME = {
   RESET_HOUR_UTC: 0,
   GUEST_KEY: 'guest_player_items',
@@ -31,6 +30,7 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
   const [isGuest, setIsGuest] = useState(true);
   const [loginBonusClaimed, setLoginBonusClaimed] = useState<boolean>(true); 
   const [isClaimingBonus, setIsClaimingBonus] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
   const [bonusClaimResult, setBonusClaimResult] = useState<ClaimResult | null>(null);
   const [pendingBonusItem, setPendingBonusItemState] = useState<ItemType | null>(null);
 
@@ -38,29 +38,19 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     setIsGuest(!farcasterUser?.username);
   }, [farcasterUser, walletAddress]);
 
-  /**
-   * Determines if the bonus is available based on UTC 0:00 reset.
-   */
   const isBonusAvailable = useCallback((lastClaimIso: string | null): boolean => {
     if (!lastClaimIso) return true;
-    
     const lastClaimDate = new Date(lastClaimIso);
     const now = new Date();
-    
-    // Compare YYYY-MM-DD in UTC
     const lastDateStr = lastClaimDate.toISOString().split('T')[0];
     const nowDateStr = now.toISOString().split('T')[0];
-    
     return lastDateStr !== nowDateStr;
   }, []);
 
   const setPendingBonusItem = useCallback((item: ItemType | null) => {
     setPendingBonusItemState(item);
-    if (item) {
-      localStorage.setItem(THEME.PENDING_ITEM_KEY, item);
-    } else {
-      localStorage.removeItem(THEME.PENDING_ITEM_KEY);
-    }
+    if (item) localStorage.setItem(THEME.PENDING_ITEM_KEY, item);
+    else localStorage.removeItem(THEME.PENDING_ITEM_KEY);
   }, []);
 
   const loadInventory = useCallback(async () => {
@@ -79,7 +69,9 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
         const available = isBonusAvailable(stats.lastLoginBonusTime || null);
         const claimed = !available;
         setLoginBonusClaimed(claimed);
-        if (claimed) setPendingBonusItem(null);
+        
+        // 既にクレーム済みで、かつlocalStorageにも残っていない場合はpendingをクリア
+        if (claimed && !savedPending) setPendingBonusItem(null);
       } else {
         setLoginBonusClaimed(false);
       }
@@ -101,7 +93,7 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
         const now = new Date().toISOString().split('T')[0];
         const isClaimed = lastClaim === now;
         setLoginBonusClaimed(isClaimed);
-        if (isClaimed) setPendingBonusItem(null);
+        if (isClaimed && !savedPending) setPendingBonusItem(null);
       } else {
         setLoginBonusClaimed(false);
       }
@@ -118,9 +110,7 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
 
     if (!isGuest) {
       const success = await consumeUserItem(farcasterUser, walletAddress, itemType);
-      if (success) {
-        setInventory(prev => ({ ...prev, [itemType]: Math.max(0, prev[itemType] - 1) }));
-      }
+      if (success) setInventory(prev => ({ ...prev, [itemType]: Math.max(0, prev[itemType] - 1) }));
       return success;
     } else {
       const newCount = Math.max(0, inventory[itemType] - 1);
@@ -136,7 +126,6 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     for (const item of items) {
       if (item !== ItemType.NONE && (inventory[item] || 0) <= 0) return false;
     }
-
     if (!isGuest) {
       const results = await Promise.all(items.map(item => consumeUserItem(farcasterUser, walletAddress, item)));
       const success = results.every(r => r === true);
@@ -146,8 +135,6 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
           items.forEach(item => { if (item !== ItemType.NONE) next[item] = Math.max(0, (next[item] || 0) - 1); });
           return next;
         });
-      } else {
-        await loadInventory();
       }
       return success;
     } else {
@@ -159,49 +146,69 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     }
   };
 
-  const grantItem = async (itemType: ItemType): Promise<boolean> => {
+  const grantItem = async (itemType: ItemType, quantity: number = 1): Promise<boolean> => {
     if (itemType === ItemType.NONE) return false;
     if (!isGuest) {
-      const success = await grantUserItem(farcasterUser, walletAddress, itemType);
-      if (success) setInventory(prev => ({ ...prev, [itemType]: (prev[itemType] || 0) + 1 }));
-      return success;
+      for (let i = 0; i < quantity; i++) {
+        await grantUserItem(farcasterUser, walletAddress, itemType);
+      }
+      setInventory(prev => ({ ...prev, [itemType]: (prev[itemType] || 0) + quantity }));
+      return true;
     } else {
-      const nextInv = { ...inventory, [itemType]: (inventory[itemType] || 0) + 1 };
+      const nextInv = { ...inventory, [itemType]: (inventory[itemType] || 0) + quantity };
       setInventory(nextInv);
       localStorage.setItem(THEME.GUEST_KEY, JSON.stringify(nextInv));
       return true;
     }
   };
 
+  /**
+   * 複数アイテムの一括購入
+   * ショップコントラクト(buyItem)対応のため、アイテム総数も計算して渡す
+   */
+  const buyItems = async (purchases: Record<string, number>, totalCHH: number): Promise<ClaimResult> => {
+      if (!walletAddress) return { success: false, message: "Wallet not connected." };
+      if (totalCHH <= 0) return { success: false, message: "No items selected." };
+
+      setIsPurchasing(true);
+      try {
+          // 1. アイテム総数を計算
+          const totalItems = Object.values(purchases).reduce((a, b) => a + b, 0);
+
+          // 2. $CHHトークンの決済 (Approve -> Buy)
+          const res = await purchaseItemsWithTokens(walletAddress, totalItems, totalCHH);
+          
+          if (res.success) {
+              // 3. インベントリへの付与
+              for (const [type, quantity] of Object.entries(purchases)) {
+                  await grantItem(type as ItemType, quantity);
+              }
+          }
+          return res;
+      } finally {
+          setIsPurchasing(false);
+      }
+  };
+
   const claimBonus = async (itemType: ItemType, userWallet: string | null): Promise<ClaimResult> => {
     setIsClaimingBonus(true);
-    setBonusClaimResult(null);
-
     if (isGuest || !userWallet) {
       await grantItem(itemType);
       localStorage.setItem(THEME.GUEST_BONUS_KEY, new Date().toISOString().split('T')[0]);
       setLoginBonusClaimed(true);
-      setPendingBonusItem(null);
+      // ここではsetPendingBonusItem(null)を呼ばず、モーダルが閉じるまで保持する
       setIsClaimingBonus(false);
-      const res = { success: true, message: "Bonus claimed locally." };
-      setBonusClaimResult(res);
-      return res;
+      return { success: true, message: "Bonus claimed locally." };
     }
-
     try {
       const result = await chainClaimDailyBonus(userWallet, itemType);
       if (result.success) {
         if (farcasterUser?.username) await dbClaimLoginBonus(`fc:${farcasterUser.username}`);
         await grantItem(itemType);
         setLoginBonusClaimed(true);
-        setPendingBonusItem(null);
+        // モーダル表示中はpendingを維持し、次回のloadInventoryやモーダルCloseでクリアされるようにする
       }
-      setBonusClaimResult(result);
       return result;
-    } catch (e: any) {
-      const err = { success: false, message: e.message || "Claim failed" };
-      setBonusClaimResult(err);
-      return err;
     } finally {
       setIsClaimingBonus(false);
     }
@@ -211,6 +218,7 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     inventory,
     loginBonusClaimed,
     isClaimingBonus,
+    isPurchasing,
     bonusClaimResult,
     pendingBonusItem,
     setPendingBonusItem,
@@ -218,6 +226,7 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     consumeItem,
     consumeItems,
     grantItem,
+    buyItems,
     claimBonus
   };
 };
