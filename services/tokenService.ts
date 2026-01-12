@@ -4,7 +4,8 @@ import { ethers } from 'ethers';
 import sdk from '@farcaster/frame-sdk';
 
 // --- Configuration ---
-const BASE_CHAIN_ID_HEX = '0x2105'; // 8453 in Hex
+const BASE_CHAIN_ID_HEX = '0x2105'; // 8453 in Hex0xb0525542e3d818460546332e76e511562dff9b07
+
 const BASE_CHAIN_ID_DEC = 8453;
 
 // 1. Score Reward Contract
@@ -119,16 +120,17 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         const priceWei = ethers.parseUnits(amountCHH.toString(), 18);
 
         // 4. Allowanceの確認（BigIntとして確実に扱う）
-        const currentAllowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
-        console.log("[Shop] Current Allowance:", ethers.formatUnits(currentAllowance, 18));
+        //console.log("DEBUG: Owner is", walletAddress, "Spender is", SHOP_CONTRACT_ADDRESS);
+        //const currentAllowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
+        //console.log("[Shop] Current Allowance:", ethers.formatUnits(currentAllowance, 18));
         
-        if (BigInt(currentAllowance) < BigInt(priceWei)) {
+        //if (BigInt(currentAllowance) < BigInt(priceWei)) {
             console.log("[Shop] Insufficient allowance. Requesting approval...");
             // 十分な量をApprove（一回一回やるのが面倒なら最大値を設定することもありますが、今回はpriceWei分）
             const approveTx = await tokenContract.approve(SHOP_CONTRACT_ADDRESS, priceWei);
             await approveTx.wait();
             console.log("[Shop] Approval confirmed.");
-        }
+        //}
 
         // 5. 購入実行
         console.log("[Shop] Sending buyItem transaction...");
