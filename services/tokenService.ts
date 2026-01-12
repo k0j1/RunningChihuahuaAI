@@ -125,8 +125,15 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         // 金額をWeiに変換
         const priceWei = ethers.parseUnits(amountCHH.toString(), 18);
 
+        // *** CHHコントラクトアドレスのチェック
+        const code = await provider.getCode(CHH_TOKEN_ADDRESS);
+        console.log("DEBUG: Contract Code at address:", code);
+
+        if (code === "0x") {
+            console.error("❌ 致命的エラー: このネットワーク上のこのアドレスには、コントラクトが存在しません！ネットワーク設定かアドレスを再確認してください。");
+        }
+
         // 4. Allowanceの確認（BigIntとして確実に扱う）
-        console.log("DEBUG: Owner is", userAddr, "Spender is", shopAddr);
         const currentAllowance = await tokenContract.allowance(userAddr, shopAddr);
         console.log("[Shop] Current Allowance:", ethers.formatUnits(currentAllowance, 18));
         
