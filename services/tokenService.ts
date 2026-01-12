@@ -111,8 +111,19 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
             if (BigInt(currentAllowance) >= BigInt(priceWei)) {
                 console.log("[Shop] Allowance already sufficient.");
             } else {
-                const tx = await tokenContract.approve(SHOP_CONTRACT_ADDRESS, priceWei);
-                await tx.wait();
+                // --- 修正版：ガス見積もりをスキップして強制的に署名画面を出す ---
+                console.log("[Shop] Requesting approval with manual gas limit...");
+
+                const approveTx = await tokenContract.approve(
+                    SHOP_CONTRACT_ADDRESS, 
+                    priceWei, 
+                    {
+                        // ガスリミットを手動で設定（通常 approve は 50,000 ~ 100,000 程度）
+                        gasLimit: 100000n 
+                    }
+                );
+                await approveTx.wait();
+
             }
         } catch (e) {
             console.log("[Shop] Allowance check failed, but proceeding to direct Approve...");
