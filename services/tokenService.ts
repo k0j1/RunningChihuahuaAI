@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { ClaimResult, ItemType } from '../types';
 import { ethers } from 'ethers';
@@ -14,7 +13,7 @@ const SCORE_CONTRACT_ADDRESS = "0x65F5661319C4d23c973C806e1e006Bb06d5557D2";
 // 2. Daily Bonus Contract
 const BONUS_CONTRACT_ADDRESS = "0x14254C321A6d0aB1986ecD8942e8f9603153634E";
 
-// 3. Shop Contract (New Address)
+// 3. Shop Contract
 const SHOP_CONTRACT_ADDRESS = "0x077121a40B1f3cE2D755fA17E1f34e7554A44aF0";
 
 // 4. $CHH Token Address
@@ -43,42 +42,49 @@ const ERC20_ABI = [
   "function decimals() view returns (uint8)"
 ];
 
+/**
+ * Baseネットワークへの切り替えを強制する
+ */
 const switchToBaseNetwork = async (windowProvider: any) => {
     try {
         const currentChainId = await windowProvider.request({ method: 'eth_chainId' });
         
-        if (currentChainId !== BASE_CHAIN_ID_HEX && Number(currentChainId) !== BASE_CHAIN_ID_DEC) {
-            try {
+        // すでにBaseの場合は何もしない
+        if (currentChainId === BASE_CHAIN_ID_HEX || Number(currentChainId) === BASE_CHAIN_ID_DEC) {
+            return;
+        }
+
+        try {
+            await windowProvider.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: BASE_CHAIN_ID_HEX }],
+            });
+        } catch (switchError: any) {
+            // チェーンが存在しない場合は追加を試みる (Error code 4902)
+            if (switchError.code === 4902 || switchError.code === '4902' || switchError.message?.includes("Unrecognized chain")) {
                 await windowProvider.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: BASE_CHAIN_ID_HEX }],
-                });
-            } catch (switchError: any) {
-                if (switchError.code === 4902 || switchError.code === '4902' || switchError.message?.includes("Unrecognized chain")) {
-                    await windowProvider.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [
-                            {
-                                chainId: BASE_CHAIN_ID_HEX,
-                                chainName: 'Base',
-                                rpcUrls: ['https://mainnet.base.org'],
-                                nativeCurrency: {
-                                    name: 'Ether',
-                                    symbol: 'ETH',
-                                    decimals: 18
-                                },
-                                blockExplorerUrls: ['https://basescan.org']
+                    method: 'wallet_addEthereumChain',
+                    params: [
+                        {
+                            chainId: BASE_CHAIN_ID_HEX,
+                            chainName: 'Base',
+                            rpcUrls: ['https://mainnet.base.org'],
+                            nativeCurrency: {
+                                name: 'Ether',
+                                symbol: 'ETH',
+                                decimals: 18
                             },
-                        ],
-                    });
-                } else {
-                    throw switchError;
-                }
+                            blockExplorerUrls: ['https://basescan.org']
+                        },
+                    ],
+                });
+            } else {
+                throw switchError;
             }
         }
     } catch (networkError: any) {
         console.error("Network switch error:", networkError);
-        throw new Error("Failed to switch network to Base. Please switch manually.");
+        throw new Error("Failed to switch network to Base. Please switch manually in your wallet.");
     }
 }
 
@@ -95,10 +101,20 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         else if (window.ethereum) windowProvider = window.ethereum;
         else throw new Error("No wallet detected.");
 
+        // 1. ネットワーク切り替え
         await switchToBaseNetwork(windowProvider);
 
-        const provider = new ethers.BrowserProvider(windowProvider);
-        const signer = await provider.getSigner(walletAddress);
+        // 2. プロバイダーの初期化 (ネットワーク切り替え後に初期化することが重要)
+        // 'any' を指定して、基礎となるトランスポートのネットワーク変更を検知できるようにする
+        const provider = new ethers.BrowserProvider(windowProvider, "any");
+        
+        // 3. チェーンIDの最終確認
+        const network = await provider.getNetwork();
+        if (Number(network.chainId) !== BASE_CHAIN_ID_DEC) {
+            throw new Error(`Wrong network detected (${network.chainId}). Please switch to Base Mainnet.`);
+        }
+
+        const signer = await provider.getSigner();
         
         const tokenContract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, signer);
         const shopContract = new ethers.Contract(SHOP_CONTRACT_ADDRESS, SHOP_CONTRACT_ABI, signer);
@@ -106,24 +122,29 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         // 金額をWeiに変換 (18 decimals)
         const priceWei = ethers.parseUnits(amountCHH.toString(), 18);
 
-        // 1. Check Allowance (承認済み金額を確認)
-        const allowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
+        // 4. Check Allowance (承認済み金額を確認)
+        let allowance;
+        try {
+            allowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
+        } catch (err: any) {
+            console.error("Allowance check failed:", err);
+            // CALL_EXCEPTIONはここで起きやすい
+            throw new Error("Failed to check token allowance. Ensure you are on Base network.");
+        }
         
         if (allowance < priceWei) {
             console.log("[Shop] Insufficient allowance. Requesting approval...");
-            // 不足している場合、Approveを実行
             const approveTx = await tokenContract.approve(SHOP_CONTRACT_ADDRESS, priceWei);
-            await approveTx.wait(); // トランザクション完了を待つ
+            await approveTx.wait();
             console.log("[Shop] Approval confirmed.");
         }
 
-        // 2. Execute Buy Item (購入実行)
+        // 5. Execute Buy Item (購入実行)
         // buyItem(uint256 amount, uint256 payAmount)
-        // amount: アイテム総数, payAmount: 支払総額(Wei)
         const buyTx = await shopContract.buyItem(totalItemCount, priceWei);
         console.log("[Shop] Purchase transaction sent:", buyTx.hash);
         
-        await buyTx.wait(); // 購入完了を待つ
+        await buyTx.wait(); 
 
         return {
             success: true,
@@ -170,8 +191,8 @@ export const claimTokenReward = async (walletAddress: string, score: number): Pr
 
     await switchToBaseNetwork(windowProvider);
 
-    const provider = new ethers.BrowserProvider(windowProvider);
-    const signer = await provider.getSigner(walletAddress);
+    const provider = new ethers.BrowserProvider(windowProvider, "any");
+    const signer = await provider.getSigner();
     const contract = new ethers.Contract(SCORE_CONTRACT_ADDRESS, SCORE_CONTRACT_ABI, signer);
 
     const tx = await contract.claimScore(adjusted_score, signature);
@@ -185,10 +206,11 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
     try {
         let windowProvider: any = sdk.wallet.ethProvider || window.ethereum;
         if (!windowProvider) throw new Error("No crypto wallet found.");
+        
         await switchToBaseNetwork(windowProvider);
 
-        const provider = new ethers.BrowserProvider(windowProvider);
-        const signer = await provider.getSigner(walletAddress);
+        const provider = new ethers.BrowserProvider(windowProvider, "any");
+        const signer = await provider.getSigner();
         const contract = new ethers.Contract(BONUS_CONTRACT_ADDRESS, BONUS_CONTRACT_ABI, signer);
 
         const tx = await contract.claim({ gasLimit: 200000 });
@@ -215,5 +237,8 @@ const handleError = (error: any): ClaimResult => {
     let userMsg = `Error: ${errMsg}`;
     if (error.code === 4001 || error.code === 'ACTION_REJECTED') userMsg = "Transaction rejected.";
     else if (detail) userMsg = `Transaction reverted: ${detail}`;
+    // CALL_EXCEPTIONのヒントを追加
+    else if (error.code === 'CALL_EXCEPTION') userMsg = "Transaction failed (Wrong Network?). Switch to Base.";
+    
     return { success: false, message: userMsg };
 }
