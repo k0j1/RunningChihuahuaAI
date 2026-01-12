@@ -107,7 +107,7 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         // 1. ネットワーク切り替え
         await switchToBaseNetwork(windowProvider);
 
-        // 2. プロバイダーの初期化 (ネットワーク切り替え後に初期化)
+        // 2. プロバイダーの初期化
         const provider = new ethers.BrowserProvider(windowProvider, "any");
         
         // Delay to ensure provider sync
@@ -126,7 +126,10 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
 
         const signer = await provider.getSigner();
         
-        const tokenContract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, signer);
+        // Use provider for Read-Only operations (avoiding signer issues for views)
+        const tokenContractRead = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, provider);
+        // Use signer for Write operations
+        const tokenContractWrite = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, signer);
         const shopContract = new ethers.Contract(SHOP_CONTRACT_ADDRESS, SHOP_CONTRACT_ABI, signer);
 
         // 金額をWeiに変換 (18 decimals)
@@ -137,7 +140,9 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         let retries = 3;
         while (retries > 0) {
             try {
-                allowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
+                // IMPORTANT: Use tokenContractRead (connected to provider, not signer)
+                allowance = await tokenContractRead.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
+                console.log("[Shop] Allowance check result:", ethers.formatUnits(allowance, 18));
                 break; // Success
             } catch (err: any) {
                 console.warn(`Allowance check attempt failed (${retries} retries left):`, err);
@@ -151,22 +156,33 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         
         if (allowance < priceWei) {
             console.log("[Shop] Insufficient allowance. Requesting approval...");
-            const approveTx = await tokenContract.approve(SHOP_CONTRACT_ADDRESS, priceWei);
-            await approveTx.wait();
-            console.log("[Shop] Approval confirmed.");
+            try {
+                const approveTx = await tokenContractWrite.approve(SHOP_CONTRACT_ADDRESS, priceWei);
+                console.log("[Shop] Approve tx sent:", approveTx.hash);
+                await approveTx.wait();
+                console.log("[Shop] Approval confirmed.");
+            } catch (approveErr: any) {
+                console.error("Approval failed:", approveErr);
+                throw new Error("Token approval failed or rejected.");
+            }
         }
 
         // 5. Execute Buy Item (購入実行)
-        const buyTx = await shopContract.buyItem(totalItemCount, priceWei);
-        console.log("[Shop] Purchase transaction sent:", buyTx.hash);
-        
-        await buyTx.wait(); 
+        try {
+            const buyTx = await shopContract.buyItem(totalItemCount, priceWei);
+            console.log("[Shop] Purchase transaction sent:", buyTx.hash);
+            await buyTx.wait(); 
+            
+            return {
+                success: true,
+                message: "Purchase successful! Items added to inventory.",
+                txHash: buyTx.hash
+            };
+        } catch (buyErr: any) {
+             console.error("Buy execution failed:", buyErr);
+             throw new Error("Purchase transaction failed.");
+        }
 
-        return {
-            success: true,
-            message: "Purchase successful! Items added to inventory.",
-            txHash: buyTx.hash
-        };
     } catch (error: any) {
         console.error("[Shop] Purchase error:", error);
         return handleError(error);
@@ -175,6 +191,7 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
 
 export const fetchCHHBalance = async (walletAddress: string): Promise<string> => {
     try {
+        // Use fallback provider for reliable balance fetching
         const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
         const contract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, provider);
         const balance = await contract.balanceOf(walletAddress);
