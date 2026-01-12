@@ -106,6 +106,11 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         else if (window.ethereum) windowProvider = window.ethereum;
         else throw new Error("No wallet detected.");
 
+        // 関数内で実行
+        const tokenAddr = ethers.getAddress(CHH_TOKEN_ADDRESS);
+        const shopAddr = ethers.getAddress(SHOP_CONTRACT_ADDRESS);
+        const userAddr = ethers.getAddress(walletAddress);
+
         // 1. ネットワーク切り替え
         await switchToBaseNetwork(windowProvider);
 
@@ -114,21 +119,21 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         const signer = await provider.getSigner();
         
         // 3. コントラクト初期化
-        const tokenContract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, signer);
-        const shopContract = new ethers.Contract(SHOP_CONTRACT_ADDRESS, SHOP_CONTRACT_ABI, signer);
+        const tokenContract = new ethers.Contract(tokenAddr, ERC20_ABI, signer);
+        const shopContract = new ethers.Contract(shopAddr, SHOP_CONTRACT_ABI, signer);
 
         // 金額をWeiに変換
         const priceWei = ethers.parseUnits(amountCHH.toString(), 18);
 
         // 4. Allowanceの確認（BigIntとして確実に扱う）
-        console.log("DEBUG: Owner is", walletAddress, "Spender is", SHOP_CONTRACT_ADDRESS);
-        const currentAllowance = await tokenContract.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
+        console.log("DEBUG: Owner is", userAddr, "Spender is", shopAddr);
+        const currentAllowance = await tokenContract.allowance(userAddr, shopAddr);
         console.log("[Shop] Current Allowance:", ethers.formatUnits(currentAllowance, 18));
         
         if (BigInt(currentAllowance) < BigInt(priceWei)) {
             console.log("[Shop] Insufficient allowance. Requesting approval...");
             // 十分な量をApprove（一回一回やるのが面倒なら最大値を設定することもありますが、今回はpriceWei分）
-            const approveTx = await tokenContract.approve(SHOP_CONTRACT_ADDRESS, priceWei);
+            const approveTx = await tokenContract.approve(shopAddr, priceWei);
             await approveTx.wait();
             console.log("[Shop] Approval confirmed.");
         }
