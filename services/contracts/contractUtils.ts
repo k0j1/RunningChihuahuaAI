@@ -19,6 +19,7 @@ export const ERC20_ABI = [
 
 /**
  * Baseメインネットへの切り替えを試行する
+ * 同期問題を避けるため、切り替え後に1.5秒待機する (Ver.1.0.0基準)
  */
 export const switchToBaseNetwork = async (windowProvider: any) => {
     try {
@@ -31,7 +32,7 @@ export const switchToBaseNetwork = async (windowProvider: any) => {
                 method: 'wallet_switchEthereumChain',
                 params: [{ chainId: BASE_CHAIN_ID_HEX }],
             });
-            // ネットワーク同期のための待機
+            // ネットワークが切り替わり、内部のRPCが更新されるまで待機
             await new Promise(resolve => setTimeout(resolve, 1500));
         } catch (switchError: any) {
             if (switchError.code === 4902 || switchError.code === '4902' || switchError.message?.includes("Unrecognized chain")) {
@@ -51,13 +52,13 @@ export const switchToBaseNetwork = async (windowProvider: any) => {
             }
         }
     } catch (error: any) {
-        console.error("Network switch error:", error);
+        console.error("[Network] switch error:", error);
         throw new Error("Baseネットワークへの切り替えに失敗しました。ウォレットの設定を確認してください。");
     }
 };
 
 /**
- * コントラクトエラーの共通ハンドリング
+ * コントラクトエラーの共通ハンドリング (Ver.1.0.0基準のメッセージ)
  */
 export const handleContractError = (error: any) => {
     console.error("[Contract Error]:", error);
@@ -65,6 +66,7 @@ export const handleContractError = (error: any) => {
     const detail = error.data || error.reason || error.shortMessage || "";
     
     let userMsg = `エラー: ${errMsg}`;
+    
     if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
         userMsg = "トランザクションが拒否されました。";
     } else if (detail) {
