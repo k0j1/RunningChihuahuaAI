@@ -10,7 +10,7 @@ import {
 } from './contractUtils';
 
 // コントラクト設定
-const SHOP_CONTRACT_ADDRESS = "0x077121a40B1f3cE2D755fA17E1f34e7554A44af0";
+const SHOP_CONTRACT_ADDRESS = "0x0d013d7DC17E8240595778D1db7241f176Ca51F9";
 
 // 署名付きの購入関数に対応したABI
 const SHOP_CONTRACT_ABI = [
