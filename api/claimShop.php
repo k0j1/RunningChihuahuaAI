@@ -1,92 +1,67 @@
 <?php
-/**
- * Shop Claim API - Generates EIP-191 signatures for in-game item purchases.
- * 
- * Usage: POST JSON { "walletAddress": "0x...", "itemCount": 3, "payAmount": 500 }
- * Requirements: bcmath, gmp extensions and composer dependencies.
- */
+require_once __DIR__ . '/vendor/autoload.php';
 
-require_once __DIR__ . '/../vendor/autoload.php';
-
-use kornrunner\Keccak;
-use Elliptic\EC;
 use Dotenv\Dotenv;
+use Elliptic\EC;
+use kornrunner\Keccak;
 
 header('Content-Type: application/json');
 
 try {
-    // 1. 環境変数のロード
-    if (file_exists(__DIR__ . '/.env')) {
-        $dotenv = Dotenv::createImmutable(__DIR__);
-    } else {
-        $dotenv = Dotenv::createImmutable(__DIR__ . '/../');
-    }
-    $dotenv->load();
+    $dotenv = Dotenv::createImmutable(__DIR__);
+    $dotenv->safeLoad();
 
     $privateKey = $_ENV['PRIVATE_KEY'] ?? null;
     if (!$privateKey) {
-        throw new Exception("Server configuration error: Missing PRIVATE_KEY");
+        throw new Exception('Server configuration error: Missing Private Key');
     }
 
-    // 2. 入力データの取得とバリデーション
     $input = json_decode(file_get_contents('php://input'), true);
-    $walletAddress = $input['walletAddress'] ?? null;
-    $itemCount = isset($input['itemCount']) ? (int)$input['itemCount'] : 0;
-    $payAmount = isset($input['payAmount']) ? $input['payAmount'] : 0;
+    $address = $input['walletAddress'] ?? null;
+    $itemCount = $input['itemCount'] ?? null;
+    $payAmount = $input['payAmount'] ?? null;
 
-    if (!$walletAddress || $itemCount <= 0 || $payAmount <= 0) {
-        throw new Exception("Invalid request parameters: walletAddress, itemCount, and payAmount are required.");
+    if (!$address || $itemCount === null || $payAmount === null) {
+        throw new Exception('Missing required parameters');
     }
 
-    // 3. 金額の計算 ($CHH は 18 桁の decimals)
-    // フロントエンドから送られてきた数値（例: 500）を Wei (10^18) に変換
+    // 1. アドレスをクリーンアップ
+    $cleanAddress = strtolower(str_replace('0x', '', $address));
+    
+    // 2. アイテム数を uint256 (32 bytes) に変換
+    $hexItemCount = str_pad(dechex($itemCount), 64, '0', STR_PAD_LEFT);
+    
+    // 3. 支払額を Wei (18 decimals) に変換し uint256 に変換
     $payAmountWei = bcmul((string)$payAmount, bcpow("10", "18"));
+    $hexPayAmount = str_pad(gmp_strval(gmp_init($payAmountWei), 16), 64, '0', STR_PAD_LEFT);
 
-    // 4. ハッシュの作成 (Solidity: keccak256(abi.encodePacked(msg.sender, amount, payAmount)))
-    // EthereumのABIエンコードルールに従い、各値をパディングして結合します。
-    
-    // Address: 20bytes (40 hex chars)
-    $cleanAddress = strtolower(str_replace('0x', '', $walletAddress));
-    
-    // Amount (uint256): 32bytes (64 hex chars)
-    $amountHex = str_pad(gmp_strval(gmp_init($itemCount), 16), 64, '0', STR_PAD_LEFT);
-    
-    // PayAmount (uint256): 32bytes (64 hex chars)
-    $payAmountHex = str_pad(gmp_strval(gmp_init($payAmountWei), 16), 64, '0', STR_PAD_LEFT);
-
-    // 結合してハッシュ化
-    $binaryData = hex2bin($cleanAddress . $amountHex . $payAmountHex);
+    // 4. ハッシュ作成: keccak256(abi.encodePacked(address, itemCount, payAmount))
+    $binaryData = hex2bin($cleanAddress . $hexItemCount . $hexPayAmount);
     $hash = Keccak::hash($binaryData, 256);
 
-    // 5. EIP-191 署名の生成
-    // プレフィックスを付与: "\x19Ethereum Signed Message:\n32" + hash
-    $ethMessagePrefix = "\x19Ethereum Signed Message:\n32";
-    $ethHash = Keccak::hash($ethMessagePrefix . hex2bin($hash), 256);
+    // 5. EIP-191 プレフィックス付与
+    $prefix = "\x19Ethereum Signed Message:\n32";
+    $prefixedHash = Keccak::hash($prefix . hex2bin($hash), 256);
 
+    // 6. 署名
     $ec = new EC('secp256k1');
     $keyPair = $ec->keyFromPrivate($privateKey);
-    $signature = $keyPair->sign($ethHash, ['canonical' => true]);
+    $signature = $keyPair->sign($prefixedHash, ['canonical' => true]);
 
-    // r, s, v のフォーマット
     $r = str_pad($signature->r->toString(16), 64, '0', STR_PAD_LEFT);
     $s = str_pad($signature->s->toString(16), 64, '0', STR_PAD_LEFT);
     $v = dechex($signature->recoveryParam + 27);
 
     $finalSignature = '0x' . $r . $s . $v;
 
-    // 6. レスポンス
     echo json_encode([
         'success' => true,
         'signature' => $finalSignature,
-        'adjusted_item_count' => $itemCount,
-        'adjusted_pay_amount_wei' => $payAmountWei,
-        'wallet' => $walletAddress
+        'adjusted_item_count' => (int)$itemCount,
+        'adjusted_pay_amount_wei' => $payAmountWei
     ]);
 
 } catch (Exception $e) {
     http_response_code(400);
-    echo json_encode([
-        'success' => false,
-        'message' => $e->getMessage()
-    ]);
+    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
