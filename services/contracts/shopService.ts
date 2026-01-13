@@ -9,60 +9,107 @@ import {
     BASE_RPC_URL
 } from './contractUtils';
 
+// コントラクト設定
 const SHOP_CONTRACT_ADDRESS = "0x077121a40B1f3cE2D755fA17E1f34e7554A44af0";
+
+// 署名付きの購入関数に対応したABI
 const SHOP_CONTRACT_ABI = [
-  "function buyItem(uint256 amount, uint256 payAmount) external"
+  "function buyItem(uint256 amount, uint256 payAmount, bytes calldata signature) external"
 ];
 
 /**
- * アイテムを一括購入する (Approve & Buy)
+ * アイテムを一括購入する (claimShop.php から署名取得 -> Approve -> buyItem)
  */
 export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCount: number, amountCHH: number): Promise<ClaimResult> => {
     try {
-        let windowProvider: any = sdk.wallet.ethProvider || (window as any).ethereum;
-        if (!windowProvider) throw new Error("ウォレットが見つかりません。");
+        console.log(`[ShopService] Starting purchase flow: ${totalItemCount} items for ${amountCHH} $CHH`);
+        if (totalItemCount <= 0) throw new Error("アイテムが選択されていません。");
 
+        // 1. ショップ専用バックエンド（claimShop.php）から署名を取得
+        const apiUrl = './api/claimShop.php'; 
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                walletAddress, 
+                itemCount: totalItemCount, 
+                payAmount: amountCHH 
+            })
+        });
+
+        const text = await response.text();
+        let data: any;
+        try {
+            data = JSON.parse(text);
+        } catch {
+            if (!response.ok) throw new Error(text || `HTTP Error ${response.status}`);
+        }
+
+        if (!response.ok || !data.success || !data.signature) {
+            throw new Error((data && data.message) || '署名の取得に失敗しました。');
+        }
+
+        // バックエンドから返された確定データ
+        const { signature, adjusted_item_count, adjusted_pay_amount_wei } = data;
+
+        // 2. ウォレットプロバイダーの準備
+        let windowProvider: any = sdk.wallet.ethProvider || (window as any).ethereum;
+        if (!windowProvider) {
+            throw new Error("ウォレットが見つかりません。");
+        }
+
+        // 3. ネットワーク切り替え (Base)
         await switchToBaseNetwork(windowProvider);
 
+        // 4. プロバイダーと署名者を初期化
         const provider = new ethers.BrowserProvider(windowProvider, "any");
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const signer = await provider.getSigner();
+        const signer = await provider.getSigner(walletAddress);
         
-        // Read ops using Provider, Write ops using Signer
         const tokenContractRead = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, provider);
         const tokenContractWrite = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, signer);
         const shopContract = new ethers.Contract(SHOP_CONTRACT_ADDRESS, SHOP_CONTRACT_ABI, signer);
 
-        const priceWei = ethers.parseUnits(amountCHH.toString(), 18);
+        // 支払額を確定 (バックエンドからのWei値を優先的に使用)
+        const priceWei = adjusted_pay_amount_wei ? ethers.getBigInt(adjusted_pay_amount_wei) : ethers.parseUnits(amountCHH.toString(), 18);
 
-        // 1. Allowance Check (Retry logic for stability)
+        // 5. Allowance (承認額) の確認
         let allowance;
-        let retries = 2;
-        while (retries >= 0) {
-            try {
-                allowance = await tokenContractRead.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
-                break;
-            } catch (err) {
-                if (retries === 0) throw new Error("トークン承認額の確認に失敗しました。");
-                retries--;
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
+        try {
+            allowance = await tokenContractRead.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
+        } catch (err) {
+            // ラグ対策のリトライ
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            allowance = await tokenContractRead.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
         }
         
-        // 2. Approve if necessary
+        // 6. 必要に応じて Approve を実行
         if (allowance < priceWei) {
-            console.log("[Shop] Requesting approval...");
+            console.log("[ShopService] Requesting approval...");
             const approveTx = await tokenContractWrite.approve(SHOP_CONTRACT_ADDRESS, priceWei);
             await approveTx.wait();
+            console.log("[ShopService] Approval confirmed.");
         }
 
-        // 3. Finalize Purchase
-        console.log("[Shop] Executing buyItem...");
-        const buyTx = await shopContract.buyItem(totalItemCount, priceWei);
-        await buyTx.wait(); 
+        // 7. 購入トランザクションの実行 (署名を添付)
+        console.log("[ShopService] Executing buyItem with backend signature...");
+        const buyTx = await shopContract.buyItem(
+            adjusted_item_count || totalItemCount, 
+            priceWei, 
+            signature, 
+            { gasLimit: 500000 }
+        );
+        
+        console.log("[ShopService] Purchase transaction sent:", buyTx.hash);
+        await buyTx.wait();
+        console.log("[ShopService] Purchase confirmed!");
 
-        return { success: true, message: "購入が完了しました！", txHash: buyTx.hash };
+        return { 
+            success: true, 
+            message: "購入が完了しました！", 
+            txHash: buyTx.hash 
+        };
     } catch (error: any) {
+        console.error("[ShopService] Purchase Error:", error);
         return handleContractError(error);
     }
 };
@@ -77,6 +124,7 @@ export const fetchCHHBalance = async (walletAddress: string): Promise<string> =>
         const balance = await contract.balanceOf(walletAddress);
         return ethers.formatUnits(balance, 18);
     } catch (error) {
+        console.error("[ShopService] Failed to fetch CHH balance:", error);
         return "0.0";
     }
 };
