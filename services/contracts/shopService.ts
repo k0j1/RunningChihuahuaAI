@@ -65,7 +65,7 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         const provider = new ethers.BrowserProvider(windowProvider, "any");
         const signer = await provider.getSigner(walletAddress);
         
-        // 読み取り用プロバイダー (Public RPC) - CALL_EXCEPTION 回避のため
+        // 読み取り用プロバイダー (Public RPC) - 完了待ち(wait)に使用
         const publicProvider = new ethers.JsonRpcProvider(BASE_RPC_URL);
         
         // Allowance確認はPublic RPC経由で行う
@@ -94,7 +94,13 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
             console.log("[ShopService] Requesting approval...");
             // ガス見積もりエラー(estimateGas failed)を回避するため、gasLimitを明示的に指定
             const approveTx = await tokenContractWrite.approve(SHOP_CONTRACT_ADDRESS, priceWei, { gasLimit: 100000 });
-            await approveTx.wait();
+            console.log("[ShopService] Approval tx sent:", approveTx.hash);
+            
+            // ウォレットプロバイダーでのwait()は失敗する場合があるため、Public RPCで待機する
+            const receipt = await publicProvider.waitForTransaction(approveTx.hash);
+            if (!receipt || receipt.status === 0) {
+                throw new Error("Approval transaction failed on chain.");
+            }
             console.log("[ShopService] Approval confirmed.");
         }
 
@@ -108,7 +114,13 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         );
         
         console.log("[ShopService] Purchase transaction sent:", buyTx.hash);
-        await buyTx.wait();
+        
+        // ウォレットプロバイダーでのwait()は失敗する場合があるため、Public RPCで待機する
+        const receipt = await publicProvider.waitForTransaction(buyTx.hash);
+        if (!receipt || receipt.status === 0) {
+             throw new Error("Purchase transaction failed on chain.");
+        }
+        
         console.log("[ShopService] Purchase confirmed!");
 
         return { 
