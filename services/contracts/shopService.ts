@@ -92,7 +92,8 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         // 6. 必要に応じて Approve を実行
         if (allowance < priceWei) {
             console.log("[ShopService] Requesting approval...");
-            const approveTx = await tokenContractWrite.approve(SHOP_CONTRACT_ADDRESS, priceWei);
+            // ガス見積もりエラー(estimateGas failed)を回避するため、gasLimitを明示的に指定
+            const approveTx = await tokenContractWrite.approve(SHOP_CONTRACT_ADDRESS, priceWei, { gasLimit: 100000 });
             await approveTx.wait();
             console.log("[ShopService] Approval confirmed.");
         }
