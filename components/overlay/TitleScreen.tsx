@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { History, Trophy, PlayCircle, Zap, Volume2, VolumeX, Heart, Shield, ArrowUp, Sparkles, Gift, ShoppingCart, CheckCircle2, Info, HandMetal } from 'lucide-react';
+import { History, Trophy, PlayCircle, Zap, Volume2, VolumeX, Heart, Shield, ArrowUp, Sparkles, Gift, ShoppingCart, CheckCircle2, Info, HandMetal, ScrollText } from 'lucide-react';
 import { TitleBackground } from '../TitleBackground';
 import { WalletWidget } from './WalletWidget';
 import { ItemType, UserInventory } from '../../types';
@@ -267,6 +267,19 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             <button onClick={onShowHistory} className="flex-1 px-4 py-3 bg-white/5 rounded-2xl text-[10px] font-black tracking-widest flex items-center justify-center gap-2 hover:bg-white/10 transition-colors border border-white/10"><History size={16}/> HISTORY</button>
             <button onClick={onShowRanking} className="flex-1 px-4 py-3 bg-white/5 rounded-2xl text-[10px] font-black tracking-widest flex items-center justify-center gap-2 hover:bg-white/10 transition-colors border border-white/10"><Trophy size={16}/> RANKING</button>
           </div>
+
+          <div className="mt-4 flex justify-center">
+            <a 
+              href="https://k0j1.github.io/Running-Chihuahua---Light-Paper/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="group flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 hover:border-white/20 transition-all text-[10px] font-bold uppercase tracking-widest"
+            >
+              <ScrollText size={14} className="group-hover:text-yellow-400 transition-colors" />
+              <span>Litepaper</span>
+            </a>
+          </div>
+
         </div>
       </div>
       
