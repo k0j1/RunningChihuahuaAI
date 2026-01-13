@@ -65,7 +65,11 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         const provider = new ethers.BrowserProvider(windowProvider, "any");
         const signer = await provider.getSigner(walletAddress);
         
-        const tokenContractRead = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, provider);
+        // 読み取り用プロバイダー (Public RPC) - CALL_EXCEPTION 回避のため
+        const publicProvider = new ethers.JsonRpcProvider(BASE_RPC_URL);
+        
+        // Allowance確認はPublic RPC経由で行う
+        const tokenContractRead = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, publicProvider);
         const tokenContractWrite = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, signer);
         const shopContract = new ethers.Contract(SHOP_CONTRACT_ADDRESS, SHOP_CONTRACT_ABI, signer);
 
@@ -77,11 +81,14 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         try {
             allowance = await tokenContractRead.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
         } catch (err) {
+            console.warn("[ShopService] Allowance check failed, retrying...", err);
             // ラグ対策のリトライ
             await new Promise(resolve => setTimeout(resolve, 1000));
             allowance = await tokenContractRead.allowance(walletAddress, SHOP_CONTRACT_ADDRESS);
         }
         
+        console.log(`[ShopService] Allowance: ${allowance}, Price: ${priceWei}`);
+
         // 6. 必要に応じて Approve を実行
         if (allowance < priceWei) {
             console.log("[ShopService] Requesting approval...");
