@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { claimTokenReward } from '../services/tokenService';
+import { claimTokenReward } from '../services/contracts/scoreService';
 import { ClaimResult } from '../types';
 
 export const useRewardSystem = () => {
@@ -7,10 +7,8 @@ export const useRewardSystem = () => {
   const [claimResult, setClaimResult] = useState<ClaimResult | null>(null);
   const [totalClaimed, setTotalClaimed] = useState<number>(0);
 
-  // New contract tracks daily counts, not total amounts exposed easily.
-  // We remove the fetchTotalClaimed call to avoid errors with new ABI.
   const refreshTotalClaimed = useCallback(async (walletAddress: string) => {
-    // Placeholder: In future, we could fetch daily claim count here
+    // 将来的にはここでfetchDailyClaimCountを呼ぶことも可能
     setTotalClaimed(0); 
   }, []);
 
@@ -24,7 +22,6 @@ export const useRewardSystem = () => {
     setClaimResult(null);
 
     try {
-      // Pass the current run score directly
       const result = await claimTokenReward(walletAddress, score);
       setClaimResult(result);
     } catch (e) {

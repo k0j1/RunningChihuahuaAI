@@ -1,8 +1,8 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { ItemType, UserInventory, ClaimResult } from '../types';
 import { fetchUserInventory, consumeUserItem, grantUserItem, fetchUserStats, claimLoginBonus as dbClaimLoginBonus } from '../services/supabase';
-import { claimDailyBonus as chainClaimDailyBonus, purchaseItemsWithTokens } from '../services/tokenService';
+import { claimDailyBonus } from '../services/contracts/bonusService';
+import { purchaseItemsWithTokens, fetchCHHBalance } from '../services/contracts/shopService';
 
 const THEME = {
   RESET_HOUR_UTC: 0,
@@ -69,8 +69,6 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
         const available = isBonusAvailable(stats.lastLoginBonusTime || null);
         const claimed = !available;
         setLoginBonusClaimed(claimed);
-        
-        // 既にクレーム済みで、かつlocalStorageにも残っていない場合はpendingをクリア
         if (claimed && !savedPending) setPendingBonusItem(null);
       } else {
         setLoginBonusClaimed(false);
@@ -162,24 +160,15 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     }
   };
 
-  /**
-   * 複数アイテムの一括購入
-   * ショップコントラクト(buyItem)対応のため、アイテム総数も計算して渡す
-   */
   const buyItems = async (purchases: Record<string, number>, totalCHH: number): Promise<ClaimResult> => {
       if (!walletAddress) return { success: false, message: "Wallet not connected." };
       if (totalCHH <= 0) return { success: false, message: "No items selected." };
 
       setIsPurchasing(true);
       try {
-          // 1. アイテム総数を計算
           const totalItems = Object.values(purchases).reduce((a, b) => a + b, 0);
-
-          // 2. $CHHトークンの決済 (Approve -> Buy)
           const res = await purchaseItemsWithTokens(walletAddress, totalItems, totalCHH);
-          
           if (res.success) {
-              // 3. インベントリへの付与
               for (const [type, quantity] of Object.entries(purchases)) {
                   await grantItem(type as ItemType, quantity);
               }
@@ -196,17 +185,15 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
       await grantItem(itemType);
       localStorage.setItem(THEME.GUEST_BONUS_KEY, new Date().toISOString().split('T')[0]);
       setLoginBonusClaimed(true);
-      // ここではsetPendingBonusItem(null)を呼ばず、モーダルが閉じるまで保持する
       setIsClaimingBonus(false);
       return { success: true, message: "Bonus claimed locally." };
     }
     try {
-      const result = await chainClaimDailyBonus(userWallet, itemType);
+      const result = await claimDailyBonus(userWallet, itemType);
       if (result.success) {
         if (farcasterUser?.username) await dbClaimLoginBonus(`fc:${farcasterUser.username}`);
         await grantItem(itemType);
         setLoginBonusClaimed(true);
-        // モーダル表示中はpendingを維持し、次回のloadInventoryやモーダルCloseでクリアされるようにする
       }
       return result;
     } finally {
