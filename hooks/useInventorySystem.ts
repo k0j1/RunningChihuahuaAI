@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ItemType, UserInventory, ClaimResult } from '../types';
 import { fetchUserInventory, consumeUserItem, grantUserItem, fetchUserStats, claimLoginBonus as dbClaimLoginBonus } from '../services/supabase';
 import { claimDailyBonus } from '../services/contracts/bonusService';
-import { purchaseItemsWithTokens, fetchCHHBalance } from '../services/contracts/shopService';
+import { purchaseItemsWithTokens } from '../services/contracts/shopService';
 
 const THEME = {
   RESET_HOUR_UTC: 0,
@@ -28,7 +28,8 @@ const GUEST_INVENTORY: UserInventory = {
 export const useInventorySystem = (farcasterUser: any, walletAddress: string | null) => {
   const [inventory, setInventory] = useState<UserInventory>(DEFAULT_INVENTORY);
   const [isGuest, setIsGuest] = useState(true);
-  const [loginBonusClaimed, setLoginBonusClaimed] = useState<boolean>(true); 
+  const [loginBonusClaimed, setLoginBonusClaimed] = useState<boolean>(true);
+  const [lastClaimDateStr, setLastClaimDateStr] = useState<string | null>(null); // Store last claim date YYYY-MM-DD
   const [isClaimingBonus, setIsClaimingBonus] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [bonusClaimResult, setBonusClaimResult] = useState<ClaimResult | null>(null);
@@ -38,14 +39,23 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     setIsGuest(!farcasterUser?.username);
   }, [farcasterUser, walletAddress]);
 
-  const isBonusAvailable = useCallback((lastClaimIso: string | null): boolean => {
-    if (!lastClaimIso) return true;
-    const lastClaimDate = new Date(lastClaimIso);
-    const now = new Date();
-    const lastDateStr = lastClaimDate.toISOString().split('T')[0];
-    const nowDateStr = now.toISOString().split('T')[0];
-    return lastDateStr !== nowDateStr;
-  }, []);
+  // Periodic check for day reset
+  useEffect(() => {
+    const checkReset = () => {
+      if (lastClaimDateStr) {
+        const nowStr = new Date().toISOString().split('T')[0];
+        // If current date is different from last claim date, reset flag
+        if (lastClaimDateStr !== nowStr) {
+           setLoginBonusClaimed(false);
+        } else {
+           setLoginBonusClaimed(true);
+        }
+      }
+    };
+
+    const interval = setInterval(checkReset, 10000); // Check every 10 seconds
+    return () => clearInterval(interval);
+  }, [lastClaimDateStr]);
 
   const setPendingBonusItem = useCallback((item: ItemType | null) => {
     setPendingBonusItemState(item);
@@ -65,12 +75,22 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
 
       const userId = `fc:${farcasterUser.username}`;
       const stats = await fetchUserStats(userId);
+      const nowStr = new Date().toISOString().split('T')[0];
+
       if (stats) {
-        const available = isBonusAvailable(stats.lastLoginBonusTime || null);
-        const claimed = !available;
-        setLoginBonusClaimed(claimed);
-        if (claimed && !savedPending) setPendingBonusItem(null);
+        const lastTime = stats.lastLoginBonusTime;
+        if (lastTime) {
+            const dateStr = new Date(lastTime).toISOString().split('T')[0];
+            setLastClaimDateStr(dateStr);
+            setLoginBonusClaimed(dateStr === nowStr);
+            // If claimed today and no pending item, clear pending state logic
+            if (dateStr === nowStr && !savedPending) setPendingBonusItem(null);
+        } else {
+            setLastClaimDateStr(null);
+            setLoginBonusClaimed(false);
+        }
       } else {
+        setLastClaimDateStr(null);
         setLoginBonusClaimed(false);
       }
     } else {
@@ -87,16 +107,18 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
       }
       
       const lastClaim = localStorage.getItem(THEME.GUEST_BONUS_KEY);
+      const nowStr = new Date().toISOString().split('T')[0];
+      setLastClaimDateStr(lastClaim);
+
       if (lastClaim) {
-        const now = new Date().toISOString().split('T')[0];
-        const isClaimed = lastClaim === now;
+        const isClaimed = lastClaim === nowStr;
         setLoginBonusClaimed(isClaimed);
         if (isClaimed && !savedPending) setPendingBonusItem(null);
       } else {
         setLoginBonusClaimed(false);
       }
     }
-  }, [farcasterUser, walletAddress, isGuest, isBonusAvailable, setPendingBonusItem]);
+  }, [farcasterUser, walletAddress, isGuest, setPendingBonusItem]);
 
   useEffect(() => {
     loadInventory();
@@ -181,10 +203,19 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
 
   const claimBonus = async (itemType: ItemType, userWallet: string | null): Promise<ClaimResult> => {
     setIsClaimingBonus(true);
+    
+    // Helper to update state
+    const updateLocalState = () => {
+        const nowStr = new Date().toISOString().split('T')[0];
+        setLastClaimDateStr(nowStr);
+        setLoginBonusClaimed(true);
+    };
+
     if (isGuest || !userWallet) {
       await grantItem(itemType);
       localStorage.setItem(THEME.GUEST_BONUS_KEY, new Date().toISOString().split('T')[0]);
-      setLoginBonusClaimed(true);
+      updateLocalState();
+      setPendingBonusItem(null); // Clear pending item immediately
       setIsClaimingBonus(false);
       return { success: true, message: "Bonus claimed locally." };
     }
@@ -193,7 +224,8 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
       if (result.success) {
         if (farcasterUser?.username) await dbClaimLoginBonus(`fc:${farcasterUser.username}`);
         await grantItem(itemType);
-        setLoginBonusClaimed(true);
+        updateLocalState();
+        setPendingBonusItem(null); // Clear pending item immediately
       }
       return result;
     } finally {
