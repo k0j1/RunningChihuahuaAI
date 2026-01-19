@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
 import sdk from '@farcaster/frame-sdk';
-import { ClaimResult, ItemType } from '../../types';
+import { ClaimResult } from '../../types';
 import { switchToBaseNetwork, handleContractError, BASE_RPC_URL } from './contractUtils';
 
 const BONUS_CONTRACT_ADDRESS = "0x9B9191f213Afe0588570028174C97b3751c20Db0";
@@ -11,8 +11,9 @@ const BONUS_CONTRACT_ABI = [
 
 /**
  * デイリーボーナスを請求する
+ * コントラクトからは 100 CHH が送金されます
  */
-export const claimDailyBonus = async (walletAddress: string, itemType: ItemType): Promise<ClaimResult> => {
+export const claimDailyBonus = async (walletAddress: string): Promise<ClaimResult> => {
     try {
         let windowProvider: any = sdk.wallet.ethProvider || (window as any).ethereum;
         if (!windowProvider) throw new Error("ウォレットが見つかりません。");
@@ -20,8 +21,14 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
         await switchToBaseNetwork(windowProvider);
 
         const provider = new ethers.BrowserProvider(windowProvider, "any");
-        const signer = await provider.getSigner();
+        const signer = await provider.getSigner(walletAddress);
         const contract = new ethers.Contract(BONUS_CONTRACT_ADDRESS, BONUS_CONTRACT_ABI, signer);
+
+        // 事前に獲得可能かチェック
+        const canClaim = await contract.canClaim(walletAddress);
+        if (!canClaim) {
+            return { success: false, message: "本日のボーナスは既に獲得済みです (JST 9:00更新)" };
+        }
 
         const tx = await contract.claim({ gasLimit: 200000 });
         console.log("[BonusService] Claim tx sent:", tx.hash);
@@ -34,7 +41,7 @@ export const claimDailyBonus = async (walletAddress: string, itemType: ItemType)
             throw new Error("Claim transaction failed on chain.");
         }
 
-        return { success: true, message: "ボーナスを獲得しました！", txHash: tx.hash };
+        return { success: true, message: "ボーナス(100 $CHH)を獲得しました！", txHash: tx.hash };
     } catch (error: any) {
         return handleContractError(error);
     }

@@ -220,8 +220,11 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
       return { success: true, message: "Bonus claimed locally." };
     }
     try {
-      const result = await claimDailyBonus(userWallet, itemType);
+      // Contract claim (Token only)
+      const result = await claimDailyBonus(userWallet);
+      
       if (result.success) {
+        // DB claim (Timestamp) & Item Grant (Local Item)
         if (farcasterUser?.username) await dbClaimLoginBonus(`fc:${farcasterUser.username}`);
         await grantItem(itemType);
         updateLocalState();
