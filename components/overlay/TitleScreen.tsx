@@ -202,7 +202,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
              <div className="flex flex-wrap justify-center gap-2">
                 {equippedPassiveItems.map(item => (
                   <div key={item.type} className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border shadow-sm bg-gray-900 border-gray-600`}>
-                    <div className={item.color}>{React.cloneElement(item.icon as React.ReactElement, { size: 14 })}</div>
+                    <div className={item.color}>{React.cloneElement(item.icon as React.ReactElement)}</div>
                     <span className="text-[9px] font-bold text-white uppercase">{item.description}</span>
                   </div>
                 ))}

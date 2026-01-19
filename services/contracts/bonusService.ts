@@ -3,7 +3,7 @@ import sdk from '@farcaster/frame-sdk';
 import { ClaimResult, ItemType } from '../../types';
 import { switchToBaseNetwork, handleContractError, BASE_RPC_URL } from './contractUtils';
 
-const BONUS_CONTRACT_ADDRESS = "0x14254C321A6d0aB1986ecD8942e8f9603153634E";
+const BONUS_CONTRACT_ADDRESS = "0x9B9191f213Afe0588570028174C97b3751c20Db0";
 const BONUS_CONTRACT_ABI = [
   "function claim() external",
   "function canClaim(address user) view returns (bool)"
