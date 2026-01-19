@@ -93,7 +93,8 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         if (allowance < priceWei) {
             console.log("[ShopService] Requesting approval...");
             // ガス見積もりエラー(estimateGas failed)を回避するため、gasLimitを明示的に指定
-            const approveTx = await tokenContractWrite.approve(SHOP_CONTRACT_ADDRESS, priceWei, { gasLimit: 100000 });
+            // buyItemと同じ750,000に設定
+            const approveTx = await tokenContractWrite.approve(SHOP_CONTRACT_ADDRESS, priceWei, { gasLimit: 750000 });
             console.log("[ShopService] Approval tx sent:", approveTx.hash);
             
             // ウォレットプロバイダーでのwait()は失敗する場合があるため、Public RPCで待機する
@@ -105,12 +106,13 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
         }
 
         // 7. 購入トランザクションの実行 (署名を添付)
+        // ガスリミットを承認処理と合わせて750,000に設定
         console.log("[ShopService] Executing buyItem with backend signature...");
         const buyTx = await shopContract.buyItem(
             adjusted_item_count || totalItemCount, 
             priceWei, 
             signature, 
-            { gasLimit: 500000 }
+            { gasLimit: 750000 }
         );
         
         console.log("[ShopService] Purchase transaction sent:", buyTx.hash);
