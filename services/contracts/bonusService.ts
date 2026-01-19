@@ -20,23 +20,54 @@ export const claimDailyBonus = async (walletAddress: string): Promise<ClaimResul
         
         await switchToBaseNetwork(windowProvider);
 
+        // 1. 読み取り (Public RPC)
+        // Wallet Provider経由だと CALL_EXCEPTION (missing revert data) が発生することがあるため
+        // 安定しているPublic RPCを使用してチェックを行います。
+        const publicProvider = new ethers.JsonRpcProvider(BASE_RPC_URL);
+        const readContract = new ethers.Contract(BONUS_CONTRACT_ADDRESS, BONUS_CONTRACT_ABI, publicProvider);
+
+        try {
+            const canClaim = await readContract.canClaim(walletAddress);
+            if (!canClaim) {
+                return { success: false, message: "本日のボーナスは既に獲得済みです (JST 9:00更新)" };
+            }
+        } catch (error) {
+            console.warn("[BonusService] canClaim check failed via Public RPC, proceeding blindly:", error);
+            // 読み取りエラーでも、コントラクト実行自体は試行させる（本当に呼び出せない場合は次のステップでエラーになる）
+        }
+
+        // 2. 書き込み (Wallet Provider)
         const provider = new ethers.BrowserProvider(windowProvider, "any");
         const signer = await provider.getSigner(walletAddress);
         const contract = new ethers.Contract(BONUS_CONTRACT_ADDRESS, BONUS_CONTRACT_ABI, signer);
 
-        // 事前に獲得可能かチェック
-        const canClaim = await contract.canClaim(walletAddress);
-        if (!canClaim) {
-            return { success: false, message: "本日のボーナスは既に獲得済みです (JST 9:00更新)" };
-        }
-
         const tx = await contract.claim({ gasLimit: 200000 });
         console.log("[BonusService] Claim tx sent:", tx.hash);
 
-        // Public RPCを使用して完了を待機（埋め込みウォレットのreceipt取得エラー回避）
-        const publicProvider = new ethers.JsonRpcProvider(BASE_RPC_URL);
-        const receipt = await publicProvider.waitForTransaction(tx.hash);
+        // 3. 完了待ち (Public RPC ポーリング)
+        // Ethers v6では waitForTransaction が削除されているため、getTransactionReceipt でポーリングします
+        let receipt = null;
+        for (let i = 0; i < 30; i++) { // 最大約30-60秒待機
+            try {
+                receipt = await publicProvider.getTransactionReceipt(tx.hash);
+                if (receipt) break;
+            } catch (e) {
+                // RPCエラーは無視してリトライ
+            }
+            await new Promise(r => setTimeout(r, 2000));
+        }
         
+        // ポーリングで取れなかった場合のフォールバック（署名者プロバイダーで待機）
+        if (!receipt) {
+             try {
+                console.log("[BonusService] Polling timed out, falling back to tx.wait()");
+                const r = await tx.wait();
+                receipt = r;
+             } catch (e) {
+                console.error("[BonusService] Fallback wait failed:", e);
+             }
+        }
+
         if (!receipt || receipt.status === 0) {
             throw new Error("Claim transaction failed on chain.");
         }
