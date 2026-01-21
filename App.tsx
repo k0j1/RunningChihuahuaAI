@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Overlay } from './components/Overlay';
@@ -23,7 +24,8 @@ const App: React.FC = () => {
     shield, hasUsedShield, handleUseShield,
     isMuted, toggleMute, isBossHit, isCelebrating,
     startGame, setGameState, handleDodge, handleDuck,
-    connectWallet, disconnectWallet, shareScore, saveCurrentScore
+    connectWallet, disconnectWallet, shareScore, saveCurrentScore,
+    onShowAdmin // New handler
   } = gameLogic;
 
   const levelMultiplier = 5 + (bossLevel - 1) * 2;
@@ -106,6 +108,7 @@ const App: React.FC = () => {
         onDisconnectWallet={disconnectWallet}
         onShare={shareScore}
         onSaveScore={saveCurrentScore}
+        onShowAdmin={onShowAdmin} // Pass to Overlay
       />
     </div>
   );

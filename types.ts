@@ -9,7 +9,8 @@ export enum GameState {
   PAUSED = 'PAUSED',
   CAUGHT_ANIMATION = 'CAUGHT_ANIMATION',
   GAME_CLEAR = 'GAME_CLEAR',
-  GAME_OVER = 'GAME_OVER'
+  GAME_OVER = 'GAME_OVER',
+  ADMIN = 'ADMIN'
 }
 
 export enum BossType {
@@ -114,6 +115,18 @@ declare global {
   interface Window {
     ethereum?: any;
   }
+  
+  interface ImportMetaEnv {
+    readonly VITE_SUPABASE_URL: string;
+    readonly VITE_SUPABASE_KEY: string;
+    readonly DEV: boolean;
+    [key: string]: any;
+  }
+
+  interface ImportMeta {
+    readonly env: ImportMetaEnv;
+  }
+
   namespace JSX {
     interface IntrinsicElements {
       group: any;

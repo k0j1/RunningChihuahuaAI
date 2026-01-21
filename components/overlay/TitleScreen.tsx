@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { History, Trophy, PlayCircle, Zap, Volume2, VolumeX, Heart, Shield, ArrowUp, Sparkles, Gift, ShoppingCart, CheckCircle2, Info, HandMetal, ScrollText } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { History, Trophy, PlayCircle, Zap, Volume2, VolumeX, Heart, Shield, ArrowUp, Sparkles, Gift, ShoppingCart, CheckCircle2, Info, HandMetal, ScrollText, Database } from 'lucide-react';
 import { TitleBackground } from '../TitleBackground';
 import { WalletWidget } from './WalletWidget';
 import { ItemType, UserInventory } from '../../types';
@@ -25,7 +25,13 @@ interface TitleScreenProps {
   loginBonusClaimed: boolean;
   isMuted: boolean;
   onToggleMute: () => void;
+  onShowAdmin: () => void;
 }
+
+const ADMIN_WALLETS = [
+  '0x9eB566Cc59e3e9D42209Dd2d832740a6A74f5F23',
+  '0x7b9200739d77aB2C44c76ba1992882a8850ADCa9'
+];
 
 export const TitleScreen: React.FC<TitleScreenProps> = ({
   farcasterUser,
@@ -47,7 +53,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onOpenLoginBonus,
   loginBonusClaimed,
   isMuted,
-  onToggleMute
+  onToggleMute,
+  onShowAdmin
 }) => {
   const [isDemoReady, setIsDemoReady] = useState(false);
   const [timeLeft, setTimeLeft] = useState("");
@@ -56,6 +63,42 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   // Long press logic refs
   const pressTimer = useRef<number | null>(null);
   const isGuest = !farcasterUser?.username;
+
+  // Admin Check Logic
+  const isAdmin = useMemo(() => {
+    // 0. Manual Override via URL (?admin=1)
+    if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('admin') === '1') return true;
+    }
+
+    // 1. Check Wallet Allowlist
+    if (walletAddress && ADMIN_WALLETS.some(addr => addr.toLowerCase() === walletAddress.toLowerCase())) {
+        return true;
+    }
+    
+    // 2. Check Environment
+    // Vite Development Mode (Safe check for import.meta.env.DEV)
+    try {
+        // @ts-ignore
+        if (import.meta && import.meta.env && import.meta.env.DEV) return true;
+    } catch (e) {
+        // Ignore if import.meta is not supported or env is missing
+    }
+
+    // Hostname checks for Preview environments (AI Studio, Cloud Shell, Localhost)
+    if (typeof window !== 'undefined') {
+        const h = window.location.hostname;
+        return (
+            h.includes('googleusercontent.com') || 
+            h.includes('localhost') || 
+            h.includes('127.0.0.1') ||
+            h.includes('aistudio') || // AI Studio specific check
+            h.includes('web.app')     // Firebase Preview check
+        );
+    }
+    return false;
+  }, [walletAddress]);
 
   useEffect(() => {
     if (!nextRecoveryTime) { setTimeLeft(""); return; }
@@ -279,6 +322,18 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               <span>Litepaper</span>
             </a>
           </div>
+          
+          {/* Admin Button (Only visible if isAdmin check passes) */}
+          {isAdmin && (
+             <div className="mt-2 flex justify-center animate-in slide-in-from-bottom-2">
+                <button 
+                  onClick={onShowAdmin}
+                  className="px-4 py-2 bg-red-900/50 hover:bg-red-800 text-red-300 rounded-lg text-xs font-bold font-mono flex items-center gap-2 border border-red-800 transition-colors"
+                >
+                  <Database size={14} /> ADMIN
+                </button>
+             </div>
+          )}
 
         </div>
       </div>

@@ -1,4 +1,5 @@
 
+
 import React, { useMemo, useState } from 'react';
 import { GameState, ScoreEntry, PlayerStats, ClaimResult, ItemType, UserInventory } from '../types';
 import { TitleScreen } from './overlay/TitleScreen';
@@ -7,6 +8,7 @@ import { RankingScreen } from './overlay/RankingScreen';
 import { GameOverScreen } from './overlay/GameOverScreen';
 import { GameHUD } from './overlay/GameHUD';
 import { GameClearScreen } from './overlay/GameClearScreen';
+import { AdminScreen } from './overlay/AdminScreen'; // Import AdminScreen
 import { RankedEntry } from './overlay/RankingList';
 import { UserInfoModal } from './overlay/UserInfoModal';
 import { LoginBonusModal } from './overlay/LoginBonusModal';
@@ -79,6 +81,7 @@ interface OverlayProps {
   onDodge: (e: any) => void;
   onDuck: (e: any) => void;
   onSaveScore: () => Promise<void>;
+  onShowAdmin: () => void; // Add Admin Handler
 }
 
 export const Overlay: React.FC<OverlayProps> = ({
@@ -141,6 +144,7 @@ export const Overlay: React.FC<OverlayProps> = ({
   onDisconnectWallet,
   onShare,
   onSaveScore,
+  onShowAdmin,
 }) => {
   const [showUserInfo, setShowUserInfo] = useState(false);
   const [showShop, setShowShop] = useState(false);
@@ -217,6 +221,9 @@ export const Overlay: React.FC<OverlayProps> = ({
       )}
 
       {(() => {
+        if (gameState === GameState.ADMIN) {
+           return <AdminScreen onBack={onReturnToTitle} />;
+        }
         if (gameState === GameState.TITLE) {
           return (
             <TitleScreen
@@ -240,6 +247,7 @@ export const Overlay: React.FC<OverlayProps> = ({
               loginBonusClaimed={loginBonusClaimed}
               isMuted={isMuted}
               onToggleMute={onToggleMute}
+              onShowAdmin={onShowAdmin} // Pass handler
             />
           );
         }

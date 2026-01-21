@@ -15,6 +15,35 @@ const isNetworkError = (error: any) => {
   );
 };
 
+// --- Admin Functions ---
+
+export const fetchAdminTableData = async (tableName: string): Promise<any[]> => {
+  try {
+    // Basic fetch with limit for safety
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .order('created_at', { ascending: false }) // Assuming created_at exists, if not might need adjustment
+      .limit(100);
+
+    if (error) {
+      // Retry without order if it fails (e.g. table doesn't have created_at)
+      const { data: retryData, error: retryError } = await supabase
+        .from(tableName)
+        .select('*')
+        .limit(100);
+        
+      if (retryError) throw retryError;
+      return retryData || [];
+    }
+
+    return data || [];
+  } catch (e) {
+    console.error(`Fetch admin data error for ${tableName}:`, e);
+    return [];
+  }
+};
+
 export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
   try {
     const { data, error } = await supabase

@@ -1,4 +1,5 @@
 
+
 import { useState, useRef, useEffect } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { GameState, BossType, ItemType } from '../types';
@@ -380,5 +381,6 @@ export const useGameLogic = () => {
     saveCurrentScore, 
     handleDodge, handleDuck,
     handleDistanceUpdate, handleObstacleTick, handleProjectileTick,
+    onShowAdmin: () => setGameState(GameState.ADMIN), // Add Admin Handler
   };
 };

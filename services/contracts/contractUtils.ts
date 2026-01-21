@@ -8,6 +8,11 @@ export const BASE_RPC_URL = 'https://mainnet.base.org';
 // --- Token Configuration ---
 export const CHH_TOKEN_ADDRESS = "0xb0525542e3d818460546332e76e511562dff9b07";
 
+// --- Other Contract Addresses (Exported for Admin) ---
+export const SCORE_VAULT_ADDRESS = "0x65F5661319C4d23c973C806e1e006Bb06d5557D2";
+export const BONUS_CONTRACT_ADDRESS = "0x9B9191f213Afe0588570028174C97b3751c20Db0";
+export const SHOP_CONTRACT_ADDRESS = "0x0d013d7DC17E8240595778D1db7241f176Ca51F9";
+
 // --- ABIs ---
 export const ERC20_ABI = [
   "function transfer(address to, uint256 amount) external returns (bool)",
