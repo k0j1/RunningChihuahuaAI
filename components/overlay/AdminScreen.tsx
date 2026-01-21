@@ -6,7 +6,7 @@ import {
     SCORE_VAULT_ADDRESS, 
     BONUS_CONTRACT_ADDRESS, 
     SHOP_CONTRACT_ADDRESS, 
-    ERC20_ABI,
+    ERC20_ABI, 
     BASE_RPC_URL 
 } from '../../services/contracts/contractUtils';
 import { fetchAdminTableData } from '../../services/supabase';
@@ -16,16 +16,16 @@ interface AdminScreenProps {
 }
 
 const CONTRACTS = [
-    { name: "Score Vault", address: SCORE_VAULT_ADDRESS, role: "Reward Payout (Score * 0.05)" },
-    { name: "Bonus Pool", address: BONUS_CONTRACT_ADDRESS, role: "Daily Bonus (100 CHH)" },
-    { name: "Shop Vault", address: SHOP_CONTRACT_ADDRESS, role: "Item Sales Revenue" },
-    { name: "Token Contract", address: CHH_TOKEN_ADDRESS, role: "ERC20 Token Root" }
+    { name: "スコアボールト (Score Vault)", address: SCORE_VAULT_ADDRESS, role: "報酬支払 (スコア × 0.05)" },
+    { name: "ボーナスプール (Bonus Pool)", address: BONUS_CONTRACT_ADDRESS, role: "デイリーボーナス (100 CHH)" },
+    { name: "ショップボールト (Shop Vault)", address: SHOP_CONTRACT_ADDRESS, role: "アイテム売上収益" },
+    { name: "トークンコントラクト", address: CHH_TOKEN_ADDRESS, role: "ERC20 トークン管理" }
 ];
 
 const TABLES = [
-    { name: "Scores", id: "scores" },
-    { name: "Player Stats", id: "player_stats" },
-    { name: "Player Items", id: "player_items" }
+    { name: "スコア履歴", id: "scores" },
+    { name: "プレイヤー情報", id: "player_stats" },
+    { name: "所持アイテム", id: "player_items" }
 ];
 
 export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
@@ -46,7 +46,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
             const newBalances: Record<string, string> = {};
             
             for (const c of CONTRACTS) {
-                if (c.name === "Token Contract") continue; // Token contract doesn't hold itself usually, logic varies
+                if (c.name === "トークンコントラクト") continue; // Token contract doesn't hold itself usually, logic varies
                 const bal = await tokenContract.balanceOf(c.address);
                 newBalances[c.address] = ethers.formatUnits(bal, 18);
             }
@@ -78,7 +78,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
             <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700 shadow-md">
                 <div className="flex items-center gap-2">
                     <Shield className="text-red-500" />
-                    <h1 className="text-xl font-bold font-mono text-red-400">ADMIN CONSOLE</h1>
+                    <h1 className="text-xl font-bold font-mono text-red-400">管理コンソール (ADMIN)</h1>
                 </div>
                 <button onClick={onBack} className="p-2 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors">
                     <ArrowLeft />
@@ -91,7 +91,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                 <section className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 shadow-lg">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-lg font-bold flex items-center gap-2 text-yellow-400">
-                            <Coins size={20} /> Contract Balances (Base Mainnet)
+                            <Coins size={20} /> コントラクト残高 (Base Mainnet)
                         </h2>
                         <button onClick={fetchBalances} className="p-2 hover:bg-gray-700 rounded-full transition-colors">
                             <RefreshCw size={16} className={loadingBalances ? "animate-spin" : ""} />
@@ -107,9 +107,9 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                                 </div>
                                 <div className="font-mono text-[10px] text-gray-500 break-all mb-2">{c.address}</div>
                                 <div className="mt-auto flex justify-between items-end border-t border-gray-800 pt-2">
-                                    <span className="text-xs text-gray-400">Holdings:</span>
+                                    <span className="text-xs text-gray-400">保有残高:</span>
                                     <span className="text-xl font-mono font-bold text-green-400">
-                                        {c.name === "Token Contract" ? "N/A" : (balances[c.address] ? Number(balances[c.address]).toLocaleString() : "---")}
+                                        {c.name === "トークンコントラクト" ? "N/A" : (balances[c.address] ? Number(balances[c.address]).toLocaleString() : "---")}
                                         <span className="text-xs text-green-700 ml-1">CHH</span>
                                     </span>
                                 </div>
@@ -122,7 +122,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                 <section className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 shadow-lg h-[600px] flex flex-col">
                     <div className="flex items-center gap-2 mb-4">
                         <Database size={20} className="text-purple-400" />
-                        <h2 className="text-lg font-bold text-purple-400">Database Inspector</h2>
+                        <h2 className="text-lg font-bold text-purple-400">データベース参照 (DB Inspector)</h2>
                     </div>
 
                     {/* Tabs */}
@@ -148,7 +148,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                         
                         {tableData.length === 0 ? (
                             <div className="flex items-center justify-center h-full text-gray-500 italic text-sm">
-                                No data or failed to fetch.
+                                データが存在しないか、取得できませんでした。
                             </div>
                         ) : (
                             <table className="w-full text-left text-xs whitespace-nowrap">
@@ -174,7 +174,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                         )}
                     </div>
                     <div className="mt-2 text-[10px] text-gray-500 text-right">
-                        Showing latest 100 records for: {activeTable}
+                        最新の100件を表示: {activeTable}
                     </div>
                 </section>
             </div>
