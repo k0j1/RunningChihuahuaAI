@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Database, Coins, ArrowLeft, RefreshCw, Layers, PlayCircle, Clock, History, Zap, Bell, Package, User, Check, X } from 'lucide-react';
+import { Shield, Database, Coins, ArrowLeft, RefreshCw, Layers, PlayCircle, Clock, History, Zap, Bell, Package, User, Check, X, Heart, ArrowUp, Sparkles } from 'lucide-react';
 import { ethers } from 'ethers';
 import { 
     CHH_TOKEN_ADDRESS, 
@@ -30,7 +30,6 @@ const DB_TABLES = [
 
 const ANALYTIC_TABS = [
     { id: 'play_counts', label: 'プレイ回数', icon: <PlayCircle size={14}/> },
-    { id: 'active_info', label: 'アクティブ情報', icon: <Clock size={14}/> },
     { id: 'score_history', label: 'スコア履歴', icon: <History size={14}/> },
     { id: 'stamina_info', label: 'スタミナ情報', icon: <Zap size={14}/> },
     { id: 'notifications', label: '通知設定', icon: <Bell size={14}/> },
@@ -78,7 +77,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
         setLoadingAnalytic(true);
         try {
             let data: any[] = [];
-            if (tab === 'play_counts' || tab === 'active_info' || tab === 'stamina_info' || tab === 'notifications') {
+            if (tab === 'play_counts' || tab === 'stamina_info' || tab === 'notifications') {
                 const res = await fetchAdminTableData('player_stats');
                 if (tab === 'play_counts') {
                     data = res.sort((a, b) => (b.run_count || 0) - (a.run_count || 0));
@@ -194,7 +193,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                 </section>
 
                 {/* Section 2: Player Analytics (NEW) */}
-                <section className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 shadow-lg min-h-[400px] flex flex-col">
+                <section className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 shadow-lg h-[500px] flex flex-col">
                      <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                             <Database size={20} className="text-green-400" />
@@ -237,7 +236,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                                         {/* Dynamic Headers */}
                                         <th className="px-4 py-3 border-b border-gray-700">ユーザー</th>
                                         {activeAnalyticTab === 'play_counts' && <th className="px-4 py-3 border-b border-gray-700">ラン回数</th>}
-                                        {activeAnalyticTab === 'active_info' && <th className="px-4 py-3 border-b border-gray-700">最終アクティブ (JST)</th>}
+                                        
                                         {activeAnalyticTab === 'score_history' && (
                                             <>
                                                 <th className="px-4 py-3 border-b border-gray-700 text-right">スコア</th>
@@ -255,9 +254,15 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                                         {activeAnalyticTab === 'notifications' && <th className="px-4 py-3 border-b border-gray-700">通知設定</th>}
                                         {activeAnalyticTab === 'items' && (
                                             <>
-                                                <th className="px-4 py-3 border-b border-gray-700 text-center">Vitality (HP)</th>
-                                                <th className="px-4 py-3 border-b border-gray-700 text-center">Recovery</th>
-                                                <th className="px-4 py-3 border-b border-gray-700 text-center">Shield</th>
+                                                <th className="px-4 py-3 border-b border-gray-700 text-center">
+                                                    <div className="flex items-center justify-center gap-0.5" title="Vitality"><Heart size={14} className="text-red-500"/><ArrowUp size={10} className="text-red-500"/></div>
+                                                </th>
+                                                <th className="px-4 py-3 border-b border-gray-700 text-center">
+                                                    <div className="flex items-center justify-center gap-0.5" title="Recovery"><Heart size={14} className="text-pink-500"/><Sparkles size={10} className="text-yellow-400"/></div>
+                                                </th>
+                                                <th className="px-4 py-3 border-b border-gray-700 text-center">
+                                                    <div className="flex items-center justify-center" title="Shield"><Shield size={14} className="text-blue-400"/></div>
+                                                </th>
                                             </>
                                         )}
                                     </tr>
@@ -269,10 +274,6 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                                             
                                             {activeAnalyticTab === 'play_counts' && (
                                                 <td className="px-4 py-2 text-yellow-400 font-bold">{row.run_count}回</td>
-                                            )}
-                                            
-                                            {activeAnalyticTab === 'active_info' && (
-                                                <td className="px-4 py-2">{formatDateJST(row.last_active)}</td>
                                             )}
                                             
                                             {activeAnalyticTab === 'score_history' && (
