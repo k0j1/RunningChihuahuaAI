@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Database, Coins, ArrowLeft, RefreshCw, Layers, PlayCircle, Clock, History, Zap, Bell, Package, User, Check, X, Heart, ArrowUp, Sparkles } from 'lucide-react';
+import { Shield, Database, Coins, ArrowLeft, RefreshCw, Layers, PlayCircle, Clock, History, Zap, Bell, Package, User, Check, X, Heart, ArrowUp, Sparkles, Gift } from 'lucide-react';
 import { ethers } from 'ethers';
 import { 
     CHH_TOKEN_ADDRESS, 
@@ -31,6 +31,7 @@ const DB_TABLES = [
 const ANALYTIC_TABS = [
     { id: 'play_counts', label: 'プレイ回数', icon: <PlayCircle size={14}/> },
     { id: 'score_history', label: 'スコア履歴', icon: <History size={14}/> },
+    { id: 'login_bonus', label: 'ログインボーナス履歴', icon: <Gift size={14}/> },
     { id: 'stamina_info', label: 'スタミナ情報', icon: <Zap size={14}/> },
     { id: 'notifications', label: '通知設定', icon: <Bell size={14}/> },
     { id: 'items', label: 'アイテム所持数', icon: <Package size={14}/> },
@@ -88,13 +89,23 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
             } else if (tab === 'score_history') {
                  const res = await fetchAdminTableData('scores');
                  data = res.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            } else if (tab === 'login_bonus') {
+                 // Fetch player stats to see last_login_bonus
+                 const res = await fetchAdminTableData('player_stats');
+                 // Filter only those who have claimed a bonus, sort by date desc
+                 data = res
+                    .filter((r: any) => r.last_login_bonus)
+                    .sort((a, b) => new Date(b.last_login_bonus).getTime() - new Date(a.last_login_bonus).getTime());
             } else if (tab === 'items') {
                  const itemsRes = await fetchAdminTableData('player_items');
                  const statsRes = await fetchAdminTableData('player_stats');
                  data = itemsRes.map(item => {
                      const user = statsRes.find(s => s.user_id === item.user_id);
-                     return { ...item, user };
+                     const total = (item.max_hp || 0) + (item.heal || 0) + (item.shield || 0);
+                     return { ...item, user, total };
                  });
+                 // Sort by total item count descending
+                 data.sort((a, b) => b.total - a.total);
             }
             setAnalyticData(data);
         } catch (e) {
@@ -243,6 +254,9 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                                                 <th className="px-4 py-3 border-b border-gray-700">日時 (JST)</th>
                                             </>
                                         )}
+                                        {activeAnalyticTab === 'login_bonus' && (
+                                            <th className="px-4 py-3 border-b border-gray-700">最終受取日時 (JST)</th>
+                                        )}
                                         {activeAnalyticTab === 'stamina_info' && (
                                             <>
                                                 <th className="px-4 py-3 border-b border-gray-700">スタミナ</th>
@@ -263,6 +277,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                                                 <th className="px-4 py-3 border-b border-gray-700 text-center">
                                                     <div className="flex items-center justify-center" title="Shield"><Shield size={14} className="text-blue-400"/></div>
                                                 </th>
+                                                <th className="px-4 py-3 border-b border-gray-700 text-right">合計</th>
                                             </>
                                         )}
                                     </tr>
@@ -281,6 +296,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                                                     <td className="px-4 py-2 text-right text-blue-400 font-bold">{Number(row.score).toLocaleString()}</td>
                                                     <td className="px-4 py-2">{formatDateJST(row.created_at)}</td>
                                                 </>
+                                            )}
+
+                                            {activeAnalyticTab === 'login_bonus' && (
+                                                <td className="px-4 py-2 text-green-400">{formatDateJST(row.last_login_bonus)}</td>
                                             )}
                                             
                                             {activeAnalyticTab === 'stamina_info' && (
@@ -313,6 +332,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                                                     <td className="px-4 py-2 text-center text-red-400 font-bold">{row.max_hp || 0}</td>
                                                     <td className="px-4 py-2 text-center text-pink-400 font-bold">{row.heal || 0}</td>
                                                     <td className="px-4 py-2 text-center text-blue-400 font-bold">{row.shield || 0}</td>
+                                                    <td className="px-4 py-2 text-right text-gray-300">{row.total || 0}</td>
                                                 </>
                                             )}
                                         </tr>
