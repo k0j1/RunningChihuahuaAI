@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Database, Coins, ArrowLeft, RefreshCw, Layers, PlayCircle, Clock, History, Zap, Bell, Package, User, Check, X, Heart, ArrowUp, Sparkles, Gift } from 'lucide-react';
+import { Shield, Database, Coins, ArrowLeft, RefreshCw, Layers, PlayCircle, Clock, History, Zap, Bell, Package, User, Check, X, Heart, ArrowUp, Sparkles, Gift, Send } from 'lucide-react';
 import { ethers } from 'ethers';
+import sdk from '@farcaster/frame-sdk';
 import { 
     CHH_TOKEN_ADDRESS, 
     SCORE_VAULT_ADDRESS, 
     BONUS_CONTRACT_ADDRESS, 
     SHOP_CONTRACT_ADDRESS, 
     ERC20_ABI, 
-    BASE_RPC_URL 
+    BASE_RPC_URL,
+    switchToBaseNetwork
 } from '../../services/contracts/contractUtils';
 import { fetchAdminTableData } from '../../services/supabase';
 
@@ -70,6 +72,50 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
             console.error("Failed to fetch balances", e);
         } finally {
             setLoadingBalances(false);
+        }
+    };
+
+    // Handle Top Up (Transfer CHH to Contract)
+    const handleTopUp = async (contractName: string, targetAddress: string) => {
+        const amountStr = window.prompt(`${contractName} への送金額 (CHH) を入力してください:`, "1000");
+        if (!amountStr || isNaN(Number(amountStr))) return;
+
+        try {
+            // Prefer SDK provider, fallback to window.ethereum for dev
+            const provider = sdk.wallet.ethProvider || (window as any).ethereum;
+            if (!provider) {
+                alert("ウォレットプロバイダーが見つかりません。FarcasterクライアントまたはWeb3ブラウザを使用してください。");
+                return;
+            }
+
+            // Ensure we are on Base
+            await switchToBaseNetwork(provider);
+
+            const accounts = await provider.request({ method: 'eth_requestAccounts' }) as string[];
+            const userAddress = accounts[0];
+
+            const iface = new ethers.Interface(ERC20_ABI);
+            const amountWei = ethers.parseUnits(amountStr, 18);
+            // encode transfer(to, amount)
+            const data = iface.encodeFunctionData("transfer", [targetAddress, amountWei]);
+
+            const txHash = await provider.request({
+                method: 'eth_sendTransaction',
+                params: [{
+                    from: userAddress,
+                    to: CHH_TOKEN_ADDRESS, // Contract to call (CHH Token)
+                    data: data, // Transfer data
+                }]
+            });
+            
+            alert(`送金トランザクションを送信しました:\n${txHash}`);
+            
+            // Wait a bit and refresh balances
+            setTimeout(fetchBalances, 5000);
+
+        } catch (e: any) {
+            console.error(e);
+            alert(`送金エラー: ${e.message || "Unknown error"}`);
         }
     };
 
@@ -192,11 +238,22 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                                 </div>
                                 <div className="font-mono text-[10px] text-gray-500 break-all mb-2">{c.address}</div>
                                 <div className="mt-auto flex justify-between items-end border-t border-gray-800 pt-2">
-                                    <span className="text-xs text-gray-400">保有残高:</span>
-                                    <span className="text-xl font-mono font-bold text-green-400">
-                                        {c.name === "トークンコントラクト" ? "N/A" : (balances[c.address] ? Number(balances[c.address]).toLocaleString() : "---")}
-                                        <span className="text-xs text-green-700 ml-1">CHH</span>
-                                    </span>
+                                    <div>
+                                        <span className="text-xs text-gray-400 block">保有残高:</span>
+                                        <span className="text-xl font-mono font-bold text-green-400">
+                                            {c.name === "トークンコントラクト" ? "N/A" : (balances[c.address] ? Number(balances[c.address]).toLocaleString() : "---")}
+                                            <span className="text-xs text-green-700 ml-1">CHH</span>
+                                        </span>
+                                    </div>
+                                    {/* Top Up Button for Score Vault and Bonus Pool */}
+                                    {(c.address === SCORE_VAULT_ADDRESS || c.address === BONUS_CONTRACT_ADDRESS) && (
+                                        <button 
+                                            onClick={() => handleTopUp(c.name, c.address)}
+                                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-colors shadow-md active:scale-95"
+                                        >
+                                            <Send size={12} /> 送金 (Top Up)
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
