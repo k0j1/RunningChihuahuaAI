@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { History, Trophy, PlayCircle, Zap, Volume2, VolumeX, Heart, Shield, ArrowUp, Sparkles, Gift, ShoppingCart, CheckCircle2, Info, HandMetal, ScrollText, Database } from 'lucide-react';
+import { History, Trophy, PlayCircle, Zap, Volume2, VolumeX, Heart, Shield, ArrowUp, Sparkles, Gift, ShoppingCart, CheckCircle2, Info, HandMetal, ScrollText, Database, Clock } from 'lucide-react';
 import { TitleBackground } from '../TitleBackground';
 import { WalletWidget } from './WalletWidget';
 import { ItemType, UserInventory } from '../../types';
@@ -254,12 +254,41 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         )}
 
         {/* Bonus & Shop Buttons */}
-        <div className="flex gap-3 mb-6 w-full">
-            <button onClick={onOpenLoginBonus} disabled={loginBonusClaimed} className={`flex-1 py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 ${loginBonusClaimed ? 'bg-gray-800/50 text-gray-500 border border-gray-700' : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white animate-pulse'}`}>
-               <Gift size={18} />{loginBonusClaimed ? bonusResetTimeLeft : "DAILY BONUS"}
+        <div className="flex gap-3 mb-6 w-full items-stretch">
+            <button 
+              onClick={onOpenLoginBonus} 
+              disabled={loginBonusClaimed} 
+              className={`flex-1 py-2 rounded-2xl font-black flex flex-col items-center justify-center gap-1 transition-all shadow-md active:scale-95 border-b-4 ${
+                loginBonusClaimed 
+                  ? 'bg-gray-800/50 text-gray-500 border-gray-700 cursor-default' 
+                  : 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white animate-pulse border-orange-700'
+              }`}
+            >
+               {loginBonusClaimed ? (
+                 <>
+                   <div className="flex items-center gap-1.5 text-[10px] uppercase">
+                      <Clock size={12} /> Next Bonus
+                   </div>
+                   <span className="text-xs font-mono">{bonusResetTimeLeft || "--:--:--"}</span>
+                 </>
+               ) : (
+                 <>
+                   <div className="flex items-center gap-1.5 text-xs uppercase tracking-tight">
+                      <Gift size={16} /> DAILY BONUS
+                   </div>
+                   <div className="text-[9px] bg-white/20 px-2 py-0.5 rounded-full font-bold whitespace-nowrap">
+                      100 $CHH & Item
+                   </div>
+                 </>
+               )}
             </button>
-            <button onClick={onOpenShop} className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl font-black text-xs flex items-center justify-center gap-2 shadow-md hover:brightness-110 transition-all text-white active:scale-95 border-b-4 border-indigo-800">
-               <ShoppingCart size={18} /> SHOP
+            <button onClick={onOpenShop} className="flex-1 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl font-black text-xs flex flex-col items-center justify-center gap-1 shadow-md hover:brightness-110 transition-all text-white active:scale-95 border-b-4 border-indigo-800">
+               <div className="flex items-center gap-1.5">
+                 <ShoppingCart size={18} /> SHOP
+               </div>
+               <div className="text-[9px] opacity-70 font-bold uppercase">
+                 Buy Items
+               </div>
             </button>
         </div>
 
