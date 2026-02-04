@@ -339,7 +339,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
               </button>
             </div>
 
-            <div className="mt-2 md:mt-4 flex justify-center">
+            <div className="mt-2 md:mt-4 flex flex-col items-center gap-4">
               <a 
                 href="https://k0j1.github.io/Running-Chihuahua---Light-Paper/" 
                 target="_blank" 
@@ -370,6 +370,24 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       {/* Background decoration text */}
       <div className="absolute bottom-2 md:bottom-4 text-white/10 text-[9px] md:text-[10px] font-black tracking-[0.5em] uppercase pointer-events-none">
         Ready to Dash?
+      </div>
+
+      {/* Other Apps Section - Moved outside main frame, aligned left */}
+      <div className="absolute bottom-4 left-4 z-50 flex flex-col items-start animate-in slide-in-from-left-5">
+        <span className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1.5 ml-1">Other Apps</span>
+        <a 
+          href="https://farcaster.xyz/miniapps/FYXr6t3KSLwo/reversi"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-3 bg-black/40 backdrop-blur-md p-2 pr-4 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
+        >
+          <img 
+            src="https://reversi.k0j1.v2002.coreserver.jp/images/icon.png" 
+            alt="Reversi" 
+            className="w-[60px] h-[60px] rounded-lg shadow-sm group-hover:shadow-md transition-all"
+          />
+          <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">Reversi</span>
+        </a>
       </div>
     </div>
   );
