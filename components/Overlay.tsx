@@ -1,5 +1,4 @@
 
-
 import React, { useMemo, useState } from 'react';
 import { GameState, ScoreEntry, PlayerStats, ClaimResult, ItemType, UserInventory } from '../types';
 import { TitleScreen } from './overlay/TitleScreen';
@@ -31,6 +30,12 @@ interface OverlayProps {
   globalRanking: ScoreEntry[];
   totalRanking?: PlayerStats[];
   lastGameDate: string | null;
+  // Loading & Error states
+  isLoadingHistory?: boolean;
+  historyError?: string | null;
+  isLoadingRanking?: boolean;
+  rankingError?: string | null;
+  
   isHit: boolean;
   dodgeCutIn: { id: number; text: string; x: number; y: number } | null;
   farcasterUser: { username?: string; displayName?: string; pfpUrl?: string; fid?: number } | null;
@@ -101,6 +106,10 @@ export const Overlay: React.FC<OverlayProps> = ({
   globalRanking,
   totalRanking = [],
   lastGameDate,
+  isLoadingHistory = false,
+  historyError = null,
+  isLoadingRanking = false,
+  rankingError = null,
   isHit,
   dodgeCutIn,
   farcasterUser,
@@ -252,10 +261,25 @@ export const Overlay: React.FC<OverlayProps> = ({
           );
         }
         if (gameState === GameState.HISTORY) {
-          return <HistoryScreen history={history} onHideHistory={onHideHistory} />;
+          return (
+            <HistoryScreen 
+                history={history} 
+                onHideHistory={onHideHistory} 
+                isLoading={isLoadingHistory}
+                error={historyError}
+            />
+          );
         }
         if (gameState === GameState.RANKING) {
-          return <RankingScreen topScores={displayGlobalRanking} totalStats={totalRanking} onHideHistory={onHideHistory} />;
+          return (
+            <RankingScreen 
+                topScores={displayGlobalRanking} 
+                totalStats={totalRanking} 
+                onHideHistory={onHideHistory} 
+                isLoading={isLoadingRanking}
+                error={rankingError}
+            />
+          );
         }
         if (gameState === GameState.GAME_CLEAR) {
             return <GameClearScreen score={score} />;

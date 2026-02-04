@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Trophy, ArrowLeft, BarChart3 } from 'lucide-react';
+import { Trophy, ArrowLeft, BarChart3, Loader2, AlertCircle } from 'lucide-react';
 import { ScoreEntry, PlayerStats } from '../../types';
 import { RankingList } from './RankingList';
 
@@ -8,11 +8,13 @@ interface RankingScreenProps {
   topScores: ScoreEntry[];
   totalStats?: PlayerStats[];
   onHideHistory: () => void;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
 type RankingTab = 'HIGH_SCORE' | 'TOTAL_SCORE';
 
-export const RankingScreen: React.FC<RankingScreenProps> = ({ topScores, totalStats = [], onHideHistory }) => {
+export const RankingScreen: React.FC<RankingScreenProps> = ({ topScores, totalStats = [], onHideHistory, isLoading = false, error = null }) => {
   const [activeTab, setActiveTab] = useState<RankingTab>('HIGH_SCORE');
 
   // 1. High Scores (Global Ranking)
@@ -75,14 +77,27 @@ export const RankingScreen: React.FC<RankingScreenProps> = ({ topScores, totalSt
            </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2">
-          <RankingList 
-            items={activeList} 
-            rankingType={activeTab}
-            title={
-                activeTab === 'HIGH_SCORE' ? "Top Players (Single Run)" : "Top Players (Cumulative Score)"
-            }
-          />
+        <div className="flex-1 overflow-y-auto pr-2 relative">
+          {isLoading ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10">
+                <Loader2 className="w-12 h-12 text-yellow-500 animate-spin mb-2" />
+                <span className="text-gray-500 font-bold">Loading rankings...</span>
+            </div>
+          ) : error ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <AlertCircle className="w-12 h-12 text-red-400 mb-2" />
+                <span className="text-gray-600 font-bold mb-1">Could not load rankings.</span>
+                <span className="text-xs text-gray-400 max-w-xs text-center">{error}</span>
+            </div>
+          ) : (
+            <RankingList 
+                items={activeList} 
+                rankingType={activeTab}
+                title={
+                    activeTab === 'HIGH_SCORE' ? "Top Players (Single Run)" : "Top Players (Cumulative Score)"
+                }
+            />
+          )}
         </div>
       </div>
     </div>

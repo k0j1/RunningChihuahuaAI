@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { ScoreEntry, PlayerStats } from '../types';
 import { fetchGlobalRanking, fetchTotalRanking, saveScoreToSupabase, fetchUserHistory } from '../services/supabase';
@@ -6,19 +7,32 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
   const [score, setScore] = useState(0);
   const [distance, setDistance] = useState(0);
   const [speed, setSpeed] = useState(2.0);
+  
   const [history, setHistory] = useState<ScoreEntry[]>([]);
   const [globalRanking, setGlobalRanking] = useState<ScoreEntry[]>([]);
   const [totalRanking, setTotalRanking] = useState<PlayerStats[]>([]);
   const [lastGameDate, setLastGameDate] = useState<string | null>(null);
 
+  // Loading & Error States
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [isLoadingRanking, setIsLoadingRanking] = useState(false);
+  const [rankingError, setRankingError] = useState<string | null>(null);
+
   // Logical trackers to throttle UI updates
   const distanceRef = useRef(0);
   
-  // Load history & rankings on mount
+  // Load history on mount or user change
   useEffect(() => {
-    loadUserHistory();
-    loadRankings();
+    if (farcasterUser?.username) {
+        loadUserHistory();
+    }
   }, [farcasterUser]);
+
+  // Initial ranking load (silent)
+  useEffect(() => {
+      loadRankings(true);
+  }, []);
 
   const loadUserHistory = async () => {
     if (!farcasterUser?.username) {
@@ -26,30 +40,49 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
       return;
     }
 
-    // Attempt to load from DB first
-    const dbHistory = await fetchUserHistory(farcasterUser.username);
-    if (dbHistory.length > 0) {
-      setHistory(dbHistory);
-      // Sync local storage for offline reference/fallback
-      localStorage.setItem(`chihuahua_history_${farcasterUser.username}`, JSON.stringify(dbHistory));
-    } else {
-      // Fallback to local storage if DB is empty or fails
-      const saved = localStorage.getItem(`chihuahua_history_${farcasterUser.username}`);
-      if (saved) {
-        try {
-          setHistory(JSON.parse(saved));
-        } catch (e) {
-          console.error("Failed to parse local history", e);
+    setIsLoadingHistory(true);
+    setHistoryError(null);
+
+    try {
+      // Attempt to load from DB first
+      const dbHistory = await fetchUserHistory(farcasterUser.username);
+      if (dbHistory.length > 0) {
+        setHistory(dbHistory);
+        // Sync local storage for offline reference/fallback
+        localStorage.setItem(`chihuahua_history_${farcasterUser.username}`, JSON.stringify(dbHistory));
+      } else {
+        // Fallback to local storage if DB is empty or fails
+        const saved = localStorage.getItem(`chihuahua_history_${farcasterUser.username}`);
+        if (saved) {
+          try {
+            setHistory(JSON.parse(saved));
+          } catch (e) {
+            console.error("Failed to parse local history", e);
+          }
         }
       }
+    } catch (e: any) {
+      console.warn("History load failed:", e);
+      setHistoryError("Failed to load history. Using local data if available.");
+    } finally {
+      setIsLoadingHistory(false);
     }
   };
 
-  const loadRankings = async () => {
-    const ranking = await fetchGlobalRanking();
-    setGlobalRanking(ranking);
-    const totals = await fetchTotalRanking();
-    setTotalRanking(totals);
+  const loadRankings = async (silent = false) => {
+    if (!silent) setIsLoadingRanking(true);
+    setRankingError(null);
+    try {
+      const ranking = await fetchGlobalRanking();
+      setGlobalRanking(ranking);
+      const totals = await fetchTotalRanking();
+      setTotalRanking(totals);
+    } catch (e: any) {
+      console.warn("Ranking load failed:", e);
+      setRankingError("Failed to connect to leaderboard service.");
+    } finally {
+      if (!silent) setIsLoadingRanking(false);
+    }
   };
 
   const resetScore = () => {
@@ -128,12 +161,16 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
     // Save locally (scoped to user)
     const newHistory = [newEntry, ...history].slice(0, 100); 
     setHistory(newHistory);
-    localStorage.setItem(`chihuahua_history_${farcasterUser.username}`, JSON.stringify(newHistory));
+    try {
+        localStorage.setItem(`chihuahua_history_${farcasterUser.username}`, JSON.stringify(newHistory));
+    } catch (e) {
+        console.warn("Local storage save failed:", e);
+    }
 
     // Save to server
     try {
         await saveScoreToSupabase(newEntry);
-        await loadRankings();
+        await loadRankings(true); // Silent reload
         // Explicitly reload history from DB to ensure sync
         const dbHistory = await fetchUserHistory(farcasterUser.username);
         if (dbHistory.length > 0) setHistory(dbHistory);
@@ -145,6 +182,8 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
   return {
     score, distance, speed,
     history, globalRanking, totalRanking, lastGameDate,
-    resetScore, addScore, updateDistance, saveRun, loadRankings
+    isLoadingHistory, historyError,
+    isLoadingRanking, rankingError,
+    resetScore, addScore, updateDistance, saveRun, loadRankings, loadUserHistory
   };
 };

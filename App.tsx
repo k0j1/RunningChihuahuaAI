@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Overlay } from './components/Overlay';
@@ -14,7 +13,9 @@ const App: React.FC = () => {
     gameState, speed, dayTime, score, distance, lives, combo,
     hazardActive, hazardPosition, projectileActive, 
     isDodgeQueued, obstacleProgressRef, isDuckQueued, projectileProgressRef, projectileStartZ, bossLevel,
-    history, globalRanking, totalRanking, lastGameDate, isHit, dodgeCutIn, farcasterUser, walletAddress,
+    history, globalRanking, totalRanking, lastGameDate, 
+    isLoadingHistory, historyError, isLoadingRanking, rankingError, // New states
+    isHit, dodgeCutIn, farcasterUser, walletAddress,
     isAdded, notificationDetails, addMiniApp,
     isClaiming, claimResult, totalClaimed, handleClaimReward,
     staminaSystem, inventorySystem,
@@ -66,6 +67,10 @@ const App: React.FC = () => {
         globalRanking={globalRanking}
         totalRanking={totalRanking}
         lastGameDate={lastGameDate}
+        isLoadingHistory={isLoadingHistory}
+        historyError={historyError}
+        isLoadingRanking={isLoadingRanking}
+        rankingError={rankingError}
         isHit={isHit}
         dodgeCutIn={dodgeCutIn}
         farcasterUser={farcasterUser}

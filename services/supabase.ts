@@ -2,9 +2,23 @@
 import { createClient } from '@supabase/supabase-js';
 import { ScoreEntry, PlayerStats, ItemType, UserInventory } from '../types';
 
-// Use environment variables if available, otherwise fallback to the provided hardcoded values
-const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://dgnjpvrzxmmargbkypgh.supabase.co';
-const supabaseKey = process.env.VITE_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRnbmpwdnJ6eG1tYXJnYmt5cGdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzNzM5NTAsImV4cCI6MjA4MDk0OTk1MH0.Vjq0nRnrVFYwtbKO5921qgA7ndA3hWRNwZSsnt2fHX0';
+// 環境変数の取得と検証
+const envUrl = process.env.VITE_SUPABASE_URL;
+const envKey = process.env.VITE_SUPABASE_KEY;
+
+// 文字列かつ空でないことを確認
+const hasValidUrl = typeof envUrl === 'string' && envUrl.trim().length > 0;
+const hasValidKey = typeof envKey === 'string' && envKey.trim().length > 0;
+const isConfigured = hasValidUrl && hasValidKey;
+
+// createClientがクラッシュしないよう、未設定時は安全なプレースホルダーを使用
+// 注: isConfiguredがfalseの場合、各関数で即座にreturnするため、このプレースホルダーURLにリクエストが飛ぶことはありません
+const supabaseUrl = isConfigured ? envUrl! : 'https://placeholder.supabase.co';
+const supabaseKey = isConfigured ? envKey! : 'placeholder-key';
+
+if (!isConfigured) {
+  console.warn("Supabase credentials are not set or invalid. Database features will be disabled (Guest Mode).");
+}
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -18,16 +32,16 @@ const isNetworkError = (error: any) => {
 // --- Admin Functions ---
 
 export const fetchAdminTableData = async (tableName: string): Promise<any[]> => {
+  if (!isConfigured) return [];
   try {
-    // Basic fetch with limit for safety
     const { data, error } = await supabase
       .from(tableName)
       .select('*')
-      .order('created_at', { ascending: false }) // Assuming created_at exists, if not might need adjustment
+      .order('created_at', { ascending: false }) 
       .limit(100);
 
     if (error) {
-      // Retry without order if it fails (e.g. table doesn't have created_at)
+      // created_atがないテーブルのためのリトライ
       const { data: retryData, error: retryError } = await supabase
         .from(tableName)
         .select('*')
@@ -45,6 +59,7 @@ export const fetchAdminTableData = async (tableName: string): Promise<any[]> => 
 };
 
 export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
+  if (!isConfigured) return [];
   try {
     const { data, error } = await supabase
       .from('scores')
@@ -54,7 +69,7 @@ export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
 
     if (error) {
       if (!isNetworkError(error)) {
-        console.error('Error fetching global ranking:', JSON.stringify(error));
+        console.error('Error fetching global ranking:', error);
       }
       return [];
     }
@@ -86,11 +101,13 @@ export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
     }
     return uniqueScores;
   } catch (e) {
+    console.error("Exception in fetchGlobalRanking:", e);
     return [];
   }
 };
 
 export const fetchUserHistory = async (username: string): Promise<ScoreEntry[]> => {
+  if (!isConfigured) return [];
   try {
     const { data, error } = await supabase
       .from('scores')
@@ -120,6 +137,7 @@ export const fetchUserHistory = async (username: string): Promise<ScoreEntry[]> 
 };
 
 export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
+  if (!isConfigured) return [];
   try {
     const { data, error } = await supabase
       .from('player_stats')
@@ -150,6 +168,7 @@ export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
 };
 
 export const fetchUserStats = async (userId: string): Promise<PlayerStats | null> => {
+  if (!isConfigured) return null;
   try {
     const { data, error } = await supabase
       .from('player_stats')
@@ -183,6 +202,7 @@ export const fetchUserStats = async (userId: string): Promise<PlayerStats | null
 };
 
 export const updateUserStamina = async (userId: string, newStamina: number, lastUpdate: string) => {
+  if (!isConfigured) return;
   try {
     await supabase
       .from('player_stats')
@@ -196,7 +216,8 @@ export const updateUserStamina = async (userId: string, newStamina: number, last
 };
 
 export const updatePlayerProfile = async (farcasterUser: any, walletAddress: string | null, notificationDetails: {token: string, url: string} | null = null) => {
-  // Logic to determine userId identical to fetchUserInventory
+  if (!isConfigured) return;
+  
   let userId = null;
   if (farcasterUser?.username) userId = `fc:${farcasterUser.username}`;
   
@@ -211,7 +232,6 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
 
     const payload: any = {
       user_id: userId,
-      // If Farcaster user is present, use their details, otherwise fallback or null
       username: farcasterUser?.username || null,
       display_name: farcasterUser?.displayName || null,
       pfp_url: farcasterUser?.pfpUrl || null,
@@ -240,7 +260,6 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
       });
     }
 
-    // Initialize player_items with 0 if not exists
     await supabase.from('player_items').upsert(
       { 
         user_id: userId, 
@@ -255,6 +274,7 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
 };
 
 export const saveScoreToSupabase = async (entry: ScoreEntry) => {
+  if (!isConfigured) return;
   if (!entry.farcasterUser?.username) return;
   const userId = `fc:${entry.farcasterUser.username}`;
 
@@ -305,6 +325,8 @@ export const fetchUserInventory = async (farcasterUser: any, walletAddress: stri
     [ItemType.NONE]: 0,
   };
 
+  if (!isConfigured) return inventory;
+
   let userId: string | null = null;
   if (farcasterUser?.username) {
     userId = `fc:${farcasterUser.username}`;
@@ -332,6 +354,7 @@ export const fetchUserInventory = async (farcasterUser: any, walletAddress: stri
 };
 
 export const grantUserItem = async (farcasterUser: any, walletAddress: string | null, itemType: ItemType): Promise<boolean> => {
+  if (!isConfigured) return false;
   if (itemType === ItemType.NONE) return false;
   
   let userId: string | null = null;
@@ -347,7 +370,6 @@ export const grantUserItem = async (farcasterUser: any, walletAddress: string | 
   else return false;
 
   try {
-    // 1. Fetch current quantity
     const { data, error: fetchError } = await supabase
       .from('player_items')
       .select(columnName)
@@ -356,10 +378,8 @@ export const grantUserItem = async (farcasterUser: any, walletAddress: string | 
 
     if (fetchError) return false;
     
-    // Default to 0 if not exists
     const currentQty = data ? (data as any)[columnName] : 0;
 
-    // 2. Increment (Upsert)
     const { error: updateError } = await supabase
       .from('player_items')
       .upsert({ 
@@ -369,12 +389,12 @@ export const grantUserItem = async (farcasterUser: any, walletAddress: string | 
 
     return !updateError;
   } catch (e) {
-    console.error("Error granting item:", e);
     return false;
   }
 };
 
 export const consumeUserItem = async (farcasterUser: any, walletAddress: string | null, itemType: ItemType): Promise<boolean> => {
+  if (!isConfigured) return false;
   if (itemType === ItemType.NONE) return true;
 
   let userId: string | null = null;
@@ -388,10 +408,9 @@ export const consumeUserItem = async (farcasterUser: any, walletAddress: string 
   if (itemType === ItemType.MAX_HP) columnName = 'max_hp';
   else if (itemType === ItemType.HEAL_ON_DODGE) columnName = 'heal';
   else if (itemType === ItemType.SHIELD) columnName = 'shield';
-  else return false; // Invalid item type
+  else return false;
 
   try {
-    // 1. Fetch current quantity
     const { data, error: fetchError } = await supabase
       .from('player_items')
       .select(columnName)
@@ -400,14 +419,12 @@ export const consumeUserItem = async (farcasterUser: any, walletAddress: string 
 
     if (fetchError || !data) return false;
 
-    // Use keyof assertions to handle dynamic column access safely
     const currentQty = (data as any)[columnName];
     
     if (currentQty <= 0) {
-      return false; // Not enough items
+      return false;
     }
 
-    // 2. Decrement
     const { error: updateError } = await supabase
       .from('player_items')
       .update({ [columnName]: currentQty - 1 })
@@ -415,12 +432,12 @@ export const consumeUserItem = async (farcasterUser: any, walletAddress: string 
 
     return !updateError;
   } catch (e) {
-    console.error("Error consuming item:", e);
     return false;
   }
 };
 
 export const claimLoginBonus = async (userId: string): Promise<boolean> => {
+  if (!isConfigured) return false;
   try {
     const { error } = await supabase
       .from('player_stats')
@@ -431,7 +448,6 @@ export const claimLoginBonus = async (userId: string): Promise<boolean> => {
 
     return !error;
   } catch (e) {
-    console.error("Error claiming login bonus:", e);
     return false;
   }
 };

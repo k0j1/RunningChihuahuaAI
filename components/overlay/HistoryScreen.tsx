@@ -1,13 +1,16 @@
+
 import React from 'react';
-import { History, ArrowLeft } from 'lucide-react';
+import { History, ArrowLeft, Loader2, AlertCircle } from 'lucide-react';
 import { ScoreEntry } from '../../types';
 
 interface HistoryScreenProps {
   history: ScoreEntry[];
   onHideHistory: () => void;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
-export const HistoryScreen: React.FC<HistoryScreenProps> = ({ history, onHideHistory }) => {
+export const HistoryScreen: React.FC<HistoryScreenProps> = ({ history, onHideHistory, isLoading = false, error = null }) => {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900/95 backdrop-blur-md z-50 p-6">
       <div className="w-full max-w-2xl bg-white rounded-3xl p-6 shadow-2xl h-3/4 flex flex-col">
@@ -22,8 +25,19 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({ history, onHideHis
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2">
-          {history.length === 0 ? (
+        <div className="flex-1 overflow-y-auto pr-2 relative">
+          {isLoading ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10">
+                <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-2" />
+                <span className="text-gray-500 font-bold">Loading records...</span>
+            </div>
+          ) : error ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <AlertCircle className="w-12 h-12 text-red-400 mb-2" />
+                <span className="text-gray-600 font-bold mb-1">Could not load history.</span>
+                <span className="text-xs text-gray-400 max-w-xs text-center">{error}</span>
+            </div>
+          ) : history.length === 0 ? (
             <div className="h-full flex items-center justify-center text-gray-400 italic">No runs recorded yet.</div>
           ) : (
             <table className="w-full text-left">

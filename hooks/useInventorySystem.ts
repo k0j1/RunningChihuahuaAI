@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { ItemType, UserInventory, ClaimResult } from '../types';
 import { fetchUserInventory, consumeUserItem, grantUserItem, fetchUserStats, claimLoginBonus as dbClaimLoginBonus } from '../services/supabase';
@@ -64,59 +65,66 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
   }, []);
 
   const loadInventory = useCallback(async () => {
-    const savedPending = localStorage.getItem(THEME.PENDING_ITEM_KEY);
-    if (savedPending && Object.values(ItemType).includes(savedPending as ItemType)) {
-      setPendingBonusItemState(savedPending as ItemType);
-    }
+    try {
+        const savedPending = localStorage.getItem(THEME.PENDING_ITEM_KEY);
+        if (savedPending && Object.values(ItemType).includes(savedPending as ItemType)) {
+          setPendingBonusItemState(savedPending as ItemType);
+        }
 
-    if (!isGuest && farcasterUser?.username) {
-      const dbInventory = await fetchUserInventory(farcasterUser, walletAddress);
-      setInventory(dbInventory);
+        if (!isGuest && farcasterUser?.username) {
+          const dbInventory = await fetchUserInventory(farcasterUser, walletAddress);
+          setInventory(dbInventory);
 
-      const userId = `fc:${farcasterUser.username}`;
-      const stats = await fetchUserStats(userId);
-      const nowStr = new Date().toISOString().split('T')[0];
+          const userId = `fc:${farcasterUser.username}`;
+          const stats = await fetchUserStats(userId);
+          const nowStr = new Date().toISOString().split('T')[0];
 
-      if (stats) {
-        const lastTime = stats.lastLoginBonusTime;
-        if (lastTime) {
-            const dateStr = new Date(lastTime).toISOString().split('T')[0];
-            setLastClaimDateStr(dateStr);
-            setLoginBonusClaimed(dateStr === nowStr);
-            // If claimed today and no pending item, clear pending state logic
-            if (dateStr === nowStr && !savedPending) setPendingBonusItem(null);
-        } else {
+          if (stats) {
+            const lastTime = stats.lastLoginBonusTime;
+            if (lastTime) {
+                const dateStr = new Date(lastTime).toISOString().split('T')[0];
+                setLastClaimDateStr(dateStr);
+                setLoginBonusClaimed(dateStr === nowStr);
+                // If claimed today and no pending item, clear pending state logic
+                if (dateStr === nowStr && !savedPending) setPendingBonusItem(null);
+            } else {
+                setLastClaimDateStr(null);
+                setLoginBonusClaimed(false);
+            }
+          } else {
             setLastClaimDateStr(null);
             setLoginBonusClaimed(false);
-        }
-      } else {
-        setLastClaimDateStr(null);
-        setLoginBonusClaimed(false);
-      }
-    } else {
-      const saved = localStorage.getItem(THEME.GUEST_KEY);
-      if (saved) {
-        try {
-          setInventory({ ...DEFAULT_INVENTORY, ...JSON.parse(saved) });
-        } catch {
-          setInventory(GUEST_INVENTORY);
-        }
-      } else {
-        setInventory(GUEST_INVENTORY);
-        localStorage.setItem(THEME.GUEST_KEY, JSON.stringify(GUEST_INVENTORY));
-      }
-      
-      const lastClaim = localStorage.getItem(THEME.GUEST_BONUS_KEY);
-      const nowStr = new Date().toISOString().split('T')[0];
-      setLastClaimDateStr(lastClaim);
+          }
+        } else {
+          // GUEST LOGIC
+          const saved = localStorage.getItem(THEME.GUEST_KEY);
+          if (saved) {
+            try {
+              setInventory({ ...DEFAULT_INVENTORY, ...JSON.parse(saved) });
+            } catch {
+              setInventory(GUEST_INVENTORY);
+            }
+          } else {
+            setInventory(GUEST_INVENTORY);
+            localStorage.setItem(THEME.GUEST_KEY, JSON.stringify(GUEST_INVENTORY));
+          }
+          
+          const lastClaim = localStorage.getItem(THEME.GUEST_BONUS_KEY);
+          const nowStr = new Date().toISOString().split('T')[0];
+          setLastClaimDateStr(lastClaim);
 
-      if (lastClaim) {
-        const isClaimed = lastClaim === nowStr;
-        setLoginBonusClaimed(isClaimed);
-        if (isClaimed && !savedPending) setPendingBonusItem(null);
-      } else {
-        setLoginBonusClaimed(false);
-      }
+          if (lastClaim) {
+            const isClaimed = lastClaim === nowStr;
+            setLoginBonusClaimed(isClaimed);
+            if (isClaimed && !savedPending) setPendingBonusItem(null);
+          } else {
+            setLoginBonusClaimed(false);
+          }
+        }
+    } catch (e) {
+        console.warn("Failed to load inventory:", e);
+        // Fallback to minimal safe state
+        setInventory(DEFAULT_INVENTORY);
     }
   }, [farcasterUser, walletAddress, isGuest, setPendingBonusItem]);
 
@@ -128,57 +136,72 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     if (itemType === ItemType.NONE) return true;
     if (inventory[itemType] <= 0) return false;
 
-    if (!isGuest) {
-      const success = await consumeUserItem(farcasterUser, walletAddress, itemType);
-      if (success) setInventory(prev => ({ ...prev, [itemType]: Math.max(0, prev[itemType] - 1) }));
-      return success;
-    } else {
-      const newCount = Math.max(0, inventory[itemType] - 1);
-      const nextInv = { ...inventory, [itemType]: newCount };
-      setInventory(nextInv);
-      localStorage.setItem(THEME.GUEST_KEY, JSON.stringify(nextInv));
-      return true;
+    try {
+        if (!isGuest) {
+          const success = await consumeUserItem(farcasterUser, walletAddress, itemType);
+          if (success) setInventory(prev => ({ ...prev, [itemType]: Math.max(0, prev[itemType] - 1) }));
+          return success;
+        } else {
+          const newCount = Math.max(0, inventory[itemType] - 1);
+          const nextInv = { ...inventory, [itemType]: newCount };
+          setInventory(nextInv);
+          localStorage.setItem(THEME.GUEST_KEY, JSON.stringify(nextInv));
+          return true;
+        }
+    } catch (e) {
+        console.error("Item consumption failed:", e);
+        return false;
     }
   };
 
   const consumeItems = async (items: ItemType[]): Promise<boolean> => {
     if (items.length === 0) return true;
-    for (const item of items) {
-      if (item !== ItemType.NONE && (inventory[item] || 0) <= 0) return false;
-    }
-    if (!isGuest) {
-      const results = await Promise.all(items.map(item => consumeUserItem(farcasterUser, walletAddress, item)));
-      const success = results.every(r => r === true);
-      if (success) {
-        setInventory(prev => {
-          const next = { ...prev };
-          items.forEach(item => { if (item !== ItemType.NONE) next[item] = Math.max(0, (next[item] || 0) - 1); });
-          return next;
-        });
-      }
-      return success;
-    } else {
-      const nextInv = { ...inventory };
-      items.forEach(item => { if (item !== ItemType.NONE) nextInv[item] = Math.max(0, (nextInv[item] || 0) - 1); });
-      setInventory(nextInv);
-      localStorage.setItem(THEME.GUEST_KEY, JSON.stringify(nextInv));
-      return true;
+    try {
+        for (const item of items) {
+          if (item !== ItemType.NONE && (inventory[item] || 0) <= 0) return false;
+        }
+        if (!isGuest) {
+          const results = await Promise.all(items.map(item => consumeUserItem(farcasterUser, walletAddress, item)));
+          const success = results.every(r => r === true);
+          if (success) {
+            setInventory(prev => {
+              const next = { ...prev };
+              items.forEach(item => { if (item !== ItemType.NONE) next[item] = Math.max(0, (next[item] || 0) - 1); });
+              return next;
+            });
+          }
+          return success;
+        } else {
+          const nextInv = { ...inventory };
+          items.forEach(item => { if (item !== ItemType.NONE) nextInv[item] = Math.max(0, (nextInv[item] || 0) - 1); });
+          setInventory(nextInv);
+          localStorage.setItem(THEME.GUEST_KEY, JSON.stringify(nextInv));
+          return true;
+        }
+    } catch (e) {
+        console.error("Batch item consumption failed:", e);
+        return false;
     }
   };
 
   const grantItem = async (itemType: ItemType, quantity: number = 1): Promise<boolean> => {
     if (itemType === ItemType.NONE) return false;
-    if (!isGuest) {
-      for (let i = 0; i < quantity; i++) {
-        await grantUserItem(farcasterUser, walletAddress, itemType);
-      }
-      setInventory(prev => ({ ...prev, [itemType]: (prev[itemType] || 0) + quantity }));
-      return true;
-    } else {
-      const nextInv = { ...inventory, [itemType]: (inventory[itemType] || 0) + quantity };
-      setInventory(nextInv);
-      localStorage.setItem(THEME.GUEST_KEY, JSON.stringify(nextInv));
-      return true;
+    try {
+        if (!isGuest) {
+          for (let i = 0; i < quantity; i++) {
+            await grantUserItem(farcasterUser, walletAddress, itemType);
+          }
+          setInventory(prev => ({ ...prev, [itemType]: (prev[itemType] || 0) + quantity }));
+          return true;
+        } else {
+          const nextInv = { ...inventory, [itemType]: (inventory[itemType] || 0) + quantity };
+          setInventory(nextInv);
+          localStorage.setItem(THEME.GUEST_KEY, JSON.stringify(nextInv));
+          return true;
+        }
+    } catch (e) {
+        console.error("Grant item failed:", e);
+        return false;
     }
   };
 
@@ -196,6 +219,8 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
               }
           }
           return res;
+      } catch (e: any) {
+          return { success: false, message: e.message || "Purchase failed." };
       } finally {
           setIsPurchasing(false);
       }
@@ -204,33 +229,35 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
   const claimBonus = async (itemType: ItemType, userWallet: string | null): Promise<ClaimResult> => {
     setIsClaimingBonus(true);
     
-    // Helper to update state
     const updateLocalState = () => {
         const nowStr = new Date().toISOString().split('T')[0];
         setLastClaimDateStr(nowStr);
         setLoginBonusClaimed(true);
     };
 
-    if (isGuest || !userWallet) {
-      await grantItem(itemType);
-      localStorage.setItem(THEME.GUEST_BONUS_KEY, new Date().toISOString().split('T')[0]);
-      updateLocalState();
-      setPendingBonusItem(null); // Clear pending item immediately
-      setIsClaimingBonus(false);
-      return { success: true, message: "Bonus claimed locally." };
-    }
     try {
-      // Contract claim (Token only)
-      const result = await claimDailyBonus(userWallet);
-      
-      if (result.success) {
-        // DB claim (Timestamp) & Item Grant (Local Item)
-        if (farcasterUser?.username) await dbClaimLoginBonus(`fc:${farcasterUser.username}`);
-        await grantItem(itemType);
-        updateLocalState();
-        setPendingBonusItem(null); // Clear pending item immediately
-      }
-      return result;
+        if (isGuest || !userWallet) {
+          await grantItem(itemType);
+          localStorage.setItem(THEME.GUEST_BONUS_KEY, new Date().toISOString().split('T')[0]);
+          updateLocalState();
+          setPendingBonusItem(null); 
+          setIsClaimingBonus(false);
+          return { success: true, message: "Bonus claimed locally." };
+        }
+        
+        // Contract claim (Token only)
+        const result = await claimDailyBonus(userWallet);
+        
+        if (result.success) {
+            // DB claim (Timestamp) & Item Grant (Local Item)
+            if (farcasterUser?.username) await dbClaimLoginBonus(`fc:${farcasterUser.username}`);
+            await grantItem(itemType);
+            updateLocalState();
+            setPendingBonusItem(null);
+        }
+        return result;
+    } catch (e: any) {
+        return { success: false, message: e.message || "Claim failed." };
     } finally {
       setIsClaimingBonus(false);
     }

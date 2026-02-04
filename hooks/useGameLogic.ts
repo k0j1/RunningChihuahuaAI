@@ -1,5 +1,4 @@
 
-
 import { useState, useRef, useEffect } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { GameState, BossType, ItemType } from '../types';
@@ -50,6 +49,17 @@ export const useGameLogic = () => {
         rewardSystem.refreshTotalClaimed(walletAddress);
     }
   }, [gameState, walletAddress]);
+
+  // Handle automatic data fetching when switching screens
+  // This replaces the previous logic that caused infinite loops
+  useEffect(() => {
+    if (gameState === GameState.RANKING) {
+        scoreSystem.loadRankings();
+    }
+    if (gameState === GameState.HISTORY) {
+        scoreSystem.loadUserHistory();
+    }
+  }, [gameState]);
 
   // --- Actions ---
 
@@ -353,10 +363,6 @@ export const useGameLogic = () => {
         }
     }
   };
-
-  if (gameState === GameState.RANKING && scoreSystem.globalRanking.length === 0) {
-      scoreSystem.loadRankings();
-  }
 
   return {
     gameState, setGameState,

@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { History, Trophy, PlayCircle, Zap, Volume2, VolumeX, Heart, Shield, ArrowUp, Sparkles, Gift, ShoppingCart, CheckCircle2, Info, HandMetal, ScrollText, Database, Clock } from 'lucide-react';
 import { TitleBackground } from '../TitleBackground';
@@ -330,8 +331,12 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             </div>
 
             <div className="flex gap-2 md:gap-3">
-              <button onClick={onShowHistory} className="flex-1 px-3 py-2 md:px-4 md:py-3 bg-white/5 rounded-2xl text-[9px] md:text-[10px] font-black tracking-widest flex items-center justify-center gap-1.5 md:gap-2 hover:bg-white/10 transition-colors border border-white/10"><History size={14} className="md:w-4 md:h-4"/> HISTORY</button>
-              <button onClick={onShowRanking} className="flex-1 px-3 py-2 md:px-4 md:py-3 bg-white/5 rounded-2xl text-[9px] md:text-[10px] font-black tracking-widest flex items-center justify-center gap-1.5 md:gap-2 hover:bg-white/10 transition-colors border border-white/10"><Trophy size={14} className="md:w-4 md:h-4"/> RANKING</button>
+              <button onClick={onShowHistory} className="flex-1 px-3 py-3 md:px-4 md:py-4 bg-gray-800 hover:bg-gray-700 text-white rounded-2xl text-[10px] md:text-xs font-black tracking-widest flex items-center justify-center gap-1.5 md:gap-2 transition-all shadow-lg border border-gray-600 active:scale-95">
+                <History size={16} className="md:w-5 md:h-5 text-blue-400"/> HISTORY
+              </button>
+              <button onClick={onShowRanking} className="flex-1 px-3 py-3 md:px-4 md:py-4 bg-gray-800 hover:bg-gray-700 text-white rounded-2xl text-[10px] md:text-xs font-black tracking-widest flex items-center justify-center gap-1.5 md:gap-2 transition-all shadow-lg border border-gray-600 active:scale-95">
+                <Trophy size={16} className="md:w-5 md:h-5 text-yellow-400"/> RANKING
+              </button>
             </div>
 
             <div className="mt-2 md:mt-4 flex justify-center">
