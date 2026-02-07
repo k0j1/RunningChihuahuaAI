@@ -12,6 +12,7 @@ import { RankedEntry } from './overlay/RankingList';
 import { UserInfoModal } from './overlay/UserInfoModal';
 import { LoginBonusModal } from './overlay/LoginBonusModal';
 import { ShopModal } from './overlay/ShopModal';
+import { MaintenanceScreen } from './overlay/MaintenanceScreen';
 
 interface OverlayProps {
   gameState: GameState;
@@ -73,6 +74,11 @@ interface OverlayProps {
   // Audio Props
   isMuted: boolean;
   onToggleMute: () => void;
+  // Blocked & Maintenance State
+  isBlocked?: boolean;
+  isMaintenanceTest?: boolean;
+  onExitMaintenanceTest?: () => void;
+  onTestMaintenance?: () => void;
   // Actions
   onStartGame: (isDemo?: boolean) => void;
   onShowHistory: () => void;
@@ -141,6 +147,10 @@ export const Overlay: React.FC<OverlayProps> = ({
   onUseShield,
   isMuted,
   onToggleMute,
+  isBlocked = false,
+  isMaintenanceTest = false,
+  onExitMaintenanceTest,
+  onTestMaintenance,
   onStartGame,
   onShowHistory,
   onShowRanking,
@@ -197,7 +207,13 @@ export const Overlay: React.FC<OverlayProps> = ({
 
   return (
     <>
-      {showUserInfo && (
+      {/* 1. Maintenance Screen Override (Real or Test) */}
+      {(isBlocked || isMaintenanceTest) && (
+        <MaintenanceScreen onBack={isMaintenanceTest ? onExitMaintenanceTest : undefined} />
+      )}
+
+      {/* 2. Modals */}
+      {!isBlocked && !isMaintenanceTest && showUserInfo && (
         <UserInfoModal 
           farcasterUser={farcasterUser}
           walletAddress={walletAddress}
@@ -210,7 +226,7 @@ export const Overlay: React.FC<OverlayProps> = ({
         />
       )}
 
-      {showLoginBonus && (
+      {!isBlocked && !isMaintenanceTest && showLoginBonus && (
         <LoginBonusModal 
           onClose={onCloseLoginBonus}
           onClaim={onClaimLoginBonus}
@@ -220,7 +236,7 @@ export const Overlay: React.FC<OverlayProps> = ({
         />
       )}
 
-      {showShop && (
+      {!isBlocked && !isMaintenanceTest && showShop && (
         <ShopModal 
            onClose={() => setShowShop(false)}
            onBuy={onBuyItems}
@@ -229,9 +245,10 @@ export const Overlay: React.FC<OverlayProps> = ({
         />
       )}
 
-      {(() => {
+      {/* 3. Main Game State Views */}
+      {!isBlocked && !isMaintenanceTest && (() => {
         if (gameState === GameState.ADMIN) {
-           return <AdminScreen onBack={onReturnToTitle} />;
+           return <AdminScreen onBack={onReturnToTitle} onTestMaintenance={onTestMaintenance || (() => {})} />;
         }
         if (gameState === GameState.TITLE) {
           return (
@@ -256,7 +273,7 @@ export const Overlay: React.FC<OverlayProps> = ({
               loginBonusClaimed={loginBonusClaimed}
               isMuted={isMuted}
               onToggleMute={onToggleMute}
-              onShowAdmin={onShowAdmin} // Pass handler
+              onShowAdmin={onShowAdmin}
             />
           );
         }

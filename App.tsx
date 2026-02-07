@@ -26,7 +26,8 @@ const App: React.FC = () => {
     isMuted, toggleMute, isBossHit, isCelebrating,
     startGame, setGameState, handleDodge, handleDuck,
     connectWallet, disconnectWallet, shareScore, saveCurrentScore,
-    onShowAdmin // New handler
+    onShowAdmin, isBlocked, // Added isBlocked
+    isMaintenanceTest, startMaintenanceTest, endMaintenanceTest // Added Maintenance Test props
   } = gameLogic;
 
   const levelMultiplier = 5 + (bossLevel - 1) * 2;
@@ -101,6 +102,10 @@ const App: React.FC = () => {
         onUseShield={handleUseShield}
         isMuted={isMuted}
         onToggleMute={toggleMute}
+        isBlocked={isBlocked} // Pass blocked status
+        isMaintenanceTest={isMaintenanceTest} // Pass test status
+        onExitMaintenanceTest={endMaintenanceTest} // Pass exit function
+        onTestMaintenance={startMaintenanceTest} // Pass start function
         onStartGame={startGame}
         onShowHistory={() => setGameState(GameState.HISTORY)}
         onShowRanking={() => setGameState(GameState.RANKING)}
@@ -113,7 +118,7 @@ const App: React.FC = () => {
         onDisconnectWallet={disconnectWallet}
         onShare={shareScore}
         onSaveScore={saveCurrentScore}
-        onShowAdmin={onShowAdmin} // Pass to Overlay
+        onShowAdmin={onShowAdmin}
       />
     </div>
   );

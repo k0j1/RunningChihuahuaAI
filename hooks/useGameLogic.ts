@@ -22,6 +22,7 @@ export const useGameLogic = () => {
   
   // UI States
   const [showLoginBonus, setShowLoginBonus] = useState(false);
+  const [isMaintenanceTest, setIsMaintenanceTest] = useState(false);
   
   // Use Ref to ensure the game loop always sees the correct mode immediately without waiting for re-renders
   const isDemoModeRef = useRef<boolean>(false);
@@ -30,7 +31,7 @@ export const useGameLogic = () => {
   const gameEndedRef = useRef<boolean>(false);
 
   // --- Sub-Systems ---
-  const { farcasterUser, walletAddress, isAdded, notificationDetails, connectWallet, disconnectWallet, addMiniApp } = useAuth();
+  const { farcasterUser, walletAddress, isAdded, notificationDetails, connectWallet, disconnectWallet, addMiniApp, isBlocked } = useAuth();
   
   const scoreSystem = useScoreSystem(farcasterUser, walletAddress);
   const playerSystem = usePlayerSystem();
@@ -369,7 +370,7 @@ export const useGameLogic = () => {
     dayTime, setDayTime,
     isDemoMode, isMuted, toggleMute,
     selectedItems, toggleItem, clearSelectedItems,
-    farcasterUser, walletAddress, isAdded, notificationDetails, connectWallet, disconnectWallet, addMiniApp,
+    farcasterUser, walletAddress, isAdded, notificationDetails, connectWallet, disconnectWallet, addMiniApp, isBlocked,
     ...scoreSystem,
     ...playerSystem,
     ...bossSystem,
@@ -388,5 +389,8 @@ export const useGameLogic = () => {
     handleDodge, handleDuck,
     handleDistanceUpdate, handleObstacleTick, handleProjectileTick,
     onShowAdmin: () => setGameState(GameState.ADMIN), // Add Admin Handler
+    isMaintenanceTest, // Expose maintenance test state
+    startMaintenanceTest: () => setIsMaintenanceTest(true),
+    endMaintenanceTest: () => setIsMaintenanceTest(false),
   };
 };

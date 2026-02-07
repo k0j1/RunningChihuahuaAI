@@ -1,6 +1,7 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
-import { updatePlayerProfile } from '../services/supabase';
+import { updatePlayerProfile, checkIfUserIsBlocked } from '../services/supabase';
 
 export const useAuth = () => {
   const [farcasterUser, setFarcasterUser] = useState<{username?: string, displayName?: string, pfpUrl?: string, fid?: number} | null>(null);
@@ -8,6 +9,7 @@ export const useAuth = () => {
   const [isAdded, setIsAdded] = useState<boolean>(true); // Default true to avoid flash
   const [notificationDetails, setNotificationDetails] = useState<{token: string, url: string} | null>(null);
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   // Initialize Farcaster SDK
   useEffect(() => {
@@ -27,6 +29,12 @@ export const useAuth = () => {
             pfpUrl: user.pfpUrl,
             fid: user.fid
           });
+          
+          // Check if user is blocked
+          if (user.fid) {
+             const blocked = await checkIfUserIsBlocked(user.fid);
+             setIsBlocked(blocked);
+          }
           
           // Check if app is added to user's launcher/sidebar
           setIsAdded(!!context.client?.added);
@@ -77,10 +85,10 @@ export const useAuth = () => {
 
   // Sync profile data to Supabase when user/wallet/notification info changes
   useEffect(() => {
-    if (farcasterUser) {
+    if (farcasterUser && !isBlocked) {
       updatePlayerProfile(farcasterUser, walletAddress, notificationDetails);
     }
-  }, [farcasterUser, walletAddress, notificationDetails]);
+  }, [farcasterUser, walletAddress, notificationDetails, isBlocked]);
 
   const connectWallet = useCallback(async () => {
     try {
@@ -128,6 +136,7 @@ export const useAuth = () => {
     walletAddress,
     isAdded,
     notificationDetails,
+    isBlocked,
     connectWallet,
     disconnectWallet,
     addMiniApp

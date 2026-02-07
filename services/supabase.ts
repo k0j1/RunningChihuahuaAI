@@ -29,6 +29,30 @@ const isNetworkError = (error: any) => {
   );
 };
 
+// --- Security / Maintenance Functions ---
+
+export const checkIfUserIsBlocked = async (fid: number): Promise<boolean> => {
+  if (!isConfigured) return false;
+  try {
+    const { data, error } = await supabase
+      .from('blocked_users')
+      .select('fid')
+      .eq('fid', fid)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Block check failed:", error);
+      return false;
+    }
+    
+    // データが存在すればブロック対象
+    return !!data;
+  } catch (e) {
+    console.error("Exception checking blocked status:", e);
+    return false;
+  }
+};
+
 // --- Admin Functions ---
 
 export const fetchAdminTableData = async (tableName: string): Promise<any[]> => {

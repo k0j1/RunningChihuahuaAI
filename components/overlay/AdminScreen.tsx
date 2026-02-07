@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { Shield, Database, Coins, ArrowLeft, RefreshCw, Layers, PlayCircle, Clock, History, Zap, Bell, Package, User, Check, X, Heart, ArrowUp, Sparkles, Gift, Send } from 'lucide-react';
+import { Shield, Database, Coins, ArrowLeft, RefreshCw, Layers, PlayCircle, Clock, History, Zap, Bell, Package, User, Check, X, Heart, ArrowUp, Sparkles, Gift, Send, AlertOctagon, Terminal } from 'lucide-react';
 import { ethers } from 'ethers';
 import sdk from '@farcaster/frame-sdk';
 import { 
@@ -15,6 +16,7 @@ import { fetchAdminTableData } from '../../services/supabase';
 
 interface AdminScreenProps {
     onBack: () => void;
+    onTestMaintenance: () => void; // Added prop
 }
 
 const CONTRACTS = [
@@ -39,7 +41,7 @@ const ANALYTIC_TABS = [
     { id: 'items', label: 'アイテム所持数', icon: <Package size={14}/> },
 ];
 
-export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
+export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack, onTestMaintenance }) => {
     const [balances, setBalances] = useState<Record<string, string>>({});
     const [loadingBalances, setLoadingBalances] = useState(false);
     
@@ -457,6 +459,23 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack }) => {
                     </div>
                     <div className="mt-2 text-[10px] text-gray-500 text-right">
                         最新の100件を表示: {activeTable}
+                    </div>
+                </section>
+
+                {/* Section 4: System / Debug (NEW) */}
+                <section className="bg-gray-800/50 rounded-2xl p-6 border border-gray-700 shadow-lg">
+                    <div className="flex items-center gap-2 mb-4">
+                        <Terminal size={20} className="text-gray-400" />
+                        <h2 className="text-lg font-bold text-gray-400">システム / デバッグ</h2>
+                    </div>
+                    
+                    <div className="flex gap-4">
+                        <button 
+                            onClick={onTestMaintenance}
+                            className="flex items-center gap-2 px-4 py-3 bg-red-900/50 hover:bg-red-800 text-red-300 rounded-xl border border-red-700 transition-colors text-sm font-bold shadow-sm active:scale-95"
+                        >
+                            <AlertOctagon size={16} /> メンテナンス画面テスト
+                        </button>
                     </div>
                 </section>
             </div>
