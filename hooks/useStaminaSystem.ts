@@ -71,11 +71,14 @@ export const useStaminaSystem = (farcasterUser: any, walletAddress: string | nul
         } else {
           setNextRecoveryTime(null);
         }
+        
+        return currentStamina;
     } catch (e) {
         console.warn("Stamina load failed:", e);
         // On error, fallback to current state (don't reset) or max if undefined
+        return stamina;
     }
-  }, [userId]);
+  }, [userId, stamina]);
 
   // Save Stamina helper
   const saveStamina = async (newStamina: number, updateTime: number) => {
@@ -96,9 +99,7 @@ export const useStaminaSystem = (farcasterUser: any, walletAddress: string | nul
   // Consume Stamina
   const consumeStamina = async (): Promise<boolean> => {
     try {
-        await loadStamina(); // Refresh first to ensure valid data
-        
-        let currentStamina = stamina;
+        const currentStamina = await loadStamina(); // Refresh first to ensure valid data
         
         if (currentStamina > 0) {
           const newStamina = currentStamina - 1;

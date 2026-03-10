@@ -147,7 +147,7 @@ export const useGameLogic = () => {
       // 3. Consume Stamina
       const staminaConsumed = await staminaSystem.consumeStamina();
       if (!staminaConsumed) {
-         alert("Error consuming stamina.");
+         console.error("Error consuming stamina.");
          return;
       }
     }

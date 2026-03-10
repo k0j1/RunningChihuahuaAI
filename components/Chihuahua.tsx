@@ -219,11 +219,13 @@ export const Chihuahua: React.FC<ChihuahuaProps> = ({ speed, isRunning, isDodgin
   return (
     <group ref={group} position={[0, 0, 0]} rotation={[0, Math.PI, 0]} scale={[1.2, 1.2, 1.2]}>
       {/* Celebration Particles */}
-      <group position={[0, 1.5, 0]} visible={!!isCelebrating}>
-         <MusicalNote offset={0} active={!!isCelebrating} />
-         <group position={[0.6, -0.2, 0]}><MusicalNote offset={0.5} active={!!isCelebrating} /></group>
-         <group position={[-0.6, -0.2, 0]}><MusicalNote offset={1.0} active={!!isCelebrating} /></group>
-      </group>
+      {!!isCelebrating && (
+        <group position={[0, 1.5, 0]}>
+           <MusicalNote offset={0} active={true} />
+           <group position={[0.6, -0.2, 0]}><MusicalNote offset={0.5} active={true} /></group>
+           <group position={[-0.6, -0.2, 0]}><MusicalNote offset={1.0} active={true} /></group>
+        </group>
+      )}
 
       {/* Shield Barrier Effect */}
       {shield > 0 && (
