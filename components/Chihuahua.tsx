@@ -2,7 +2,6 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Group, Mesh } from 'three';
-import { Text } from '@react-three/drei';
 import { DodgeType } from '../types';
 
 interface ChihuahuaProps {
@@ -39,17 +38,16 @@ const MusicalNote: React.FC<{ offset: number; active: boolean }> = ({ offset, ac
 
   return (
     <group ref={ref}>
-      <Text
-        color="#F43F5E" // Pinkish Red
-        fontSize={0.5}
-        anchorX="center"
-        anchorY="middle"
-        outlineWidth={0.02}
-        outlineColor="#FFFFFF"
-        characters="♫♪" // Preload specific characters to optimize font atlas
-      >
-        {offset % 2 > 1 ? "♫" : "♪"}
-      </Text>
+      {/* Note Head */}
+      <mesh position={[0, 0, 0]}>
+        <sphereGeometry args={[0.1, 16, 16]} />
+        <meshStandardMaterial color="#F43F5E" />
+      </mesh>
+      {/* Note Stem */}
+      <mesh position={[0.075, 0.15, 0]}>
+        <cylinderGeometry args={[0.025, 0.025, 0.3, 8]} />
+        <meshStandardMaterial color="#F43F5E" />
+      </mesh>
     </group>
   );
 };

@@ -41,7 +41,20 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
   return (
     <>
       <CameraController gameState={gameState} lives={lives} bossType={bossType} bossLevel={bossLevel} />
-      <Suspense fallback={<Html center><div className="text-white">Loading...</div></Html>}>
+      
+      <Suspense fallback={null}>
+        <Preload all />
+        <Chihuahua 
+          speed={gameState === GameState.RUNNING ? speed : 0} 
+          isRunning={gameState === GameState.RUNNING}
+          isDodging={isDodging}
+          dodgeType={dodgeType}
+          isHit={isHit}
+          isCelebrating={effectiveIsCelebrating}
+          isDefeated={gameState === GameState.CAUGHT_ANIMATION || gameState === GameState.GAME_OVER}
+          shield={shield}
+        />
+
         <GameLoop 
           gameState={gameState} 
           speed={speed} 
@@ -69,17 +82,6 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
         />
         { !dayTime && <Environment preset="night" /> }
         
-        <Chihuahua 
-          speed={gameState === GameState.RUNNING ? speed : 0} 
-          isRunning={gameState === GameState.RUNNING}
-          isDodging={isDodging}
-          dodgeType={dodgeType}
-          isHit={isHit}
-          isCelebrating={effectiveIsCelebrating}
-          isDefeated={gameState === GameState.CAUGHT_ANIMATION || gameState === GameState.GAME_OVER}
-          shield={shield}
-        />
-
         {bossType === BossType.GORILLA && (
           <Gorilla
             speed={gameState === GameState.RUNNING ? speed : 0} 
