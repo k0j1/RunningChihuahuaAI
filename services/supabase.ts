@@ -3,22 +3,26 @@ import { createClient } from '@supabase/supabase-js';
 import { ScoreEntry, PlayerStats, ItemType, UserInventory } from '../types';
 
 // 環境変数の取得と検証
-const envUrl = process.env.VITE_SUPABASE_URL;
-const envKey = process.env.VITE_SUPABASE_KEY;
+// Viteのimport.meta.envと、AI Studio環境のprocess.envの両方をチェック
+const envUrl = import.meta.env.VITE_SUPABASE_URL || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : undefined);
+const envKey = import.meta.env.VITE_SUPABASE_KEY || (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_KEY : undefined);
 
 // 文字列かつ空でないことを確認
-const hasValidUrl = typeof envUrl === 'string' && envUrl.trim().length > 0;
+const hasValidUrl = typeof envUrl === 'string' && envUrl.trim().length > 0 && envUrl.startsWith('http');
 const hasValidKey = typeof envKey === 'string' && envKey.trim().length > 0;
 const isConfigured = hasValidUrl && hasValidKey;
 
+if (!isConfigured) {
+  console.warn("Supabase credentials are not set or invalid. Database features will be disabled (Guest Mode).", {
+    hasUrl: !!envUrl,
+    hasKey: !!envKey,
+    urlValid: hasValidUrl
+  });
+}
+
 // createClientがクラッシュしないよう、未設定時は安全なプレースホルダーを使用
-// 注: isConfiguredがfalseの場合、各関数で即座にreturnするため、このプレースホルダーURLにリクエストが飛ぶことはありません
 const supabaseUrl = isConfigured ? envUrl! : 'https://placeholder.supabase.co';
 const supabaseKey = isConfigured ? envKey! : 'placeholder-key';
-
-if (!isConfigured) {
-  console.warn("Supabase credentials are not set or invalid. Database features will be disabled (Guest Mode).");
-}
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -83,7 +87,7 @@ export const fetchAdminTableData = async (tableName: string): Promise<any[]> => 
 };
 
 export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
-  if (!isConfigured) return [];
+  if (!isConfigured) throw new Error("Database not configured");
   try {
     const { data, error } = await supabase
       .from('scores')
@@ -92,10 +96,8 @@ export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
       .limit(1000); 
 
     if (error) {
-      if (!isNetworkError(error)) {
-        console.error('Error fetching global ranking:', error);
-      }
-      return [];
+      console.error('Error fetching global ranking:', error);
+      throw error;
     }
 
     if (!data) return [];
@@ -115,6 +117,7 @@ export const fetchGlobalRanking = async (): Promise<ScoreEntry[]> => {
         score: row.score,
         distance: row.distance,
         farcasterUser: {
+          fid: row.fid,
           username: row.username,
           displayName: row.display_name,
           pfpUrl: row.pfp_url
@@ -149,6 +152,7 @@ export const fetchUserHistory = async (username: string): Promise<ScoreEntry[]> 
       score: row.score,
       distance: row.distance,
       farcasterUser: {
+        fid: row.fid,
         username: row.username,
         displayName: row.display_name,
         pfpUrl: row.pfp_url
@@ -161,7 +165,7 @@ export const fetchUserHistory = async (username: string): Promise<ScoreEntry[]> 
 };
 
 export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
-  if (!isConfigured) return [];
+  if (!isConfigured) throw new Error("Database not configured");
   try {
     const { data, error } = await supabase
       .from('player_stats')
@@ -170,12 +174,16 @@ export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
       .order('total_score', { ascending: false })
       .limit(100);
 
-    if (error) return [];
+    if (error) {
+      console.error('Error fetching total ranking:', error);
+      throw error;
+    }
     if (!data) return [];
 
     return data.map((row: any) => ({
       id: row.user_id,
       farcasterUser: row.username ? {
+        fid: row.fid,
         username: row.username,
         displayName: row.display_name,
         pfpUrl: row.pfp_url
@@ -205,6 +213,7 @@ export const fetchUserStats = async (userId: string): Promise<PlayerStats | null
     return {
       id: data.user_id,
       farcasterUser: data.username ? {
+        fid: data.fid,
         username: data.username,
         displayName: data.display_name,
         pfpUrl: data.pfp_url
@@ -256,6 +265,7 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
 
     const payload: any = {
       user_id: userId,
+      fid: farcasterUser?.fid || null,
       username: farcasterUser?.username || null,
       display_name: farcasterUser?.displayName || null,
       pfp_url: farcasterUser?.pfpUrl || null,
@@ -306,6 +316,7 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
     const payload = {
       score: entry.score,
       distance: entry.distance,
+      fid: entry.farcasterUser.fid || null,
       username: entry.farcasterUser.username,
       display_name: entry.farcasterUser.displayName || null,
       pfp_url: entry.farcasterUser.pfpUrl || null,
@@ -327,6 +338,7 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
 
     await supabase.from('player_stats').upsert({
       user_id: userId,
+      fid: entry.farcasterUser.fid || currentStats?.fid || null,
       username: entry.farcasterUser.username,
       display_name: entry.farcasterUser.displayName || currentStats?.display_name || null,
       pfp_url: entry.farcasterUser.pfpUrl || currentStats?.pfp_url || null,

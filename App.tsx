@@ -30,6 +30,8 @@ const App: React.FC = () => {
     isMaintenanceTest, startMaintenanceTest, endMaintenanceTest // Added Maintenance Test props
   } = gameLogic;
 
+  console.log("[App] Current GameState:", gameState);
+
   const levelMultiplier = 5 + (bossLevel - 1) * 2;
   const projectileVelocity = speed * levelMultiplier;
   const projectileTotalTime = Math.max(projectileStartZ, 1) / projectileVelocity;
@@ -46,7 +48,7 @@ const App: React.FC = () => {
     <div className="w-full h-[100dvh] relative bg-gray-900 overflow-hidden">
       <AudioManager gameState={gameState} isMuted={isMuted} combo={combo} isBossHit={isBossHit} isCelebrating={isCelebrating} />
       <div className="absolute inset-0 z-0">
-        <Canvas shadows camera={{ position: [3, 3, -5], fov: 60 }} dpr={[1, 1.5]}>
+        <Canvas shadows camera={{ position: [3, 3, -5], fov: 60 }}>
           <GameScene gameLogic={gameLogic} />
         </Canvas>
       </div>

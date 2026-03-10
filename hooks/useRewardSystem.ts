@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { claimTokenReward } from '../services/contracts/scoreService';
+import { claimTokenReward } from '../services/contracts/scoreClaimService';
 import { ClaimResult } from '../types';
 
 export const useRewardSystem = () => {

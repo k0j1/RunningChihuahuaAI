@@ -64,7 +64,7 @@ export const AudioManager: React.FC<AudioManagerProps> = ({
       }
     }
     return () => {
-      if (audioCtxRef.current) {
+      if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
         audioCtxRef.current.close();
       }
     };

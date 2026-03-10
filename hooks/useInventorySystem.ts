@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ItemType, UserInventory, ClaimResult } from '../types';
 import { fetchUserInventory, consumeUserItem, grantUserItem, fetchUserStats, claimLoginBonus as dbClaimLoginBonus } from '../services/supabase';
-import { claimDailyBonus } from '../services/contracts/bonusService';
+import { claimDailyBonus } from '../services/contracts/dailyBonusService';
 import { purchaseItemsWithTokens } from '../services/contracts/shopService';
 
 const THEME = {

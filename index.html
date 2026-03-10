@@ -26,6 +26,9 @@
     <meta property="fc:frame:button:1" content="Play Now" />
     <meta property="fc:frame:button:1:action" content="link" />
     <meta property="fc:frame:button:1:target" content="https://runningchihuahuaai.k0j1.v2002.coreserver.jp/" />
+    
+    <!-- Content Security Policy to allow Tailwind CDN and Gemini API -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' https: 'unsafe-inline' 'unsafe-eval'; style-src 'self' https: 'unsafe-inline'; connect-src 'self' https: wss:;" />
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;600&display=swap" rel="stylesheet">
@@ -64,6 +67,13 @@
 </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Shim process.env for browser environment
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
+      // Ensure VITE_ variables are available if injected into process.env by the platform
+      // Note: In Vite, these are usually handled at build time, but this shim helps in some dev environments
+    </script>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

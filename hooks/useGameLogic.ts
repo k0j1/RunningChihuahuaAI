@@ -120,10 +120,10 @@ export const useGameLogic = () => {
     }
 
     // Stamina & Item Check for Normal Mode
-    if (!demoMode) {
+    if (!demoMode && farcasterUser) {
       // 1. Check Stamina
       if (staminaSystem.stamina <= 0) {
-        alert("Not enough stamina! Wait for recovery.");
+        console.error("Not enough stamina! Wait for recovery.");
         return;
       }
 
@@ -132,14 +132,14 @@ export const useGameLogic = () => {
          // Pre-check local inventory
          for (const item of selectedItems) {
              if ((inventorySystem.inventory[item] || 0) <= 0) {
-                 alert(`You don't have enough of the selected items!`);
+                 console.error(`You don't have enough of the selected items!`);
                  return;
              }
          }
 
          const consumed = await inventorySystem.consumeItems(selectedItems);
          if (!consumed) {
-             alert("Failed to use items. Please try again.");
+             console.error("Failed to use items. Please try again.");
              return;
          }
       }
@@ -204,7 +204,7 @@ export const useGameLogic = () => {
   };
 
   const shareScore = () => {
-    const text = `I scored ${scoreSystem.score} pts and ran ${Math.floor(scoreSystem.distance)}m in Running Chihuahua AI! 🐕💨\n\nCan you beat the bosses?`;
+    const text = `I scored ${scoreSystem.score} pts and ran ${Math.floor(scoreSystem.distance)}m in Running Chihuahua AI! 🐕💨\n\nCan you beat the bosses? #RunningChihuahua #CHH`;
     const appUrl = 'https://farcaster.xyz/miniapps/7RH3c4fEALgF/runningchihuahua';
     const intentUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(appUrl)}`;
     

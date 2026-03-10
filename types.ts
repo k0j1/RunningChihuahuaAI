@@ -77,6 +77,7 @@ export interface ScoreEntry {
 export interface PlayerStats {
   id: string; // Unique key (username or wallet)
   farcasterUser?: {
+    fid?: number;
     username?: string;
     displayName?: string;
     pfpUrl?: string;
@@ -119,7 +120,6 @@ declare global {
   interface ImportMetaEnv {
     readonly VITE_SUPABASE_URL: string;
     readonly VITE_SUPABASE_KEY: string;
-    readonly DEV: boolean;
     [key: string]: any;
   }
 

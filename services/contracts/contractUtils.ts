@@ -77,7 +77,7 @@ export const handleContractError = (error: any) => {
     } else if (detail) {
         userMsg = `エラー詳細: ${detail}`;
     } else if (error.code === 'CALL_EXCEPTION') {
-        userMsg = "実行に失敗しました。Baseネットワークであることを確認してください。";
+        userMsg = "実行に失敗しました。Baseネットワークであることを確認してください。コントラクトアドレスが正しいか、またはRPCに問題がある可能性があります。";
     }
     
     return { success: false, message: userMsg };

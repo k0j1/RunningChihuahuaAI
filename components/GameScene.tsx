@@ -1,6 +1,6 @@
 
 import React, { Suspense } from 'react';
-import { Sky, Environment, OrbitControls, Preload } from '@react-three/drei';
+import { Sky, Environment, OrbitControls, Preload, Html } from '@react-three/drei';
 import { Chihuahua } from './Chihuahua';
 import { Gorilla } from './Gorilla';
 import { Cheetah } from './Cheetah';
@@ -41,7 +41,7 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
   return (
     <>
       <CameraController gameState={gameState} lives={lives} bossType={bossType} bossLevel={bossLevel} />
-      <Suspense fallback={null}>
+      <Suspense fallback={<Html center><div className="text-white">Loading...</div></Html>}>
         <GameLoop 
           gameState={gameState} 
           speed={speed} 
@@ -148,7 +148,6 @@ export const GameScene: React.FC<GameSceneProps> = ({ gameLogic }) => {
         <fog attach="fog" args={[dayTime ? '#87CEEB' : '#050505', 10, 50]} />
         
         {/* Keeps assets loaded to avoid re-mounting flickers */}
-        <Preload all />
       </Suspense>
     </>
   );

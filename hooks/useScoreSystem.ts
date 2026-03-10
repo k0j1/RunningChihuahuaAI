@@ -79,7 +79,7 @@ export const useScoreSystem = (farcasterUser: any, walletAddress: string | null)
       setTotalRanking(totals);
     } catch (e: any) {
       console.warn("Ranking load failed:", e);
-      setRankingError("Failed to connect to leaderboard service.");
+      setRankingError(e.message || "Failed to connect to leaderboard service.");
     } finally {
       if (!silent) setIsLoadingRanking(false);
     }

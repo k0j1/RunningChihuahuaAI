@@ -140,13 +140,22 @@ export const purchaseItemsWithTokens = async (walletAddress: string, totalItemCo
  * $CHHトークンの残高を取得する
  */
 export const fetchCHHBalance = async (walletAddress: string): Promise<string> => {
-    try {
-        const provider = new ethers.JsonRpcProvider(BASE_RPC_URL);
-        const contract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, provider);
-        const balance = await contract.balanceOf(walletAddress);
-        return ethers.formatUnits(balance, 18);
-    } catch (error) {
-        console.error("[ShopService] Failed to fetch CHH balance:", error);
-        return "0.0";
+    let retries = 2;
+    while (retries >= 0) {
+        try {
+            const provider = new ethers.JsonRpcProvider(BASE_RPC_URL);
+            const contract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, provider);
+            const balance = await contract.balanceOf(walletAddress);
+            return ethers.formatUnits(balance, 18);
+        } catch (error) {
+            console.warn(`[ShopService] Failed to fetch CHH balance (${retries} retries left):`, error);
+            if (retries === 0) {
+                console.error("[ShopService] Final attempt to fetch CHH balance failed.");
+                return "0.0";
+            }
+            retries--;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
     }
+    return "0.0";
 };

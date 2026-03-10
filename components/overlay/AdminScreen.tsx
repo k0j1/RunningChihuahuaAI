@@ -59,15 +59,31 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack, onTestMaintena
     const fetchBalances = async () => {
         setLoadingBalances(true);
         try {
+            console.log("[Admin] Fetching balances from RPC:", BASE_RPC_URL);
             const provider = new ethers.JsonRpcProvider(BASE_RPC_URL);
-            const tokenContract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, provider);
             
+            // Check network
+            const network = await provider.getNetwork();
+            console.log("[Admin] RPC Network:", network.chainId.toString());
+
+            const tokenContract = new ethers.Contract(CHH_TOKEN_ADDRESS, ERC20_ABI, provider);
             const newBalances: Record<string, string> = {};
             
+            // Fetch balances one by one to isolate failures
             for (const c of CONTRACTS) {
-                if (c.name === "トークンコントラクト") continue; // Token contract doesn't hold itself usually, logic varies
-                const bal = await tokenContract.balanceOf(c.address);
-                newBalances[c.address] = ethers.formatUnits(bal, 18);
+                if (c.name === "トークンコントラクト") continue;
+                try {
+                    console.log(`[Admin] Querying balance for ${c.name} (${c.address}) on token ${CHH_TOKEN_ADDRESS}`);
+                    const bal = await tokenContract.balanceOf(c.address);
+                    newBalances[c.address] = ethers.formatUnits(bal, 18);
+                } catch (err: any) {
+                    console.warn(`[Admin] Failed to fetch balance for ${c.name}:`, err.message);
+                    if (err.code === 'CALL_EXCEPTION') {
+                        newBalances[c.address] = "コントラクトエラー";
+                    } else {
+                        newBalances[c.address] = "取得失敗";
+                    }
+                }
             }
             setBalances(newBalances);
         } catch (e) {
@@ -104,9 +120,9 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack, onTestMaintena
             const txHash = await provider.request({
                 method: 'eth_sendTransaction',
                 params: [{
-                    from: userAddress,
-                    to: CHH_TOKEN_ADDRESS, // Contract to call (CHH Token)
-                    data: data, // Transfer data
+                    from: userAddress as `0x${string}`,
+                    to: CHH_TOKEN_ADDRESS as `0x${string}`,
+                    data: data as `0x${string}`,
                 }]
             });
             
@@ -188,8 +204,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack, onTestMaintena
 
     const renderUserCell = (row: any, isItemRow = false) => {
         const user = isItemRow ? row.user : row;
+        console.log("[Admin] User object:", user);
         const pfp = user?.pfp_url;
         const name = user?.display_name || user?.username || (isItemRow ? row.user_id : 'Unknown');
+        const fid = user?.fid;
         
         return (
             <div className="flex items-center gap-2">
@@ -200,7 +218,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack, onTestMaintena
                         <User size={12} className="text-gray-400" />
                     </div>
                 )}
-                <span className="truncate max-w-[120px]" title={name}>{name}</span>
+                <span className="truncate max-w-[120px]" title={name}>
+                    {name}
+                    {fid && <span className="text-[10px] text-gray-500 ml-1">({fid})</span>}
+                </span>
             </div>
         );
     };

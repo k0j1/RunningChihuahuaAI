@@ -19,12 +19,12 @@ export {
 export { 
     claimTokenReward, 
     fetchDailyClaimCount 
-} from './contracts/scoreService';
+} from './contracts/scoreClaimService';
 
 // デイリーボーナス関連
 export { 
     claimDailyBonus 
-} from './contracts/bonusService';
+} from './contracts/dailyBonusService';
 
 // ショップ・アイテム購入関連
 export { 
