@@ -327,7 +327,7 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
     if (walletAddress) {
       await supabase.from('farcaster_users').upsert({
         fid: farcasterUser.fid,
-        wallet_address: walletAddress
+        address: walletAddress
       }, { onConflict: 'fid' });
     }
 
