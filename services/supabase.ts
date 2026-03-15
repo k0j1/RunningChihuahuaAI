@@ -289,7 +289,7 @@ export const updateUserStamina = async (fid: number, newStamina: number, lastUpd
         last_stamina_update: lastUpdate,
         is_notify: false
       })
-      .eq('fid', fid);
+      .eq('fid', fid.toString());
   } catch (e) { }
 };
 
@@ -302,7 +302,7 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
     const { data: existing } = await supabase
       .from('running_player_stats')
       .select('fid')
-      .eq('fid', farcasterUser.fid)
+      .eq('fid', farcasterUser.fid.toString())
       .maybeSingle();
 
     const payload: any = {
@@ -317,7 +317,7 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
     }
 
     if (existing) {
-      await supabase.from('running_player_stats').update(payload).eq('fid', farcasterUser.fid);
+      await supabase.from('running_player_stats').update(payload).eq('fid', farcasterUser.fid.toString());
     } else {
       await supabase.from('running_player_stats').insert({
         ...payload,
