@@ -28,7 +28,7 @@ const CONTRACTS = [
 
 const DB_TABLES = [
     { name: "スコア履歴", id: "scores" },
-    { name: "プレイヤー情報", id: "player_stats" },
+    { name: "プレイヤー情報", id: "running_player_stats" },
     { name: "所持アイテム", id: "player_items" }
 ];
 
@@ -143,7 +143,7 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack, onTestMaintena
         try {
             let data: any[] = [];
             if (tab === 'play_counts' || tab === 'stamina_info' || tab === 'notifications') {
-                const res = await fetchAdminTableData('player_stats');
+                const res = await fetchAdminPlayerStats();
                 if (tab === 'play_counts') {
                     data = res.sort((a, b) => (b.run_count || 0) - (a.run_count || 0));
                 } else {
@@ -155,16 +155,16 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack, onTestMaintena
                  data = res.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
             } else if (tab === 'login_bonus') {
                  // Fetch player stats to see last_login_bonus
-                 const res = await fetchAdminTableData('player_stats');
+                 const res = await fetchAdminPlayerStats();
                  // Filter only those who have claimed a bonus, sort by date desc
                  data = res
                     .filter((r: any) => r.last_login_bonus)
                     .sort((a, b) => new Date(b.last_login_bonus).getTime() - new Date(a.last_login_bonus).getTime());
             } else if (tab === 'items') {
                  const itemsRes = await fetchAdminTableData('player_items');
-                 const statsRes = await fetchAdminTableData('player_stats');
+                 const statsRes = await fetchAdminPlayerStats();
                  data = itemsRes.map(item => {
-                     const user = statsRes.find(s => s.user_id === item.user_id);
+                     const user = statsRes.find(s => s.fid === item.fid);
                      const total = (item.max_hp || 0) + (item.heal || 0) + (item.shield || 0);
                      return { ...item, user, total };
                  });
@@ -206,8 +206,8 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack, onTestMaintena
         const user = isItemRow ? row.user : row;
         console.log("[Admin] User object:", user);
         const pfp = user?.pfp_url;
-        const name = user?.display_name || user?.username || (isItemRow ? row.user_id : 'Unknown');
-        const fid = user?.fid;
+        const name = user?.display_name || user?.username || (isItemRow ? row.fid : 'Unknown');
+        const fid = user?.fid || row.fid;
         
         return (
             <div className="flex items-center gap-2">

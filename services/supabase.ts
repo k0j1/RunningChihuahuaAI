@@ -59,6 +59,35 @@ export const checkIfUserIsBlocked = async (fid: number): Promise<boolean> => {
 
 // --- Admin Functions ---
 
+export const fetchAdminPlayerStats = async (): Promise<any[]> => {
+  if (!isConfigured) return [];
+  try {
+    const { data, error } = await supabase
+      .from('running_player_stats')
+      .select(`
+        *,
+        farcaster_users (
+          username,
+          display_name,
+          pfp_url
+        )
+      `)
+      .limit(100);
+
+    if (error) throw error;
+
+    return data.map(row => ({
+        ...row,
+        username: row.farcaster_users?.username,
+        display_name: row.farcaster_users?.display_name,
+        pfp_url: row.farcaster_users?.pfp_url
+    })) || [];
+  } catch (e) {
+    console.error("Fetch admin player stats error:", e);
+    return [];
+  }
+};
+
 export const fetchAdminTableData = async (tableName: string): Promise<any[]> => {
   if (!isConfigured) return [];
   try {
@@ -168,8 +197,19 @@ export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
   if (!isConfigured) throw new Error("Database not configured");
   try {
     const { data, error } = await supabase
-      .from('player_stats')
-      .select('*')
+      .from('running_player_stats')
+      .select(`
+        fid,
+        total_score,
+        total_distance,
+        run_count,
+        last_active,
+        farcaster_users (
+          username,
+          display_name,
+          pfp_url
+        )
+      `)
       .gt('total_score', 0)
       .order('total_score', { ascending: false })
       .limit(100);
@@ -181,14 +221,13 @@ export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
     if (!data) return [];
 
     return data.map((row: any) => ({
-      id: row.user_id,
-      farcasterUser: row.username ? {
+      id: row.fid.toString(),
+      farcasterUser: row.farcaster_users ? {
         fid: row.fid,
-        username: row.username,
-        displayName: row.display_name,
-        pfpUrl: row.pfp_url
+        username: row.farcaster_users.username,
+        displayName: row.farcaster_users.display_name,
+        pfpUrl: row.farcaster_users.pfp_url
       } : undefined,
-      walletAddress: row.wallet_address,
       totalScore: row.total_score || 0,
       totalDistance: row.total_distance || 0,
       runCount: row.run_count || 0,
@@ -199,26 +238,32 @@ export const fetchTotalRanking = async (): Promise<PlayerStats[]> => {
   }
 };
 
-export const fetchUserStats = async (userId: string): Promise<PlayerStats | null> => {
+export const fetchUserStats = async (fid: number): Promise<PlayerStats | null> => {
   if (!isConfigured) return null;
   try {
     const { data, error } = await supabase
-      .from('player_stats')
-      .select('*')
-      .eq('user_id', userId)
+      .from('running_player_stats')
+      .select(`
+        *,
+        farcaster_users (
+          username,
+          display_name,
+          pfp_url
+        )
+      `)
+      .eq('fid', fid)
       .maybeSingle();
 
     if (error || !data) return null;
 
     return {
-      id: data.user_id,
-      farcasterUser: data.username ? {
+      id: data.fid.toString(),
+      farcasterUser: data.farcaster_users ? {
         fid: data.fid,
-        username: data.username,
-        displayName: data.display_name,
-        pfpUrl: data.pfp_url
+        username: data.farcaster_users.username,
+        displayName: data.farcaster_users.display_name,
+        pfpUrl: data.farcaster_users.pfp_url
       } : undefined,
-      walletAddress: data.wallet_address,
       totalScore: data.total_score || 0,
       totalDistance: data.total_distance || 0,
       runCount: data.run_count || 0,
@@ -234,41 +279,34 @@ export const fetchUserStats = async (userId: string): Promise<PlayerStats | null
   }
 };
 
-export const updateUserStamina = async (userId: string, newStamina: number, lastUpdate: string) => {
+export const updateUserStamina = async (fid: number, newStamina: number, lastUpdate: string) => {
   if (!isConfigured) return;
   try {
     await supabase
-      .from('player_stats')
+      .from('running_player_stats')
       .update({
         stamina: newStamina,
         last_stamina_update: lastUpdate,
         is_notify: false
       })
-      .eq('user_id', userId);
+      .eq('fid', fid);
   } catch (e) { }
 };
 
 export const updatePlayerProfile = async (farcasterUser: any, walletAddress: string | null, notificationDetails: {token: string, url: string} | null = null) => {
   if (!isConfigured) return;
   
-  let userId = null;
-  if (farcasterUser?.username) userId = `fc:${farcasterUser.username}`;
-  
-  if (!userId) return;
+  if (!farcasterUser?.fid) return;
 
   try {
     const { data: existing } = await supabase
-      .from('player_stats')
-      .select('user_id')
-      .eq('user_id', userId)
+      .from('running_player_stats')
+      .select('fid')
+      .eq('fid', farcasterUser.fid)
       .maybeSingle();
 
     const payload: any = {
-      user_id: userId,
-      fid: farcasterUser?.fid || null,
-      username: farcasterUser?.username || null,
-      display_name: farcasterUser?.displayName || null,
-      pfp_url: farcasterUser?.pfpUrl || null,
+      fid: farcasterUser.fid,
       wallet_address: walletAddress || null,
       last_active: new Date().toISOString()
     };
@@ -279,9 +317,9 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
     }
 
     if (existing) {
-      await supabase.from('player_stats').update(payload).eq('user_id', userId);
+      await supabase.from('running_player_stats').update(payload).eq('fid', farcasterUser.fid);
     } else {
-      await supabase.from('player_stats').insert({
+      await supabase.from('running_player_stats').insert({
         ...payload,
         notification_token: notificationDetails?.token || null,
         notification_url: notificationDetails?.url || null,
@@ -294,14 +332,21 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
       });
     }
 
+    await supabase.from('farcaster_users').upsert({
+        fid: farcasterUser.fid,
+        username: farcasterUser.username,
+        display_name: farcasterUser.displayName,
+        pfp_url: farcasterUser.pfpUrl
+    }, { onConflict: 'fid' });
+
     await supabase.from('player_items').upsert(
       { 
-        user_id: userId, 
+        fid: farcasterUser.fid, 
         max_hp: 0, 
         heal: 0, 
         shield: 0 
       },
-      { onConflict: 'user_id', ignoreDuplicates: true }
+      { onConflict: 'fid', ignoreDuplicates: true }
     );
 
   } catch (e) { }
@@ -309,40 +354,31 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
 
 export const saveScoreToSupabase = async (entry: ScoreEntry) => {
   if (!isConfigured) return;
-  if (!entry.farcasterUser?.username) return;
-  const userId = `fc:${entry.farcasterUser.username}`;
+  if (!entry.farcasterUser?.fid) return;
+  const fid = entry.farcasterUser.fid;
 
   try {
     const payload = {
       score: entry.score,
       distance: entry.distance,
-      fid: entry.farcasterUser.fid || null,
-      username: entry.farcasterUser.username,
-      display_name: entry.farcasterUser.displayName || null,
-      pfp_url: entry.farcasterUser.pfpUrl || null,
-      wallet_address: entry.walletAddress || null,
+      fid: fid,
       created_at: entry.date
     };
 
     await supabase.from('scores').insert([payload]);
     
     const { data: currentStats } = await supabase
-      .from('player_stats')
+      .from('running_player_stats')
       .select('*')
-      .eq('user_id', userId)
+      .eq('fid', fid)
       .maybeSingle();
       
     const previousTotalScore = currentStats?.total_score ? Number(currentStats.total_score) : 0;
     const previousTotalDistance = currentStats?.total_distance ? Number(currentStats.total_distance) : 0;
     const previousRunCount = currentStats?.run_count ? Number(currentStats.run_count) : 0;
 
-    await supabase.from('player_stats').upsert({
-      user_id: userId,
-      fid: entry.farcasterUser.fid || currentStats?.fid || null,
-      username: entry.farcasterUser.username,
-      display_name: entry.farcasterUser.displayName || currentStats?.display_name || null,
-      pfp_url: entry.farcasterUser.pfpUrl || currentStats?.pfp_url || null,
-      wallet_address: entry.walletAddress || currentStats?.wallet_address || null,
+    await supabase.from('running_player_stats').upsert({
+      fid: fid,
       total_score: previousTotalScore + Number(entry.score),
       total_distance: previousTotalDistance + Number(entry.distance),
       run_count: previousRunCount + 1,
@@ -353,7 +389,7 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
 
 // --- Inventory Systems ---
 
-export const fetchUserInventory = async (farcasterUser: any, walletAddress: string | null): Promise<UserInventory> => {
+export const fetchUserInventory = async (farcasterUser: any): Promise<UserInventory> => {
   const inventory: UserInventory = {
     [ItemType.MAX_HP]: 0,
     [ItemType.HEAL_ON_DODGE]: 0,
@@ -363,18 +399,13 @@ export const fetchUserInventory = async (farcasterUser: any, walletAddress: stri
 
   if (!isConfigured) return inventory;
 
-  let userId: string | null = null;
-  if (farcasterUser?.username) {
-    userId = `fc:${farcasterUser.username}`;
-  }
-
-  if (!userId) return inventory;
+  if (!farcasterUser?.fid) return inventory;
 
   try {
     const { data, error } = await supabase
       .from('player_items')
       .select('max_hp, heal, shield')
-      .eq('user_id', userId)
+      .eq('fid', farcasterUser.fid)
       .maybeSingle();
 
     if (error || !data) return inventory;
@@ -389,15 +420,11 @@ export const fetchUserInventory = async (farcasterUser: any, walletAddress: stri
   }
 };
 
-export const grantUserItem = async (farcasterUser: any, walletAddress: string | null, itemType: ItemType): Promise<boolean> => {
+export const grantUserItem = async (farcasterUser: any, itemType: ItemType): Promise<boolean> => {
   if (!isConfigured) return false;
   if (itemType === ItemType.NONE) return false;
   
-  let userId: string | null = null;
-  if (farcasterUser?.username) {
-    userId = `fc:${farcasterUser.username}`;
-  }
-  if (!userId) return false;
+  if (!farcasterUser?.fid) return false;
 
   let columnName = '';
   if (itemType === ItemType.MAX_HP) columnName = 'max_hp';
@@ -409,7 +436,7 @@ export const grantUserItem = async (farcasterUser: any, walletAddress: string | 
     const { data, error: fetchError } = await supabase
       .from('player_items')
       .select(columnName)
-      .eq('user_id', userId)
+      .eq('fid', farcasterUser.fid)
       .maybeSingle();
 
     if (fetchError) return false;
@@ -419,9 +446,9 @@ export const grantUserItem = async (farcasterUser: any, walletAddress: string | 
     const { error: updateError } = await supabase
       .from('player_items')
       .upsert({ 
-        user_id: userId, 
+        fid: farcasterUser.fid, 
         [columnName]: currentQty + 1 
-      }, { onConflict: 'user_id' });
+      }, { onConflict: 'fid' });
 
     return !updateError;
   } catch (e) {
@@ -429,16 +456,11 @@ export const grantUserItem = async (farcasterUser: any, walletAddress: string | 
   }
 };
 
-export const consumeUserItem = async (farcasterUser: any, walletAddress: string | null, itemType: ItemType): Promise<boolean> => {
+export const consumeUserItem = async (farcasterUser: any, itemType: ItemType): Promise<boolean> => {
   if (!isConfigured) return false;
   if (itemType === ItemType.NONE) return true;
 
-  let userId: string | null = null;
-  if (farcasterUser?.username) {
-    userId = `fc:${farcasterUser.username}`;
-  }
-
-  if (!userId) return false;
+  if (!farcasterUser?.fid) return false;
 
   let columnName = '';
   if (itemType === ItemType.MAX_HP) columnName = 'max_hp';
@@ -450,7 +472,7 @@ export const consumeUserItem = async (farcasterUser: any, walletAddress: string 
     const { data, error: fetchError } = await supabase
       .from('player_items')
       .select(columnName)
-      .eq('user_id', userId)
+      .eq('fid', farcasterUser.fid)
       .single();
 
     if (fetchError || !data) return false;
@@ -464,7 +486,7 @@ export const consumeUserItem = async (farcasterUser: any, walletAddress: string 
     const { error: updateError } = await supabase
       .from('player_items')
       .update({ [columnName]: currentQty - 1 })
-      .eq('user_id', userId);
+      .eq('fid', farcasterUser.fid);
 
     return !updateError;
   } catch (e) {
@@ -472,15 +494,15 @@ export const consumeUserItem = async (farcasterUser: any, walletAddress: string 
   }
 };
 
-export const claimLoginBonus = async (userId: string): Promise<boolean> => {
+export const claimLoginBonus = async (fid: number): Promise<boolean> => {
   if (!isConfigured) return false;
   try {
     const { error } = await supabase
-      .from('player_stats')
+      .from('running_player_stats')
       .update({ 
         last_login_bonus: new Date().toISOString()
       })
-      .eq('user_id', userId);
+      .eq('fid', fid);
 
     return !error;
   } catch (e) {
