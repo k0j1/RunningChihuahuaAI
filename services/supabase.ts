@@ -323,13 +323,34 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
   if (!farcasterUser?.fid) return;
 
   try {
-    // Farcasterユーザーのウォレットアドレスを更新
-    if (walletAddress) {
-      await supabase.from('farcaster_users').upsert({
-        fid: farcasterUser.fid,
-        address: walletAddress
-      }, { onConflict: 'fid' });
-    }
+    // 既存のユーザー情報を取得
+    const { data: existingUser } = await supabase
+      .from('farcaster_users')
+      .select('username, display_name, pfp_url, address')
+      .eq('fid', farcasterUser.fid)
+      .maybeSingle();
+
+    const userPayload: any = {
+      fid: farcasterUser.fid,
+    };
+    
+    // wallet_address (address) の更新
+    if (walletAddress) userPayload.address = walletAddress;
+    else if (existingUser?.address) userPayload.address = existingUser.address;
+
+    // username の更新
+    if (farcasterUser.username) userPayload.username = farcasterUser.username;
+    else if (existingUser?.username) userPayload.username = existingUser.username;
+    else userPayload.username = `fid_${farcasterUser.fid}`; // デフォルト値
+
+    // その他情報の更新
+    if (farcasterUser.displayName) userPayload.display_name = farcasterUser.displayName;
+    else if (existingUser?.display_name) userPayload.display_name = existingUser.display_name;
+    
+    if (farcasterUser.pfpUrl) userPayload.pfp_url = farcasterUser.pfpUrl;
+    else if (existingUser?.pfp_url) userPayload.pfp_url = existingUser.pfp_url;
+
+    await supabase.from('farcaster_users').upsert(userPayload, { onConflict: 'fid' });
 
     const { data: existing } = await supabase
       .from('running_player_stats')
@@ -365,13 +386,6 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
         shield: 0
       });
     }
-
-    await supabase.from('farcaster_users').upsert({
-        fid: farcasterUser.fid,
-        username: farcasterUser.username,
-        display_name: farcasterUser.displayName,
-        pfp_url: farcasterUser.pfpUrl
-    }, { onConflict: 'fid' });
 
   } catch (e) { }
 };
