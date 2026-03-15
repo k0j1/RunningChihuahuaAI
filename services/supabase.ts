@@ -328,7 +328,10 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
         run_count: 0,
         stamina: 5,
         last_stamina_update: new Date().toISOString(),
-        last_login_bonus: null
+        last_login_bonus: null,
+        max_hp: 0,
+        heal: 0,
+        shield: 0
       });
     }
 
@@ -338,16 +341,6 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
         display_name: farcasterUser.displayName,
         pfp_url: farcasterUser.pfpUrl
     }, { onConflict: 'fid' });
-
-    await supabase.from('player_items').upsert(
-      { 
-        fid: farcasterUser.fid, 
-        max_hp: 0, 
-        heal: 0, 
-        shield: 0 
-      },
-      { onConflict: 'fid', ignoreDuplicates: true }
-    );
 
   } catch (e) { }
 };
@@ -403,7 +396,7 @@ export const fetchUserInventory = async (farcasterUser: any): Promise<UserInvent
 
   try {
     const { data, error } = await supabase
-      .from('player_items')
+      .from('running_player_stats')
       .select('max_hp, heal, shield')
       .eq('fid', farcasterUser.fid)
       .maybeSingle();
@@ -434,7 +427,7 @@ export const grantUserItem = async (farcasterUser: any, itemType: ItemType): Pro
 
   try {
     const { data, error: fetchError } = await supabase
-      .from('player_items')
+      .from('running_player_stats')
       .select(columnName)
       .eq('fid', farcasterUser.fid)
       .maybeSingle();
@@ -444,11 +437,11 @@ export const grantUserItem = async (farcasterUser: any, itemType: ItemType): Pro
     const currentQty = data ? (data as any)[columnName] : 0;
 
     const { error: updateError } = await supabase
-      .from('player_items')
-      .upsert({ 
-        fid: farcasterUser.fid, 
+      .from('running_player_stats')
+      .update({ 
         [columnName]: currentQty + 1 
-      }, { onConflict: 'fid' });
+      })
+      .eq('fid', farcasterUser.fid);
 
     return !updateError;
   } catch (e) {
@@ -470,7 +463,7 @@ export const consumeUserItem = async (farcasterUser: any, itemType: ItemType): P
 
   try {
     const { data, error: fetchError } = await supabase
-      .from('player_items')
+      .from('running_player_stats')
       .select(columnName)
       .eq('fid', farcasterUser.fid)
       .single();
@@ -484,7 +477,7 @@ export const consumeUserItem = async (farcasterUser: any, itemType: ItemType): P
     }
 
     const { error: updateError } = await supabase
-      .from('player_items')
+      .from('running_player_stats')
       .update({ [columnName]: currentQty - 1 })
       .eq('fid', farcasterUser.fid);
 

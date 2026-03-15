@@ -28,8 +28,7 @@ const CONTRACTS = [
 
 const DB_TABLES = [
     { name: "スコア履歴", id: "scores" },
-    { name: "プレイヤー情報", id: "running_player_stats" },
-    { name: "所持アイテム", id: "player_items" }
+    { name: "プレイヤー情報", id: "running_player_stats" }
 ];
 
 const ANALYTIC_TABS = [
@@ -161,12 +160,10 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack, onTestMaintena
                     .filter((r: any) => r.last_login_bonus)
                     .sort((a: any, b: any) => new Date(b.last_login_bonus).getTime() - new Date(a.last_login_bonus).getTime());
             } else if (tab === 'items') {
-                 const itemsRes = await fetchAdminTableData('player_items');
                  const statsRes = await fetchAdminPlayerStats();
-                 data = itemsRes.map((item: any) => {
-                     const user = statsRes.find((s: any) => s.fid === item.fid);
-                     const total = (item.max_hp || 0) + (item.heal || 0) + (item.shield || 0);
-                     return { ...item, user, total };
+                 data = statsRes.map((user: any) => {
+                     const total = (user.max_hp || 0) + (user.heal || 0) + (user.shield || 0);
+                     return { ...user, total };
                  });
                  // Sort by total item count descending
                  data.sort((a: any, b: any) => b.total - a.total);

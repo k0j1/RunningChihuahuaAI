@@ -370,7 +370,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       {/* Background decoration text */}
       <div className="absolute bottom-2 md:bottom-4 text-white/10 text-[9px] md:text-[10px] font-black tracking-[0.5em] uppercase pointer-events-none flex flex-col items-center gap-1">
         <span>Ready to Dash?</span>
-        <span>v1.1.1</span>
+        <span>v1.1.2</span>
       </div>
 
       {/* Other Apps Section - Moved outside main frame, aligned left */}
