@@ -12,7 +12,7 @@ import {
     BASE_RPC_URL,
     switchToBaseNetwork
 } from '../../services/contracts/contractUtils';
-import { fetchAdminTableData } from '../../services/supabase';
+import { fetchAdminTableData, fetchAdminPlayerStats } from '../../services/supabase';
 
 interface AdminScreenProps {
     onBack: () => void;
@@ -145,31 +145,31 @@ export const AdminScreen: React.FC<AdminScreenProps> = ({ onBack, onTestMaintena
             if (tab === 'play_counts' || tab === 'stamina_info' || tab === 'notifications') {
                 const res = await fetchAdminPlayerStats();
                 if (tab === 'play_counts') {
-                    data = res.sort((a, b) => (b.run_count || 0) - (a.run_count || 0));
+                    data = res.sort((a: any, b: any) => (b.run_count || 0) - (a.run_count || 0));
                 } else {
                     // Default sort by last_active descending
-                    data = res.sort((a, b) => new Date(b.last_active || 0).getTime() - new Date(a.last_active || 0).getTime());
+                    data = res.sort((a: any, b: any) => new Date(b.last_active || 0).getTime() - new Date(a.last_active || 0).getTime());
                 }
             } else if (tab === 'score_history') {
                  const res = await fetchAdminTableData('scores');
-                 data = res.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                 data = res.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
             } else if (tab === 'login_bonus') {
                  // Fetch player stats to see last_login_bonus
                  const res = await fetchAdminPlayerStats();
                  // Filter only those who have claimed a bonus, sort by date desc
                  data = res
                     .filter((r: any) => r.last_login_bonus)
-                    .sort((a, b) => new Date(b.last_login_bonus).getTime() - new Date(a.last_login_bonus).getTime());
+                    .sort((a: any, b: any) => new Date(b.last_login_bonus).getTime() - new Date(a.last_login_bonus).getTime());
             } else if (tab === 'items') {
                  const itemsRes = await fetchAdminTableData('player_items');
                  const statsRes = await fetchAdminPlayerStats();
-                 data = itemsRes.map(item => {
-                     const user = statsRes.find(s => s.fid === item.fid);
+                 data = itemsRes.map((item: any) => {
+                     const user = statsRes.find((s: any) => s.fid === item.fid);
                      const total = (item.max_hp || 0) + (item.heal || 0) + (item.shield || 0);
                      return { ...item, user, total };
                  });
                  // Sort by total item count descending
-                 data.sort((a, b) => b.total - a.total);
+                 data.sort((a: any, b: any) => b.total - a.total);
             }
             setAnalyticData(data);
         } catch (e) {

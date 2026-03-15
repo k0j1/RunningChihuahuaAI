@@ -8,14 +8,14 @@ const RECOVERY_MS = 2 * 60 * 60 * 1000; // 2 Hours
 export const useStaminaSystem = (farcasterUser: any, walletAddress: string | null) => {
   const [stamina, setStamina] = useState(MAX_STAMINA);
   const [nextRecoveryTime, setNextRecoveryTime] = useState<number | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [fid, setFid] = useState<number | null>(null);
 
-  // Initialize userId
+  // Initialize fid
   useEffect(() => {
-    if (farcasterUser?.username) {
-      setUserId(`fc:${farcasterUser.username}`);
+    if (farcasterUser?.fid) {
+      setFid(farcasterUser.fid);
     } else {
-      setUserId(null);
+      setFid(null);
     }
   }, [farcasterUser, walletAddress]);
 
@@ -25,9 +25,9 @@ export const useStaminaSystem = (farcasterUser: any, walletAddress: string | nul
     let lastUpdate = Date.now();
 
     try {
-        if (userId) {
+        if (fid) {
           // Logged in: Fetch from Supabase
-          const stats = await fetchUserStats(userId);
+          const stats = await fetchUserStats(fid);
           if (stats && stats.stamina !== undefined && stats.lastStaminaUpdate) {
             currentStamina = stats.stamina;
             lastUpdate = new Date(stats.lastStaminaUpdate).getTime();
@@ -78,13 +78,13 @@ export const useStaminaSystem = (farcasterUser: any, walletAddress: string | nul
         // On error, fallback to current state (don't reset) or max if undefined
         return stamina;
     }
-  }, [userId, stamina]);
+  }, [fid, stamina]);
 
   // Save Stamina helper
   const saveStamina = async (newStamina: number, updateTime: number) => {
     try {
-        if (userId) {
-          await updateUserStamina(userId, newStamina, new Date(updateTime).toISOString());
+        if (fid) {
+          await updateUserStamina(fid, newStamina, new Date(updateTime).toISOString());
         } else {
           localStorage.setItem('guest_stamina', JSON.stringify({
             stamina: newStamina,

@@ -72,11 +72,11 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
         }
 
         if (!isGuest && farcasterUser?.username) {
-          const dbInventory = await fetchUserInventory(farcasterUser, walletAddress);
+          const dbInventory = await fetchUserInventory(farcasterUser);
           setInventory(dbInventory);
 
-          const userId = `fc:${farcasterUser.username}`;
-          const stats = await fetchUserStats(userId);
+          const fid = farcasterUser.fid;
+          const stats = await fetchUserStats(fid);
           const nowStr = new Date().toISOString().split('T')[0];
 
           if (stats) {
@@ -138,7 +138,7 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
 
     try {
         if (!isGuest) {
-          const success = await consumeUserItem(farcasterUser, walletAddress, itemType);
+          const success = await consumeUserItem(farcasterUser, itemType);
           if (success) setInventory(prev => ({ ...prev, [itemType]: Math.max(0, prev[itemType] - 1) }));
           return success;
         } else {
@@ -161,7 +161,7 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
           if (item !== ItemType.NONE && (inventory[item] || 0) <= 0) return false;
         }
         if (!isGuest) {
-          const results = await Promise.all(items.map(item => consumeUserItem(farcasterUser, walletAddress, item)));
+          const results = await Promise.all(items.map(item => consumeUserItem(farcasterUser, item)));
           const success = results.every(r => r === true);
           if (success) {
             setInventory(prev => {
@@ -189,7 +189,7 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
     try {
         if (!isGuest) {
           for (let i = 0; i < quantity; i++) {
-            await grantUserItem(farcasterUser, walletAddress, itemType);
+            await grantUserItem(farcasterUser, itemType);
           }
           setInventory(prev => ({ ...prev, [itemType]: (prev[itemType] || 0) + quantity }));
           return true;
@@ -250,7 +250,7 @@ export const useInventorySystem = (farcasterUser: any, walletAddress: string | n
         
         if (result.success) {
             // DB claim (Timestamp) & Item Grant (Local Item)
-            if (farcasterUser?.username) await dbClaimLoginBonus(`fc:${farcasterUser.username}`);
+            if (farcasterUser?.fid) await dbClaimLoginBonus(farcasterUser.fid);
             await grantItem(itemType);
             updateLocalState();
             setPendingBonusItem(null);
