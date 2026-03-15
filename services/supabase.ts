@@ -65,7 +65,19 @@ export const fetchAdminPlayerStats = async (): Promise<any[]> => {
     const { data, error } = await supabase
       .from('running_player_stats')
       .select(`
-        *,
+        fid,
+        total_score,
+        total_distance,
+        run_count,
+        last_active,
+        stamina,
+        last_stamina_update,
+        notification_token,
+        notification_url,
+        last_login_bonus,
+        max_hp,
+        heal,
+        shield,
         farcaster_users (
           username,
           display_name,
@@ -78,9 +90,9 @@ export const fetchAdminPlayerStats = async (): Promise<any[]> => {
 
     return data.map(row => ({
         ...row,
-        username: row.farcaster_users?.username,
-        display_name: row.farcaster_users?.display_name,
-        pfp_url: row.farcaster_users?.pfp_url
+        username: (row.farcaster_users as any)?.username,
+        display_name: (row.farcaster_users as any)?.display_name,
+        pfp_url: (row.farcaster_users as any)?.pfp_url
     })) || [];
   } catch (e) {
     console.error("Fetch admin player stats error:", e);
@@ -244,25 +256,37 @@ export const fetchUserStats = async (fid: number): Promise<PlayerStats | null> =
     const { data, error } = await supabase
       .from('running_player_stats')
       .select(`
-        *,
+        fid,
+        total_score,
+        total_distance,
+        run_count,
+        last_active,
+        stamina,
+        last_stamina_update,
+        notification_token,
+        notification_url,
+        last_login_bonus,
+        max_hp,
+        heal,
+        shield,
         farcaster_users (
           username,
           display_name,
           pfp_url
         )
       `)
-      .eq('fid', fid)
+      .eq('fid', fid.toString())
       .maybeSingle();
 
     if (error || !data) return null;
 
     return {
       id: data.fid.toString(),
-      farcasterUser: data.farcaster_users ? {
+      farcasterUser: (data.farcaster_users as any) ? {
         fid: data.fid,
-        username: data.farcaster_users.username,
-        displayName: data.farcaster_users.display_name,
-        pfpUrl: data.farcaster_users.pfp_url
+        username: (data.farcaster_users as any).username,
+        displayName: (data.farcaster_users as any).display_name,
+        pfpUrl: (data.farcaster_users as any).pfp_url
       } : undefined,
       totalScore: data.total_score || 0,
       totalDistance: data.total_distance || 0,
