@@ -354,7 +354,6 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
     const payload = {
       score: entry.score,
       distance: entry.distance,
-      fid: fid,
       created_at: entry.date,
       username: entry.farcasterUser?.username,
       display_name: entry.farcasterUser?.displayName,
