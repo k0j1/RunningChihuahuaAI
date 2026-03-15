@@ -323,6 +323,14 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
   if (!farcasterUser?.fid) return;
 
   try {
+    // Farcasterユーザーのウォレットアドレスを更新
+    if (walletAddress) {
+      await supabase.from('farcaster_users').upsert({
+        fid: farcasterUser.fid,
+        wallet_address: walletAddress
+      }, { onConflict: 'fid' });
+    }
+
     const { data: existing } = await supabase
       .from('running_player_stats')
       .select('fid')
@@ -331,7 +339,6 @@ export const updatePlayerProfile = async (farcasterUser: any, walletAddress: str
 
     const payload: any = {
       fid: farcasterUser.fid,
-      wallet_address: walletAddress || null,
       last_active: new Date().toISOString()
     };
     
