@@ -355,7 +355,10 @@ export const saveScoreToSupabase = async (entry: ScoreEntry) => {
       score: entry.score,
       distance: entry.distance,
       fid: fid,
-      created_at: entry.date
+      created_at: entry.date,
+      username: entry.farcasterUser?.username,
+      display_name: entry.farcasterUser?.displayName,
+      pfp_url: entry.farcasterUser?.pfpUrl
     };
 
     await supabase.from('scores').insert([payload]);
