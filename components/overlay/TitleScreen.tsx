@@ -391,7 +391,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">Reversi</span>
           </a>
           <a 
-            href="https://farcaster.xyz/k0j1/0x6f23ef24"
+            href="https://farcaster.xyz/k0j1/0x5c603e59"
             target="_blank"
             rel="noopener noreferrer"
             className="group flex items-center gap-3 bg-black/40 backdrop-blur-md p-2 pr-4 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
