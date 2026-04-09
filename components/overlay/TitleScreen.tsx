@@ -370,25 +370,40 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       {/* Background decoration text */}
       <div className="absolute bottom-2 md:bottom-4 text-white/10 text-[9px] md:text-[10px] font-black tracking-[0.5em] uppercase pointer-events-none flex flex-col items-center gap-1">
         <span>Ready to Dash?</span>
-        <span>v1.1.3</span>
+        <span>v1.1.4</span>
       </div>
 
       {/* Other Apps Section - Moved outside main frame, aligned left */}
       <div className="absolute bottom-4 left-4 z-50 flex flex-col items-start animate-in slide-in-from-left-5">
         <span className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1.5 ml-1">Other Apps</span>
-        <a 
-          href="https://farcaster.xyz/miniapps/FYXr6t3KSLwo/reversi"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="group flex items-center gap-3 bg-black/40 backdrop-blur-md p-2 pr-4 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
-        >
-          <img 
-            src="https://reversi.k0j1.v2002.coreserver.jp/images/icon.png" 
-            alt="Reversi" 
-            className="w-[60px] h-[60px] rounded-lg shadow-sm group-hover:shadow-md transition-all"
-          />
-          <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">Reversi</span>
-        </a>
+        <div className="flex gap-3">
+          <a 
+            href="https://farcaster.xyz/miniapps/FYXr6t3KSLwo/reversi"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center gap-3 bg-black/40 backdrop-blur-md p-2 pr-4 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
+          >
+            <img 
+              src="https://reversi.k0j1.v2002.coreserver.jp/images/icon.png" 
+              alt="Reversi" 
+              className="w-[60px] h-[60px] rounded-lg shadow-sm group-hover:shadow-md transition-all"
+            />
+            <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">Reversi</span>
+          </a>
+          <a 
+            href="https://farcaster.xyz/k0j1/0x6f23ef24"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center gap-3 bg-black/40 backdrop-blur-md p-2 pr-4 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
+          >
+            <img 
+              src="https://miningquest.k0j1.v2002.coreserver.jp/images/icon.png" 
+              alt="Mining Quest" 
+              className="w-[60px] h-[60px] rounded-lg shadow-sm group-hover:shadow-md transition-all"
+            />
+            <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">Mining Quest</span>
+          </a>
+        </div>
       </div>
     </div>
   );

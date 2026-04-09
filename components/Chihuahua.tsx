@@ -40,7 +40,7 @@ const MusicalNote: React.FC<{ offset: number; active: boolean }> = ({ offset, ac
     <group ref={ref}>
       {/* Note Head */}
       <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[0.1, 16, 16]} />
+        <sphereGeometry args={[0.1, 8, 8]} />
         <meshStandardMaterial color="#F43F5E" />
       </mesh>
       {/* Note Stem */}
