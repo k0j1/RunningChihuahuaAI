@@ -205,7 +205,7 @@ export const useGameLogic = () => {
 
   const shareScore = () => {
     const text = `I scored ${scoreSystem.score} pts and ran ${Math.floor(scoreSystem.distance)}m in Running Chihuahua AI! 🐕💨\n\nCan you beat the bosses? #RunningChihuahua #CHH`;
-    const appUrl = 'https://farcaster.xyz/miniapps/7RH3c4fEALgF/runningchihuahua';
+    const appUrl = 'https://farcaster.xyz/miniapps/nLbhoGJJ4aRP/running-chihuahua';
     const intentUrl = `https://warpcast.com/~/compose?text=${encodeURIComponent(text)}&embeds[]=${encodeURIComponent(appUrl)}`;
     
     if (farcasterUser) {
