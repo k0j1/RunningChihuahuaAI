@@ -369,51 +369,60 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
       
       {/* Background decoration text */}
       <div className="absolute bottom-4 right-4 text-white/40 text-xs font-black tracking-widest uppercase pointer-events-none drop-shadow-md">
-        v1.1.6
+        v1.1.7
       </div>
 
       {/* Other Apps Section - Moved outside main frame, aligned left */}
       <div className="absolute bottom-4 left-4 z-50 flex flex-col items-start animate-in slide-in-from-left-5">
         <span className="text-[9px] font-black text-white/40 uppercase tracking-widest mb-1.5 ml-1">Other Apps</span>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <a 
             href="https://farcaster.xyz/miniapps/FYXr6t3KSLwo/reversi"
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-3 bg-black/40 backdrop-blur-md p-2 pr-4 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
+            className="group block bg-black/40 backdrop-blur-md p-1 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
           >
             <img 
               src="https://reversi.k0j1.v2002.coreserver.jp/images/icon.png" 
               alt="Reversi" 
               className="w-[60px] h-[60px] rounded-lg shadow-sm group-hover:shadow-md transition-all"
             />
-            <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">Reversi</span>
           </a>
           <a 
             href="https://farcaster.xyz/k0j1/0x5c603e59"
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-3 bg-black/40 backdrop-blur-md p-2 pr-4 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
+            className="group block bg-black/40 backdrop-blur-md p-1 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
           >
             <img 
               src="https://miningquest.k0j1.v2002.coreserver.jp/images/icon.png" 
               alt="Mining Quest" 
               className="w-[60px] h-[60px] rounded-lg shadow-sm group-hover:shadow-md transition-all"
             />
-            <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">Mining Quest</span>
           </a>
           <a 
             href="https://farcaster.xyz/miniapps/EnmWQ9uvTlHa/chihuahuaquest"
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex items-center gap-3 bg-black/40 backdrop-blur-md p-2 pr-4 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
+            className="group block bg-black/40 backdrop-blur-md p-1 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
           >
             <img 
               src="https://chihuahuaquest.k0j1.v2002.coreserver.jp/images/icon.png" 
               alt="Chihuahua Quest" 
               className="w-[60px] h-[60px] rounded-lg shadow-sm group-hover:shadow-md transition-all"
             />
-            <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">Chihuahua Quest</span>
+          </a>
+          <a 
+            href="https://farcaster.xyz/miniapps/do4iXTd8WOcp/chihuahua-status"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block bg-black/40 backdrop-blur-md p-1 rounded-xl border border-white/10 hover:bg-black/60 hover:border-white/30 transition-all hover:scale-105 shadow-lg"
+          >
+            <img 
+              src="https://chihuahuaportal.k0j1.v2002.coreserver.jp/images/icon.png" 
+              alt="Chihuahua Status" 
+              className="w-[60px] h-[60px] rounded-lg shadow-sm group-hover:shadow-md transition-all"
+            />
           </a>
         </div>
       </div>
